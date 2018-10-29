@@ -63,7 +63,7 @@ class NsxVNetworkTypes(object):
     PORTGROUP = 'portgroup'
 
 
-# Allowed network types for the NSXv3 Plugin
+# Allowed network types for the NSXv3 and NSX-Policy Plugin
 class NsxV3NetworkTypes(object):
     """Allowed provider network types for the NSXv3 Plugin."""
     FLAT = 'flat'

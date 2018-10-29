@@ -21,5 +21,5 @@
 # Begin list of exclusions.
 #r="^(?!.*)"
 
-r="$r(tempest\.api\.network\.test_security_groups).*$"
+r="$r(tempest\.api\.network\.test_security_groups|tempest\.api\.network\.test_networks|tempest\.api\.network\.test_networks_negative).*$"
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"

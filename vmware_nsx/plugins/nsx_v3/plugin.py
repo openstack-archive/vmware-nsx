@@ -63,7 +63,6 @@ from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
-from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
@@ -74,7 +73,6 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
-from neutron_lib.plugins import utils as plugin_utils
 from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -82,7 +80,6 @@ from oslo_log import log
 from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
-from six import moves
 from sqlalchemy import exc as sql_exc
 import webob.exc
 
@@ -99,7 +96,6 @@ from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
-from vmware_nsx.db import nsx_portbindings_db as pbin_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import housekeeper as hk_ext
@@ -168,7 +164,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   extraroute_db.ExtraRoute_db_mixin,
                   router_az_db.RouterAvailabilityZoneMixin,
                   l3_gwmode_db.L3_NAT_db_mixin,
-                  pbin_db.NsxPortBindingMixin,
                   portbindings_db.PortBindingMixin,
                   portsecurity_db.PortSecurityDbMixin,
                   extradhcpopt_db.ExtraDhcpOptMixin,
@@ -231,6 +226,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             extension_drivers = cfg.CONF.nsx_extension_drivers
         self._extension_manager = managers.ExtensionManager(
             extension_drivers=extension_drivers)
+        self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         super(NsxV3Plugin, self).__init__()
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
@@ -255,11 +251,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._nsx_version = self.nsxlib.get_version()
         LOG.info("NSX Version: %s", self._nsx_version)
 
-        self.cfg_group = 'nsx_v3'  # group name for nsx_v3 section in nsx.ini
         self.tier0_groups_dict = {}
 
-        self._network_vlans = plugin_utils.parse_network_vlan_ranges(
-            cfg.CONF.nsx_v3.network_vlan_ranges)
         # Initialize the network availability zones, which will be used only
         # when native_dhcp_metadata is True
         self.init_availability_zones()
@@ -632,33 +625,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for az in self.get_azs_list():
             az.translate_configured_names_to_uuids(self.nsxlib)
 
-    def _get_network_segmentation_id(self, context, neutron_id):
-        bindings = nsx_db.get_network_bindings(context.session, neutron_id)
-        if bindings:
-            return bindings[0].vlan_id
-
-    def _extend_nsx_port_dict_binding(self, context, port_data):
-        # Not using the register api for this because we need the context
-        # Some attributes were already initialized by _extend_port_portbinding
-        if pbin.VIF_TYPE not in port_data:
-            port_data[pbin.VIF_TYPE] = pbin.VIF_TYPE_OVS
-        if pbin.VNIC_TYPE not in port_data:
-            port_data[pbin.VNIC_TYPE] = pbin.VNIC_NORMAL
-        if 'network_id' in port_data:
-            net_id = port_data['network_id']
-            if pbin.VIF_DETAILS not in port_data:
-                port_data[pbin.VIF_DETAILS] = {}
-            port_data[pbin.VIF_DETAILS][pbin.OVS_HYBRID_PLUG] = False
-            if port_data.get('device_owner') == const.DEVICE_OWNER_FLOATINGIP:
-                # floatingip belongs to an external net without nsx-id
-                port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id'] = None
-            else:
-                port_data[pbin.VIF_DETAILS]['nsx-logical-switch-id'] = (
-                    self._get_network_nsx_id(context, net_id))
-            if port_data[pbin.VNIC_TYPE] != pbin.VNIC_NORMAL:
-                port_data[pbin.VIF_DETAILS]['segmentation-id'] = (
-                    self._get_network_segmentation_id(context, net_id))
-
     @nsxlib_utils.retry_upon_exception(
         Exception, max_attempts=cfg.CONF.nsx_v3.retries)
     def _init_default_section_nsgroup(self):
@@ -917,179 +883,25 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
-    def _validate_provider_create(self, context, network_data, az,
-                                  transparent_vlan):
-        is_provider_net = any(
-            validators.is_attr_set(network_data.get(f))
-            for f in (pnet.NETWORK_TYPE,
-                      pnet.PHYSICAL_NETWORK,
-                      pnet.SEGMENTATION_ID))
-
-        physical_net = network_data.get(pnet.PHYSICAL_NETWORK)
-        if not validators.is_attr_set(physical_net):
-            physical_net = None
-
-        vlan_id = network_data.get(pnet.SEGMENTATION_ID)
-        if not validators.is_attr_set(vlan_id):
-            vlan_id = None
-
-        if vlan_id and transparent_vlan:
-            err_msg = (_("Segmentation ID cannot be set with transparent "
-                         "vlan!"))
-            raise n_exc.InvalidInput(error_message=err_msg)
-
-        err_msg = None
-        net_type = network_data.get(pnet.NETWORK_TYPE)
-        nsxlib_tz = self.nsxlib.transport_zone
-        tz_type = nsxlib_tz.TRANSPORT_TYPE_VLAN
-        switch_mode = nsxlib_tz.HOST_SWITCH_MODE_STANDARD
-        if validators.is_attr_set(net_type):
-            if net_type == utils.NsxV3NetworkTypes.FLAT:
-                if vlan_id is not None:
-                    err_msg = (_("Segmentation ID cannot be specified with "
-                                 "%s network type") %
-                               utils.NsxV3NetworkTypes.FLAT)
-                else:
-                    if not transparent_vlan:
-                        # Set VLAN id to 0 for flat networks
-                        vlan_id = '0'
-                    if physical_net is None:
-                        physical_net = az._default_vlan_tz_uuid
-            elif (net_type == utils.NsxV3NetworkTypes.VLAN and
-                  not transparent_vlan):
-                # Use default VLAN transport zone if physical network not given
-                if physical_net is None:
-                    physical_net = az._default_vlan_tz_uuid
-
-                # Validate VLAN id
-                if not vlan_id:
-                    vlan_id = self._generate_segment_id(context,
-                                                        physical_net,
-                                                        network_data)
-                elif not plugin_utils.is_valid_vlan_tag(vlan_id):
-                    err_msg = (_('Segmentation ID %(segmentation_id)s out of '
-                                 'range (%(min_id)s through %(max_id)s)') %
-                               {'segmentation_id': vlan_id,
-                                'min_id': const.MIN_VLAN_TAG,
-                                'max_id': const.MAX_VLAN_TAG})
-                else:
-                    # Verify VLAN id is not already allocated
-                    bindings = (
-                        nsx_db.get_network_bindings_by_vlanid_and_physical_net(
-                            context.session, vlan_id, physical_net)
-                    )
-                    if bindings:
-                        raise n_exc.VlanIdInUse(
-                            vlan_id=vlan_id, physical_network=physical_net)
-            elif (net_type == utils.NsxV3NetworkTypes.VLAN and
-                  transparent_vlan):
-                # Use default VLAN transport zone if physical network not given
-                if physical_net is None:
-                    physical_net = az._default_vlan_tz_uuid
-            elif net_type == utils.NsxV3NetworkTypes.GENEVE:
-                if vlan_id:
-                    err_msg = (_("Segmentation ID cannot be specified with "
-                                 "%s network type") %
-                               utils.NsxV3NetworkTypes.GENEVE)
-                tz_type = nsxlib_tz.TRANSPORT_TYPE_OVERLAY
-            elif net_type == utils.NsxV3NetworkTypes.NSX_NETWORK:
-                # Linking neutron networks to an existing NSX logical switch
-                if physical_net is None:
-                    err_msg = (_("Physical network must be specified with "
-                                 "%s network type") % net_type)
-                # Validate the logical switch existence
-                try:
-                    nsx_net = self.nsxlib.logical_switch.get(physical_net)
-                    switch_mode = nsxlib_tz.get_host_switch_mode(
-                        nsx_net['transport_zone_id'])
-                except nsx_lib_exc.ResourceNotFound:
-                    err_msg = (_('Logical switch %s does not exist') %
-                               physical_net)
-                # make sure no other neutron network is using it
-                bindings = (
-                    nsx_db.get_network_bindings_by_vlanid_and_physical_net(
-                        context.elevated().session, 0, physical_net))
-                if bindings:
-                    err_msg = (_('Logical switch %s is already used by '
-                                 'another network') % physical_net)
-            else:
-                err_msg = (_('%(net_type_param)s %(net_type_value)s not '
-                             'supported') %
-                           {'net_type_param': pnet.NETWORK_TYPE,
-                            'net_type_value': net_type})
-        elif is_provider_net:
-            # FIXME: Ideally provider-network attributes should be checked
-            # at the NSX backend. For now, the network_type is required,
-            # so the plugin can do a quick check locally.
-            err_msg = (_('%s is required for creating a provider network') %
-                       pnet.NETWORK_TYPE)
-        else:
-            net_type = None
-
-        if physical_net is None:
-            # Default to transport type overlay
-            physical_net = az._default_overlay_tz_uuid
-
-        # validate the transport zone existence and type
-        if (not err_msg and physical_net and
-            net_type != utils.NsxV3NetworkTypes.NSX_NETWORK):
-            if is_provider_net:
-                try:
-                    backend_type = nsxlib_tz.get_transport_type(
-                        physical_net)
-                except nsx_lib_exc.ResourceNotFound:
-                    err_msg = (_('Transport zone %s does not exist') %
-                               physical_net)
-                else:
-                    if backend_type != tz_type:
-                        err_msg = (_('%(tz)s transport zone is required for '
-                                     'creating a %(net)s provider network') %
-                                   {'tz': tz_type, 'net': net_type})
-            if not err_msg:
-                switch_mode = nsxlib_tz.get_host_switch_mode(physical_net)
-
-        if err_msg:
-            raise n_exc.InvalidInput(error_message=err_msg)
-
-        return {'is_provider_net': is_provider_net,
-                'net_type': net_type,
-                'physical_net': physical_net,
-                'vlan_id': vlan_id,
-                'switch_mode': switch_mode}
-
     def _get_edge_cluster(self, tier0_uuid):
         self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
         tier0_info = self.tier0_groups_dict[tier0_uuid]
         return tier0_info['edge_cluster_uuid']
 
-    def _validate_external_net_create(self, net_data, az):
-        if not validators.is_attr_set(net_data.get(pnet.PHYSICAL_NETWORK)):
-            tier0_uuid = az._default_tier0_router
-        else:
-            tier0_uuid = net_data[pnet.PHYSICAL_NETWORK]
-        if ((validators.is_attr_set(net_data.get(pnet.NETWORK_TYPE)) and
-             net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.L3_EXT and
-             net_data.get(pnet.NETWORK_TYPE) != utils.NetworkTypes.LOCAL) or
-            validators.is_attr_set(net_data.get(pnet.SEGMENTATION_ID))):
-            msg = (_("External network cannot be created with %s provider "
-                     "network or segmentation id") %
-                   net_data.get(pnet.NETWORK_TYPE))
-            raise n_exc.InvalidInput(error_message=msg)
-        self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
-        return (True, utils.NetworkTypes.L3_EXT, tier0_uuid, 0)
+    def _allow_ens_networks(self):
+        return cfg.CONF.nsx_v3.ens_support
 
     def _create_network_at_the_backend(self, context, net_data, az,
                                        transparent_vlan):
-        provider_data = self._validate_provider_create(context, net_data, az,
-                                                       transparent_vlan)
+        provider_data = self._validate_provider_create(
+            context, net_data,
+            az._default_vlan_tz_uuid,
+            az._default_overlay_tz_uuid,
+            self.nsxlib.transport_zone,
+            self.nsxlib.logical_switch,
+            transparent_vlan=transparent_vlan)
         neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
         net_data['id'] = neutron_net_id
-        if (provider_data['switch_mode'] ==
-            self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
-            if not cfg.CONF.nsx_v3.ens_support:
-                raise NotImplementedError(_("ENS support is disabled"))
-            self._assert_on_ens_with_qos(net_data)
-            self._validate_ens_net_portsecurity(net_data)
 
         if (provider_data['is_provider_net'] and
             provider_data['net_type'] == utils.NsxV3NetworkTypes.NSX_NETWORK):
@@ -1148,12 +960,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return (is_overlay or self.nsxlib.feature_supported(
                     nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE)), net_type
 
-    def _validate_network_type(self, context, network_id, net_types):
-        net = self.get_network(context, network_id)
-        if net.get(pnet.NETWORK_TYPE) in net_types:
-            return True
-        return False
-
     def _is_ddi_supported_on_network(self, context, network_id):
         result, _ = self._is_ddi_supported_on_net_with_type(
             context, network_id)
@@ -1199,19 +1005,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         self.nsxlib.transport_zone.TRANSPORT_TYPE_OVERLAY)
         return False
 
-    def _extend_network_dict_provider(self, context, network, bindings=None):
-        if 'id' not in network:
-            return
-        if not bindings:
-            bindings = nsx_db.get_network_bindings(context.session,
-                                                   network['id'])
-        # With NSX plugin, "normal" overlay networks will have no binding
-        if bindings:
-            # Network came in through provider networks API
-            network[pnet.NETWORK_TYPE] = bindings[0].binding_type
-            network[pnet.PHYSICAL_NETWORK] = bindings[0].phy_uuid
-            network[pnet.SEGMENTATION_ID] = bindings[0].vlan_id
-
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
         filters = filters or {}
@@ -1227,37 +1020,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return super(NsxV3Plugin, self).get_subnets(
             context, filters, fields, sorts, limit, marker, page_reverse)
 
-    def _network_is_nsx_net(self, context, network_id):
-        bindings = nsx_db.get_network_bindings(context.session, network_id)
-        if not bindings:
-            return False
-        return (bindings[0].binding_type ==
-                utils.NsxV3NetworkTypes.NSX_NETWORK)
-
-    def _generate_segment_id(self, context, physical_network, net_data):
-        bindings = nsx_db.get_network_bindings_by_phy_uuid(
-            context.session, physical_network)
-        vlan_ranges = self._network_vlans.get(physical_network, [])
-        if vlan_ranges:
-            vlan_ids = set()
-            for vlan_min, vlan_max in vlan_ranges:
-                vlan_ids |= set(moves.range(vlan_min, vlan_max + 1))
-        else:
-            vlan_min = const.MIN_VLAN_TAG
-            vlan_max = const.MAX_VLAN_TAG
-            vlan_ids = set(moves.range(vlan_min, vlan_max + 1))
-        used_ids_in_range = set([binding.vlan_id for binding in bindings
-                                 if binding.vlan_id in vlan_ids])
-        free_ids = list(vlan_ids ^ used_ids_in_range)
-        if len(free_ids) == 0:
-            raise n_exc.NoNetworkAvailable()
-        net_data[pnet.SEGMENTATION_ID] = free_ids[0]
-        return net_data[pnet.SEGMENTATION_ID]
-
     def _get_mdproxy_port_name(self, net_name, net_id):
         return utils.get_name_and_uuid('%s-%s' % ('mdproxy',
                                                   net_name or 'network'),
                                        net_id)
+
+    def _tier0_validator(self, tier0_uuid):
+        self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+
+    def _get_nsx_net_tz_id(self, nsx_net):
+        return nsx_net['transport_zone_id']
 
     def create_network(self, context, network):
         net_data = network['network']
@@ -1283,7 +1055,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         if is_external_net:
             is_provider_net, net_type, physical_net, vlan_id = (
-                self._validate_external_net_create(net_data, az))
+                self._validate_external_net_create(
+                    net_data, az._default_tier0_router,
+                    self._tier0_validator))
             nsx_net_id = None
             is_backend_network = False
         else:
@@ -1389,12 +1163,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return created_net
 
-    def _assert_on_ens_with_qos(self, net_data):
-        qos_id = net_data.get(qos_consts.QOS_POLICY_ID)
-        if validators.is_attr_set(qos_id):
-            err_msg = _("Cannot configure QOS on ENS networks")
-            raise n_exc.InvalidInput(error_message=err_msg)
-
     def _ens_psec_supported(self):
         return self.nsxlib.feature_supported(
             nsxlib_consts.FEATURE_ENS_WITH_SEC)
@@ -1405,8 +1173,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if cfg.CONF.nsx_v3.disable_port_security_for_ens:
                 # Override the port-security to False
                 if net_data[psec.PORTSECURITY]:
-                    LOG.warning("Disabling port security for network %s",
-                                net_data['id'])
+                    LOG.warning("Disabling port security for bew network")
                     # Set the port security to False
                     net_data[psec.PORTSECURITY] = False
 
@@ -1521,7 +1288,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         is_ens_net = self._is_ens_tz_net(context, id)
 
         # Validate the updated parameters
-        self._validate_update_netowrk(context, id, original_net, net_data)
+        self._validate_update_network(context, id, original_net, net_data)
         # add some plugin specific validations
         if is_ens_net:
             self._assert_on_ens_with_qos(net_data)
@@ -2205,38 +1972,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return address_bindings
 
-    def _extend_get_network_dict_provider(self, context, network):
-        self._extend_network_dict_provider(context, network)
-        network[qos_consts.QOS_POLICY_ID] = (qos_com_utils.
-            get_network_policy_id(context, network['id']))
-
-    def get_network(self, context, id, fields=None):
-        with db_api.CONTEXT_READER.using(context):
-            # Get network from Neutron database
-            network = self._get_network(context, id)
-            # Don't do field selection here otherwise we won't be able to add
-            # provider networks fields
-            net = self._make_network_dict(network, context=context)
-            self._extend_get_network_dict_provider(context, net)
-        return db_utils.resource_fields(net, fields)
-
-    def get_networks(self, context, filters=None, fields=None,
-                     sorts=None, limit=None, marker=None,
-                     page_reverse=False):
-        # Get networks from Neutron database
-        filters = filters or {}
-        with db_api.CONTEXT_READER.using(context):
-            networks = (
-                super(NsxV3Plugin, self).get_networks(
-                    context, filters, fields, sorts,
-                    limit, marker, page_reverse))
-            # Add provider network fields
-            for net in networks:
-                self._extend_get_network_dict_provider(context, net)
-        return (networks if not fields else
-                [db_utils.resource_fields(network,
-                                          fields) for network in networks])
-
     def _get_qos_profile_id(self, context, policy_id):
         switch_profile_id = nsx_db.get_switch_profile_by_qos_policy(
             context.session, policy_id)
@@ -2820,10 +2555,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context, port['port'], neutron_db)
         return neutron_db
 
-    def _vif_type_by_vnic_type(self, direct_vnic_type):
-        return (nsx_constants.VIF_TYPE_DVS if direct_vnic_type
-            else pbin.VIF_TYPE_OVS)
-
     def _validate_ens_create_port(self, context, port_data):
         qos_selected = validators.is_attr_set(port_data.get(
             qos_consts.QOS_POLICY_ID))
@@ -2862,19 +2593,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
-            if direct_vnic_type:
-                if validators.is_attr_set(port_data.get(psec.PORTSECURITY)):
-                    # 'direct' and 'direct-physical' vnic types ports requires
-                    # port-security to be disabled.
-                    if port_data[psec.PORTSECURITY]:
-                        err_msg = _("Security features are not supported for "
-                                    "ports with direct/direct-physical VNIC "
-                                    "type")
-                        raise n_exc.InvalidInput(error_message=err_msg)
-                else:
-                    # Implicitly disable port-security for direct vnic types.
-                    port_data[psec.PORTSECURITY] = False
-
+            self.fix_direct_vnic_port_sec(direct_vnic_type, port_data)
             (is_psec_on, has_ip, sgids, psgids) = (
                 self._create_port_preprocess_security(context, port,
                                                       port_data, neutron_db,

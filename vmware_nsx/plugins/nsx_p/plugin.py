@@ -45,6 +45,7 @@ from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import faults
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
@@ -129,7 +130,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "subnet_allocation",
                                    "security-group-logging",
                                    "provider-security-group",
-                                   "port-security-groups-filtering"]
+                                   "port-security-groups-filtering",
+                                   "vlan-transparent"]
 
     @resource_registry.tracked_resources(
         network=models_v2.Network,
@@ -148,6 +150,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         extension_drivers = cfg.CONF.nsx_extension_drivers
         self._extension_manager = managers.ExtensionManager(
             extension_drivers=extension_drivers)
+        self.cfg_group = 'nsx_p'  # group name for nsx_p section in nsx.ini
         super(NsxPolicyPlugin, self).__init__()
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
@@ -160,8 +163,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         nsxlib_utils.set_inject_headers_callback(v3_utils.inject_headers)
         self._validate_nsx_policy_version()
 
-        self.cfg_group = 'nsx_p'  # group name for nsx_p section in nsx.ini
-
         self._init_default_config()
         self._prepare_default_rules()
 
@@ -173,11 +174,14 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     # NOTE(annak): we may need to generalize this for API calls
     # requiring path ids
-    def _init_default_resource(self, resource_api, name_or_id):
+    def _init_default_resource(self, resource_api, name_or_id,
+                               filter_list_results=None):
         if not name_or_id:
             # If not specified, the system will auto-configure
             # in case only single resource is present
             resources = resource_api.list()
+            if filter_list_results:
+                resources = filter_list_results(resources)
             if len(resources) == 1:
                 return resources[0]['id']
             else:
@@ -195,6 +199,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 return None
 
     def _init_default_config(self):
+        # Default Tier0 router
         self.default_tier0_router = self._init_default_resource(
             self.nsxpolicy.tier0,
             cfg.CONF.nsx_p.default_tier0_router)
@@ -202,6 +207,24 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not self.default_tier0_router:
             raise cfg.RequiredOptError("default_tier0_router",
                                        group=cfg.OptGroup('nsx_p'))
+
+        # Default overlay transport zone
+        self.default_overlay_tz = self._init_default_resource(
+            self.nsxpolicy.transport_zone,
+            cfg.CONF.nsx_p.default_overlay_tz,
+            filter_list_results=lambda tzs: [
+                tz for tz in tzs if tz['tz_type'].startswith('OVERLAY')])
+
+        if not self.default_overlay_tz:
+            raise cfg.RequiredOptError("default_overlay_tz",
+                                       group=cfg.OptGroup('nsx_p'))
+
+        # Default VLAN transport zone (not mandatory)
+        self.default_vlan_tz = self._init_default_resource(
+            self.nsxpolicy.transport_zone,
+            cfg.CONF.nsx_p.default_vlan_tz,
+            filter_list_results=lambda tzs: [
+                tz for tz in tzs if tz['tz_type'].startswith('VLAN')])
 
     def _validate_nsx_policy_version(self):
         self._nsx_version = self.nsxpolicy.get_version()
@@ -252,48 +275,107 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  webob.exc.HTTPBadRequest,
                                  })
 
-    def _create_network_on_backend(self, context, net_data):
-        # TODO(annak): provider network
+    def _create_network_on_backend(self, context, net_data,
+                                   transparent_vlan,
+                                   provider_data):
         net_data['id'] = net_data.get('id') or uuidutils.generate_uuid()
 
+        # update the network name to indicate the neutron id too.
         net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
                                            net_data['id'])
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
+        tags = self.nsxpolicy.build_v3_tags_payload(
+            net_data, resource_type='os-neutron-net-id',
+            project_name=context.tenant_name)
 
         # TODO(annak): admin state config is missing on policy
         # should we not create networks that are down?
         # alternative - configure status on manager for time being
-        # admin_state = net_data.get('admin_state_up', True)
+        admin_state = net_data.get('admin_state_up', True)
+        LOG.debug('create_network: %(net_name)s, %(physical_net)s, '
+                  '%(tags)s, %(admin_state)s, %(vlan_id)s',
+                  {'net_name': net_name,
+                   'physical_net': provider_data['physical_net'],
+                   'tags': tags,
+                   'admin_state': admin_state,
+                   'vlan_id': provider_data['vlan_id']})
+        if transparent_vlan:
+            # all vlan tags are allowed for guest vlan
+            vlan_ids = ["0-%s" % const.MAX_VLAN_TAG]
+        elif provider_data['vlan_id']:
+            vlan_ids = [provider_data['vlan_id']]
+        else:
+            vlan_ids = None
 
         self.nsxpolicy.segment.create_or_overwrite(
             net_name,
             segment_id=net_data['id'],
             description=net_data.get('description'),
+            vlan_ids=vlan_ids,
+            transport_zone_id=provider_data['physical_net'],
             tags=tags)
 
-    def _validate_external_net_create(self, net_data):
-        #TODO(asarfaty): implement
-        pass
+    def _tier0_validator(self, tier0_uuid):
+        # Fail of the tier0 uuid was not found on the BSX
+        self.nsxpolicy.tier0.get(tier0_uuid)
+
+    def _get_nsx_net_tz_id(self, nsx_net):
+        return nsx_net['transport_zone_path'].split('/')[-1]
+
+    def _allow_ens_networks(self):
+        return True
+
+    def _ens_psec_supported(self):
+        """ENS security features are always enabled on NSX versions which
+        the policy plugin supports.
+        """
+        return True
 
     def create_network(self, context, network):
         net_data = network['network']
 
-        #TODO(asarfaty): network validation
+        #TODO(asarfaty): add ENS support
         external = net_data.get(external_net.EXTERNAL)
         is_external_net = validators.is_attr_set(external) and external
         tenant_id = net_data['tenant_id']
 
         self._ensure_default_security_group(context, tenant_id)
+        vlt = vlan_apidef.get_vlan_transparent(net_data)
+
+        self._validate_create_network(context, net_data)
 
         if is_external_net:
-            self._validate_external_net_create(net_data)
+            is_provider_net, net_type, physical_net, vlan_id = (
+                self._validate_external_net_create(
+                    net_data, self.default_tier0_router,
+                    self._tier0_validator))
+            provider_data = {'is_provider_net': is_provider_net,
+                             'net_type': net_type,
+                             'physical_net': physical_net,
+                             'vlan_id': vlan_id}
+            is_backend_network = False
+        else:
+            provider_data = self._validate_provider_create(
+                context, net_data,
+                self.default_vlan_tz,
+                self.default_overlay_tz,
+                self.nsxpolicy.transport_zone,
+                self.nsxpolicy.segment,
+                transparent_vlan=vlt)
+            if (provider_data['is_provider_net'] and
+                provider_data['net_type'] ==
+                utils.NsxV3NetworkTypes.NSX_NETWORK):
+                is_backend_network = False
+            else:
+                is_backend_network = True
 
         # Create the neutron network
         with db_api.CONTEXT_WRITER.using(context):
             # Create network in Neutron
             created_net = super(NsxPolicyPlugin, self).create_network(
                 context, network)
+            super(NsxPolicyPlugin, self).update_network(context,
+                created_net['id'],
+                {'network': {'vlan_transparent': vlt}})
             self._extension_manager.process_create_network(
                 context, net_data, created_net)
             if psec.PORTSECURITY not in net_data:
@@ -302,10 +384,21 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, net_data, created_net)
             self._process_l3_create(context, created_net, net_data)
 
+            if provider_data['is_provider_net']:
+                # Save provider network fields, needed by get_network()
+                net_bindings = [nsx_db.add_network_binding(
+                    context.session, created_net['id'],
+                    provider_data['net_type'],
+                    provider_data['physical_net'],
+                    provider_data['vlan_id'])]
+                self._extend_network_dict_provider(context, created_net,
+                                                   bindings=net_bindings)
+
         # Create the backend NSX network
-        if not is_external_net:
+        if is_backend_network:
             try:
-                self._create_network_on_backend(context, created_net)
+                self._create_network_on_backend(
+                    context, created_net, vlt, provider_data)
             except Exception as e:
                 LOG.exception("Failed to create NSX network network: %s", e)
                 with excutils.save_and_reraise_exception():
@@ -316,24 +409,30 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # latest db model for the extension functions
         net_model = self._get_network(context, created_net['id'])
         resource_extend.apply_funcs('networks', created_net, net_model)
-
         return created_net
 
     def delete_network(self, context, network_id):
+        is_nsx_net = self._network_is_nsx_net(context, network_id)
+        is_external_net = self._network_is_external(context, network_id)
         with db_api.CONTEXT_WRITER.using(context):
             self._process_l3_delete(context, network_id)
             super(NsxPolicyPlugin, self).delete_network(
                 context, network_id)
-        if not self._network_is_external(context, network_id):
+        if not is_external_net and not is_nsx_net:
             self.nsxpolicy.segment.delete(network_id)
+        else:
+            # TODO(asarfaty): for NSX network we may need to delete DHCP conf
+            pass
 
-    def update_network(self, context, id, network):
-        original_net = super(NsxPolicyPlugin, self).get_network(context, id)
+    def update_network(self, context, network_id, network):
+        original_net = super(NsxPolicyPlugin, self).get_network(
+            context, network_id)
         net_data = network['network']
-        LOG.debug("Updating network %s %s->%s", id, original_net, net_data)
+
         # Neutron does not support changing provider network values
         providernet._raise_if_updates_provider_attributes(net_data)
-        extern_net = self._network_is_external(context, id)
+        extern_net = self._network_is_external(context, network_id)
+        is_nsx_net = self._network_is_nsx_net(context, network_id)
 
         # Do not support changing external/non-external networks
         if (external_net.EXTERNAL in net_data and
@@ -341,40 +440,33 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             err_msg = _("Cannot change the router:external flag of a network")
             raise n_exc.InvalidInput(error_message=err_msg)
 
-        updated_net = super(NsxPolicyPlugin, self).update_network(context, id,
-                                                                  network)
+        # Update the neutron network
+        updated_net = super(NsxPolicyPlugin, self).update_network(
+            context, network_id, network)
         self._extension_manager.process_update_network(context, net_data,
                                                        updated_net)
         self._process_l3_update(context, updated_net, network['network'])
+        self._extend_network_dict_provider(context, updated_net)
 
-        #TODO(asarfaty): update the Policy manager
+        # Update the backend segment
+        if (not extern_net and not is_nsx_net and
+            ('name' in net_data or 'description' in net_data)):
+            # TODO(asarfaty): handle admin state changes as well
+            net_name = utils.get_name_and_uuid(
+                updated_net['name'] or 'network', network_id)
+            try:
+                self.nsxpolicy.segment.update(
+                    network_id,
+                    name=net_name,
+                    description=net_data.get('description'))
+            except nsx_lib_exc.ManagerError:
+                LOG.exception("Unable to update NSX backend, rolling "
+                              "back changes on neutron")
+                with excutils.save_and_reraise_exception():
+                    super(NsxPolicyPlugin, self).update_network(
+                        context, network_id, {'network': original_net})
 
         return updated_net
-
-    def get_network(self, context, id, fields=None):
-        with db_api.CONTEXT_READER.using(context):
-            # Get network from Neutron database
-            network = self._get_network(context, id)
-            # Don't do field selection here otherwise we won't be able to add
-            # provider networks fields
-            net = self._make_network_dict(network, context=context)
-        return db_utils.resource_fields(net, fields)
-
-    def get_networks(self, context, filters=None, fields=None,
-                     sorts=None, limit=None, marker=None,
-                     page_reverse=False):
-        # Get networks from Neutron database
-        filters = filters or {}
-        with db_api.CONTEXT_READER.using(context):
-            networks = (
-                super(NsxPolicyPlugin, self).get_networks(
-                    context, filters, fields, sorts,
-                    limit, marker, page_reverse))
-            # TODO(asarfaty) Add plugin/provider network fields
-
-        return (networks if not fields else
-                [db_utils.resource_fields(network,
-                                          fields) for network in networks])
 
     def create_subnet(self, context, subnet):
         self._validate_host_routes_input(subnet)
@@ -423,6 +515,20 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return address_bindings
 
+    def _get_network_nsx_id(self, context, network_id):
+        """Return the NSX segment ID matching the neutron network id
+
+        Usually the NSX ID is the same as the neutron ID. The exception is
+        when this is a provider NSX_NETWORK, which means the network already
+        existed on the NSX backend, and it is being consumed by the plugin.
+        """
+        bindings = nsx_db.get_network_bindings(context.session, network_id)
+        if (bindings and
+            bindings[0].binding_type == utils.NsxV3NetworkTypes.NSX_NETWORK):
+            # return the ID of the NSX network
+            return bindings[0].phy_uuid
+        return network_id
+
     def _build_port_tags(self, port_data):
         sec_groups = port_data.get(ext_sg.SECURITYGROUPS, [])
         sec_groups += port_data.get(provider_sg.PROVIDER_SECURITYGROUPS, [])
@@ -453,21 +559,15 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tags.extend(self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name))
 
+        segment_id = self._get_network_nsx_id(
+            context, port_data['network_id'])
         self.nsxpolicy.segment_port.create_or_overwrite(
-            name,
-            port_data['network_id'],
+            name, segment_id,
             port_id=port_data['id'],
             description=port_data.get('description'),
             address_bindings=address_bindings,
             vif_id=vif_id,
             tags=tags)
-
-    def _cleanup_port(self, context, port_id, lport_id):
-        super(NsxPolicyPlugin, self).delete_port(context, port_id)
-
-        port_data = self.get_port(context, port_id)
-        self.nsxpolicy.segment_port.delete(
-            port_data['network_id'], port_data['id'])
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxPolicyPlugin, self).create_port(context, port)
@@ -480,6 +580,11 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
 
+        # Validate the vnic type (the same types as for the NSX-T plugin)
+        direct_vnic_type = self._validate_port_vnic_type(
+            context, port_data, port_data['network_id'],
+            projectpluginmap.NsxPlugins.NSX_T)
+
         with db_api.CONTEXT_WRITER.using(context):
             is_external_net = self._network_is_external(
                 context, port_data['network_id'])
@@ -489,10 +594,14 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
+            self.fix_direct_vnic_port_sec(direct_vnic_type, port_data)
             (is_psec_on, has_ip, sgids, psgids) = (
                 self._create_port_preprocess_security(context, port,
                                                       port_data, neutron_db,
                                                       False))
+            self._process_portbindings_create_and_update(
+                context, port['port'], port_data,
+                vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
 
             self._process_port_create_security_group(context, port_data, sgids)
             self._process_port_create_provider_security_group(
@@ -506,26 +615,31 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     LOG.error('Failed to create port %(id)s on NSX '
                               'backend. Exception: %(e)s',
                               {'id': neutron_db['id'], 'e': e})
-                    self._cleanup_port(context, neutron_db['id'], None)
+                    super(NsxPolicyPlugin, self).delete_port(
+                        context, neutron_db['id'])
 
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
         resource_extend.apply_funcs('ports', port_data, port_model)
+        self._extend_nsx_port_dict_binding(context, port_data)
+        self._remove_provider_security_groups_from_list(port_data)
 
         kwargs = {'context': context, 'port': neutron_db}
         registry.notify(resources.PORT, events.AFTER_CREATE, self, **kwargs)
-        return neutron_db
+        return port_data
 
     def delete_port(self, context, port_id,
                     l3_port_check=True, l2gw_port_check=True,
                     force_delete_dhcp=False,
                     force_delete_vpn=False):
         port_data = self.get_port(context, port_id)
+        segment_id = self._get_network_nsx_id(
+            context, port_data['network_id'])
+
         if not self._network_is_external(context, port_data['network_id']):
             try:
-                self.nsxpolicy.segment_port.delete(
-                    port_data['network_id'], port_data['id'])
+                self.nsxpolicy.segment_port.delete(segment_id, port_data['id'])
             except Exception as ex:
                 LOG.error("Failed to delete port %(id)s on NSX backend "
                           "due to %(e)s",
@@ -593,6 +707,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if 'id' in port:
             port_model = self._get_port(context, port['id'])
             resource_extend.apply_funcs('ports', port, port_model)
+        self._extend_nsx_port_dict_binding(context, port)
+        self._remove_provider_security_groups_from_list(port)
         return db_utils.resource_fields(port, fields)
 
     def get_ports(self, context, filters=None, fields=None,
@@ -617,6 +733,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                   "process, and is being skipped", port['id'])
                         ports.remove(port)
                         continue
+                self._extend_nsx_port_dict_binding(context, port)
+                self._remove_provider_security_groups_from_list(port)
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
@@ -703,11 +821,12 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_interface_address_scope(context, router_db, info)
         subnet = self.get_subnet(context, info['subnet_ids'][0])
 
+        segment_id = self._get_network_nsx_id(context, network_id)
         # TODO(annak): Validate TZ
         try:
             # This is always an overwrite call
             # NOTE: Connecting network to multiple routers is not supported
-            self.nsxpolicy.segment.create_or_overwrite(network_id,
+            self.nsxpolicy.segment.create_or_overwrite(segment_id,
                                                        tier1_id=router_id)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -745,11 +864,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                   fip_id, router_id, port_id)
 
         if router_id:
-            nsx_router_id = nsx_db.get_nsx_router_id(context.session,
-                                                     router_id)
-            if nsx_router_id:
-                #TODO(asarfaty): Update the NSX router
-                pass
+            #TODO(asarfaty): Update the NSX router
+            pass
 
         super(NsxPolicyPlugin, self).delete_floatingip(context, fip_id)
 
@@ -764,9 +880,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router_id = new_fip['router_id']
         new_port_id = new_fip['port_id']
 
-        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
-                                                 router_id)
-        if nsx_router_id:
+        if router_id:
             #TODO(asarfaty): Update the NSX router
             LOG.debug("Updating floating IP %s. Router %s, Port %s "
                       "(old port %s)",
@@ -784,9 +898,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         for fip_db in fip_dbs:
             if not fip_db.router_id:
                 continue
-            nsx_router_id = nsx_db.get_nsx_router_id(context.session,
-                                                     fip_db.router_id)
-            if nsx_router_id:
+            if fip_db.router_id:
                 # TODO(asarfaty): Update the NSX logical router
                 pass
             self.update_floatingip_status(context, fip_db.id,
