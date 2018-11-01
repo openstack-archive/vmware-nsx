@@ -19,6 +19,7 @@ import random
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
+from neutron_lib.db import model_query
 from neutron_lib import exceptions
 from neutron_lib.exceptions import l3 as l3_exc
 from oslo_log import log
@@ -27,7 +28,6 @@ from oslo_service import loopingcall
 from oslo_utils import timeutils
 import six
 
-from neutron.db import _model_query as model_query
 from neutron.db.models import external_net as external_net_db
 from neutron.db.models import l3 as l3_db
 from neutron.db import models_v2

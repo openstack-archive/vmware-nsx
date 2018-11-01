@@ -15,11 +15,11 @@
 
 from sqlalchemy.orm import exc
 
-from neutron.db import _model_query as model_query
 from neutron.db import _resource_extend as resource_extend
 
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.db import api as db_api
+from neutron_lib.db import model_query
 from neutron_lib.db import utils as db_utils
 
 from oslo_log import log as logging
