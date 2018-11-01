@@ -45,8 +45,8 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             return (floating_ips[0]['fixed_ip_address'],
                     floating_ips[0]['router_id'])
         else:
-            msg = (_('Cannot get floating ip %(fip)s provided from '
-                     'neutron db') % {'fip': fip})
+            msg = (_('Member IP %(fip)s is an external IP, and is expected to '
+                     'be a floating IP') % {'fip': fip})
             raise n_exc.BadRequest(resource='lbaas-vip', msg=msg)
 
     @log_helpers.log_method_call
