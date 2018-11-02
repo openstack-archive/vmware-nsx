@@ -31,7 +31,10 @@ from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
 PLUGIN_NAME = 'vmware_nsx.plugins.nsx_v3.plugin.NsxV3Plugin'
-QoSPolicyObject = obj_reg.load_class('QosPolicy')
+QoSPolicy = obj_reg.load_class('QosPolicy')
+QosBandwidthLimitRule = obj_reg.load_class('QosBandwidthLimitRule')
+QosDscpMarkingRule = obj_reg.load_class('QosDscpMarkingRule')
+QosMinimumBandwidthRule = obj_reg.load_class('QosMinimumBandwidthRule')
 
 
 class TestQosNsxV3Notification(base.BaseQosTestCase,
@@ -66,20 +69,17 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
             'dscp_marking_rule': {'id': uuidutils.generate_uuid(),
                                   'dscp_mark': 22}}
 
-        self.policy = QoSPolicyObject(
+        self.policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
 
         # egress BW limit rule
-        self.rule = obj_reg.new_instance(
-            'QosBandwidthLimitRule', self.ctxt,
-            **self.rule_data['bandwidth_limit_rule'])
+        self.rule = QosBandwidthLimitRule(
+            self.ctxt, **self.rule_data['bandwidth_limit_rule'])
         # ingress bw limit rule
-        self.ingress_rule = obj_reg.new_instance(
-            'QosBandwidthLimitRule', self.ctxt,
-            **self.ingress_rule_data['bandwidth_limit_rule'])
-        self.dscp_rule = obj_reg.new_instance(
-            'QosDscpMarkingRule', self.ctxt,
-            **self.dscp_rule_data['dscp_marking_rule'])
+        self.ingress_rule = QosBandwidthLimitRule(
+            self.ctxt, **self.ingress_rule_data['bandwidth_limit_rule'])
+        self.dscp_rule = QosDscpMarkingRule(
+            self.ctxt, **self.dscp_rule_data['dscp_marking_rule'])
 
         self.fake_profile_id = 'fake_profile'
         self.fake_profile = {'id': self.fake_profile_id}
@@ -104,9 +104,9 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
             'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.create',
             return_value=self.fake_profile
         ) as create_profile:
-            with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                return_value=self.policy):
-                with mock.patch('neutron.objects.qos.policy.QosPolicy.create'):
+            with mock.patch.object(
+                    QoSPolicy, 'get_object', return_value=self.policy):
+                with mock.patch.object(QoSPolicy, 'create'):
                     policy = self.qos_plugin.create_policy(self.ctxt,
                                                            self.policy_data)
                     expected_tags = self.nsxlib.build_v3_tags_payload(
@@ -127,13 +127,13 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
     def __test_policy_update_profile(self, *mocks):
         # test the switch profile update when a QoS policy is updated
         fields = base_object.get_updatable_fields(
-            QoSPolicyObject, self.policy_data['policy'])
+            QoSPolicy, self.policy_data['policy'])
         with mock.patch(
             'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.update'
         ) as update_profile:
-            with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                return_value=self.policy):
-                with mock.patch('neutron.objects.qos.policy.QosPolicy.update'):
+            with mock.patch.object(QoSPolicy, 'get_object',
+                                   return_value=self.policy):
+                with mock.patch.object(QoSPolicy, 'update'):
                     self.qos_plugin.update_policy(
                         self.ctxt, self.policy.id, {'policy': fields})
                     # verify that the profile was updated with the correct data
@@ -150,15 +150,15 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         tags=expected_tags
                     )
 
-    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_bw_rule_create_profile(self, *mocks):
         # test the switch profile update when an egress QoS BW rule is created
-        _policy = QoSPolicyObject(
+        _policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         # add a rule to the policy
         setattr(_policy, "rules", [self.rule])
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-            return_value=_policy):
+        with mock.patch.object(QoSPolicy, 'get_object',
+                               return_value=_policy):
             with mock.patch(
                 'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.'
                 'set_profile_shaping'
@@ -189,15 +189,15 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         qos_marking='trusted'
                     )
 
-    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_ingress_bw_rule_create_profile(self, *mocks):
         # test the switch profile update when a ingress QoS BW rule is created
-        _policy = QoSPolicyObject(
+        _policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         # add a rule to the policy
         setattr(_policy, "rules", [self.ingress_rule])
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-            return_value=_policy):
+        with mock.patch.object(QoSPolicy, 'get_object',
+                               return_value=_policy):
             with mock.patch(
                 'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.'
                 'set_profile_shaping'
@@ -229,7 +229,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         qos_marking='trusted'
                     )
 
-    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_bw_rule_create_profile_minimal_val(self, *mocks):
         # test driver precommit with an invalid limit value
         bad_limit = qos_utils.MAX_KBPS_MIN_VALUE - 1
@@ -238,16 +238,15 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                                      'max_kbps': bad_limit,
                                      'max_burst_kbps': 150}}
 
-        rule = obj_reg.new_instance(
-            'QosBandwidthLimitRule', self.ctxt,
-            **rule_data['bandwidth_limit_rule'])
+        rule = QosBandwidthLimitRule(
+            self.ctxt, **rule_data['bandwidth_limit_rule'])
 
-        _policy = QoSPolicyObject(
+        _policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         # add a rule to the policy
         setattr(_policy, "rules", [rule])
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                        return_value=_policy),\
+        with mock.patch.object(QoSPolicy, 'get_object',
+                               return_value=_policy),\
             mock.patch('neutron.objects.db.api.update_object',
                        return_value=rule_data):
             self.assertRaises(
@@ -255,7 +254,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                 self.qos_plugin.update_policy_bandwidth_limit_rule,
                 self.ctxt, rule.id, _policy.id, rule_data)
 
-    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_bw_rule_create_profile_maximal_val(self, *mocks):
         # test driver precommit with an invalid burst value
         bad_burst = qos_utils.MAX_BURST_MAX_VALUE + 1
@@ -264,16 +263,15 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                                      'max_kbps': 1025,
                                      'max_burst_kbps': bad_burst}}
 
-        rule = obj_reg.new_instance(
-            'QosBandwidthLimitRule', self.ctxt,
-            **rule_data['bandwidth_limit_rule'])
+        rule = QosBandwidthLimitRule(
+            self.ctxt, **rule_data['bandwidth_limit_rule'])
 
-        _policy = QoSPolicyObject(
+        _policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         # add a rule to the policy
         setattr(_policy, "rules", [rule])
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                        return_value=_policy),\
+        with mock.patch.object(QoSPolicy, 'get_object',
+                               return_value=_policy),\
             mock.patch('neutron.objects.db.api.update_object',
                        return_value=rule_data):
                 self.assertRaises(
@@ -281,15 +279,14 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                     self.qos_plugin.update_policy_bandwidth_limit_rule,
                     self.ctxt, rule.id, _policy.id, rule_data)
 
-    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_dscp_rule_create_profile(self, *mocks):
         # test the switch profile update when a QoS DSCP rule is created
-        _policy = QoSPolicyObject(
+        _policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         # add a rule to the policy
         setattr(_policy, "rules", [self.dscp_rule])
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-            return_value=_policy):
+        with mock.patch.object(QoSPolicy, 'get_object', return_value=_policy):
             with mock.patch(
                 'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.'
                 'set_profile_shaping'
@@ -318,22 +315,21 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                         qos_marking='untrusted'
                     )
 
-    @mock.patch.object(QoSPolicyObject, '_reload_rules')
+    @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_minimum_bw_rule_create_profile(self, *mocks):
         # Minimum BW rules are not supported
-        policy = QoSPolicyObject(
+        policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         min_bw_rule_data = {
             'minimum_bandwidth_rule': {'id': uuidutils.generate_uuid(),
                                        'min_kbps': 10,
                                        'direction': 'egress'}}
-        min_bw_rule = obj_reg.new_instance(
-            'QosMinimumBandwidthRule', self.ctxt,
-            **min_bw_rule_data['minimum_bandwidth_rule'])
+        min_bw_rule = QosMinimumBandwidthRule(
+            self.ctxt, **min_bw_rule_data['minimum_bandwidth_rule'])
         # add a rule to the policy
         setattr(policy, "rules", [min_bw_rule])
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                        return_value=policy),\
+        with mock.patch.object(
+                QoSPolicy, 'get_object', return_value=policy),\
             mock.patch('neutron.objects.db.api.'
                        'update_object', return_value=self.dscp_rule_data):
             self.assertRaises(
@@ -344,12 +340,11 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
 
     def test_rule_delete_profile(self):
         # test the switch profile update when a QoS rule is deleted
-        _policy = QoSPolicyObject(
+        _policy = QoSPolicy(
             self.ctxt, **self.policy_data['policy'])
         # The mock will return the policy without the rule,
         # as if it was deleted
-        with mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-            return_value=_policy):
+        with mock.patch.object(QoSPolicy, 'get_object', return_value=_policy):
             with mock.patch(
                 'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.'
                 'set_profile_shaping'
