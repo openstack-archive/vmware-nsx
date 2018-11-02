@@ -49,7 +49,7 @@ class EdgeLoadBalancerManager(base_mgr.LoadbalancerBaseManager):
         if lb_p.plugin_type() != subnet_p.plugin_type():
             self.lbv2_driver.load_balancer.failed_completion(context, lb)
             msg = (_('Subnet must belong to the plugin %s, as the '
-                     'loadbalancer.') % lb_p.plugin_type())
+                     'loadbalancer') % lb_p.plugin_type())
             raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         return lb_p.lbv2_driver.loadbalancer.create(context, lb)
 
@@ -91,6 +91,15 @@ class EdgeListenerManager(base_mgr.LoadbalancerBaseManager):
     def create(self, context, listener, certificate=None):
         p = self.core_plugin._get_plugin_from_project(context,
                                                       listener.tenant_id)
+        if listener.loadbalancer:
+            # Verify that this is the same plugin as the loadbalancer
+            lb_p = self.core_plugin._get_plugin_from_project(
+                context, listener.loadbalancer.tenant_id)
+            if lb_p != p:
+                msg = (_('Listener must belong to the plugin %s, as the '
+                         'loadbalancer') % lb_p.plugin_type())
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
+
         return p.lbv2_driver.listener.create(context, listener,
                                              certificate=certificate)
 
@@ -116,6 +125,14 @@ class EdgePoolManager(base_mgr.LoadbalancerBaseManager):
     def create(self, context, pool):
         p = self.core_plugin._get_plugin_from_project(context,
                                                       pool.tenant_id)
+        if pool.loadbalancer:
+            # Verify that this is the same plugin as the loadbalancer
+            lb_p = self.core_plugin._get_plugin_from_project(
+                context, pool.loadbalancer.tenant_id)
+            if lb_p != p:
+                msg = (_('Pool must belong to the plugin %s, as the '
+                         'loadbalancer') % lb_p.plugin_type())
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         return p.lbv2_driver.pool.create(context, pool)
 
     @log_helpers.log_method_call
@@ -137,6 +154,14 @@ class EdgeMemberManager(base_mgr.LoadbalancerBaseManager):
     def create(self, context, member):
         p = self.core_plugin._get_plugin_from_project(context,
                                                       member.tenant_id)
+        if member.pool and member.pool.loadbalancer:
+            # Verify that this is the same plugin as the loadbalancer
+            lb_p = self.core_plugin._get_plugin_from_project(
+                context, member.pool.loadbalancer.tenant_id)
+            if lb_p != p:
+                msg = (_('Member must belong to the plugin %s, as the '
+                         'loadbalancer') % lb_p.plugin_type())
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         return p.lbv2_driver.member.create(context, member)
 
     @log_helpers.log_method_call
@@ -158,6 +183,14 @@ class EdgeHealthMonitorManager(base_mgr.LoadbalancerBaseManager):
     def create(self, context, hm):
         p = self.core_plugin._get_plugin_from_project(context,
                                                       hm.tenant_id)
+        if hm.pool and hm.pool.loadbalancer:
+            # Verify that this is the same plugin as the loadbalancer
+            lb_p = self.core_plugin._get_plugin_from_project(
+                context, hm.pool.loadbalancer.tenant_id)
+            if lb_p != p:
+                msg = (_('Health monitor must belong to the plugin %s, as the '
+                         'loadbalancer') % lb_p.plugin_type())
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         return p.lbv2_driver.healthmonitor.create(context, hm)
 
     @log_helpers.log_method_call
@@ -179,6 +212,14 @@ class EdgeL7PolicyManager(base_mgr.LoadbalancerBaseManager):
     def create(self, context, policy):
         p = self.core_plugin._get_plugin_from_project(context,
                                                       policy.tenant_id)
+        if policy.listener and policy.listener.loadbalancer:
+            # Verify that this is the same plugin as the loadbalancer
+            lb_p = self.core_plugin._get_plugin_from_project(
+                context, policy.listener.loadbalancer.tenant_id)
+            if lb_p != p:
+                msg = (_('L7 Policy must belong to the plugin %s, as the '
+                         'loadbalancer') % lb_p.plugin_type())
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         return p.lbv2_driver.l7policy.create(context, policy)
 
     @log_helpers.log_method_call
@@ -200,6 +241,15 @@ class EdgeL7RuleManager(base_mgr.LoadbalancerBaseManager):
     def create(self, context, rule):
         p = self.core_plugin._get_plugin_from_project(context,
                                                       rule.tenant_id)
+        if (rule.policy and rule.policy.listener and
+            rule.policy.listener.loadbalancer):
+            # Verify that this is the same plugin as the loadbalancer
+            lb_p = self.core_plugin._get_plugin_from_project(
+                context, rule.policy.listener.loadbalancer.tenant_id)
+            if lb_p != p:
+                msg = (_('L7 Rule must belong to the plugin %s, as the '
+                         'loadbalancer') % lb_p.plugin_type())
+                raise n_exc.BadRequest(resource='edge-lbaas', msg=msg)
         return p.lbv2_driver.l7rule.create(context, rule)
 
     @log_helpers.log_method_call
