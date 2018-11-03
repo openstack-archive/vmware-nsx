@@ -147,11 +147,14 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             lb_pool_id = binding.get('lb_pool_id')
             lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
                 context.session, lb_id)
+            lb_service = None
             if not lb_binding:
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
                 lb_service = service_client.get_router_lb_service(
                     nsx_router_id)
+                virtual_server_ids = (lb_service and
+                                      lb_service.get('virtual_server_ids', []))
                 if not lb_service:
                     lb_size = lb_utils.get_lb_flavor_size(
                         self.flavor_plugin, context,
@@ -164,17 +167,6 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                     self._add_loadbalancer_binding(
                         context, loadbalancer['id'], lb_service_id,
                         nsx_router_id, loadbalancer['vip_address'])
-                    if vs_id:
-                        try:
-                            service_client.add_virtual_server(lb_service_id,
-                                                              vs_id)
-                        except nsxlib_exc.ManagerError:
-                            completor(success=False)
-                            msg = (_('Failed to attach virtual server %(vs)s '
-                                   'to lb service %(service)s') %
-                                   {'vs': vs_id, 'service': lb_service_id})
-                            raise n_exc.BadRequest(resource='lbaas-member',
-                                                   msg=msg)
                 else:
                     completor(success=False)
                     msg = (_('Failed to get lb service to attach virtual '
@@ -192,6 +184,31 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                     'weight': member['weight']}]
                 members = (old_m + new_m) if old_m else new_m
                 pool_client.update_pool_with_members(lb_pool_id, members)
+
+            # Check whether the virtual server should be added to the load
+            # balancing server. It is safe to perform this operation after the
+            # member has been added to the pool. This allows us to skip this
+            # check if there is already a member in the pool
+            if vs_id and not old_m:
+                # load the LB service is not already loaded
+                if not lb_service:
+                    nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                             router_id)
+                    lb_service = service_client.get_router_lb_service(
+                        nsx_router_id)
+                    lb_service_id = lb_service['id']
+                    virtual_server_ids = lb_service.get('virtual_server_ids',
+                                                        [])
+                if vs_id not in virtual_server_ids:
+                    try:
+                        service_client.add_virtual_server(lb_service_id, vs_id)
+                    except nsxlib_exc.ManagerError:
+                        completor(success=False)
+                        msg = (_('Failed to attach virtual server %(vs)s '
+                                'to lb service %(service)s') %
+                                {'vs': vs_id, 'service': lb_service_id})
+                        raise n_exc.BadRequest(resource='lbaas-member',
+                                               msg=msg)
         else:
             completor(success=False)
             msg = (_('Failed to get pool binding to add member %s') %
