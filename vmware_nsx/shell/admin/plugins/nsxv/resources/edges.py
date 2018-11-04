@@ -19,6 +19,7 @@ import textwrap
 from vmware_nsx.common import config
 from vmware_nsx.dvs import dvs
 from vmware_nsx.plugins.nsx_v.vshield import edge_utils
+from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -132,9 +133,18 @@ def get_orphaned_router_bindings():
         routers = plugin.get_routers(context, fields=['id'])
         rtr_ids = [x['id'] for x in routers]
 
+        nsxv_manager = vcns_driver.VcnsDriver(
+            edge_utils.NsxVCallbacks(plugin))
+        edge_manager = edge_utils.EdgeManager(nsxv_manager, plugin)
+        plr_tlr_ids = {}
+        for tlr_id in rtr_ids:
+            plr_id = edge_manager.get_plr_by_tlr_id(context, tlr_id)
+            if plr_id:
+                plr_tlr_ids[plr_id] = tlr_id
+
         for binding in get_router_edge_bindings():
             if not router_binding_obj_exist(context, binding,
-                                            net_ids, rtr_ids):
+                                            net_ids, rtr_ids, plr_tlr_ids):
                 orphaned_list.append(binding)
     return orphaned_list
 
@@ -152,7 +162,7 @@ def _is_id_prefix_in_list(id_prefix, ids):
     return False
 
 
-def router_binding_obj_exist(context, binding, net_ids, rtr_ids):
+def router_binding_obj_exist(context, binding, net_ids, rtr_ids, plr_tlr_ids):
     """Check if the object responsible for the router binding entry exists
 
     Check if the relevant router/network/loadbalancer exists in the neutron DB
@@ -175,15 +185,19 @@ def router_binding_obj_exist(context, binding, net_ids, rtr_ids):
             return False
 
     if router_id.startswith(vcns_const.PLR_EDGE_PREFIX):
-        # should have a distributed router starting with this id
-        # get the id. and look for a network with this id
-        rtr_id_prefix = _get_obj_id_from_binding(
-            router_id, vcns_const.PLR_EDGE_PREFIX)
-
-        if _is_id_prefix_in_list(rtr_id_prefix, rtr_ids):
-            return True
+        # Look for the TLR that matches this PLR
+        # and check if it exists in the neutron DB
+        if router_id in plr_tlr_ids:
+            tlr_id = plr_tlr_ids[router_id]
+            if _is_id_prefix_in_list(tlr_id, rtr_ids):
+                return True
+            else:
+                LOG.warning("TLR Router %s for PLR binding entry %s not found",
+                            tlr_id, router_id)
+                return False
         else:
-            LOG.warning("Router for binding entry %s not found", router_id)
+            LOG.warning("TLR Router binding for PLR binding entry %s not "
+                        "found", router_id)
             return False
 
     if router_id.startswith(lb_common.RESOURCE_ID_PFX):
