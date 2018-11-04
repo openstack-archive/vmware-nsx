@@ -145,7 +145,7 @@ class EdgeLoadBalancerManager(base_mgr.Nsxv3LoadbalancerBaseManager):
             try:
                 rsp = service_client.get_stats(lb_service_id)
                 if rsp:
-                    for vs in rsp['virtual_servers']:
+                    for vs in rsp.get('virtual_servers', []):
                         # Skip the virtual server that doesn't belong
                         # to this loadbalancer
                         if vs['virtual_server_id'] not in vs_list:
