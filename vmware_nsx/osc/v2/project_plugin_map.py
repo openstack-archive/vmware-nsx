@@ -16,7 +16,6 @@
 import six
 
 from openstack import exceptions as os_exceptions
-from openstack.network import network_service
 from openstack import resource
 from openstackclient.i18n import _
 from osc_lib.command import command
@@ -30,7 +29,6 @@ class ProjectPluginMap(resource.Resource):
     resource_key = 'project_plugin_map'
     resources_key = 'project_plugin_maps'
     base_path = '/project-plugin-maps'
-    service = network_service.NetworkService()
 
     # capabilities
     allow_create = True
