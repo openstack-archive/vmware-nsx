@@ -450,7 +450,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context.tenant_name)
 
         tags = self._build_port_tags(port_data)
-        tags.append(self.nsxpolicy.build_v3_api_version_project_tag(
+        tags.extend(self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name))
 
         self.nsxpolicy.segment_port.create_or_overwrite(
