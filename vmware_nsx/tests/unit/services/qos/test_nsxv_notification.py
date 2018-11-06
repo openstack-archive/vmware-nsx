@@ -15,11 +15,10 @@
 import copy
 
 import mock
-from neutron.objects.qos import policy as policy_object
-from neutron.objects.qos import rule as rule_object
 from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
 from neutron_lib import context
+from neutron_lib.objects import registry as obj_reg
 from neutron_lib.plugins import directory
 from neutron_lib.services.qos import constants as qos_consts
 from oslo_config import cfg
@@ -33,6 +32,10 @@ from vmware_nsx.services.qos.nsx_v import utils as qos_utils
 from vmware_nsx.tests.unit.nsx_v import test_plugin
 
 CORE_PLUGIN = "vmware_nsx.plugins.nsx_v.plugin.NsxVPluginV2"
+QosPolicy = obj_reg.load_class('QosPolicy')
+QosPolicyDefault = obj_reg.load_class('QosPolicyDefault')
+QosBandwidthLimitRule = obj_reg.load_class('QosBandwidthLimitRule')
+QosDscpMarkingRule = obj_reg.load_class('QosDscpMarkingRule')
 
 
 class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
@@ -94,17 +97,17 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                 'dscp_mark': 22,
                 'type': qos_consts.RULE_TYPE_DSCP_MARKING}}
 
-        self.policy = policy_object.QosPolicy(
+        self.policy = QosPolicy(
             self.ctxt, **self.policy_data['policy'])
 
         # egress bw rule
-        self.rule = rule_object.QosBandwidthLimitRule(
+        self.rule = QosBandwidthLimitRule(
             self.ctxt, **self.rule_data['bandwidth_limit_rule'])
         # ingress bw rule
-        self.ingress_rule = rule_object.QosBandwidthLimitRule(
+        self.ingress_rule = QosBandwidthLimitRule(
             self.ctxt, **self.ingress_rule_data['bandwidth_limit_rule'])
         # dscp marking rule
-        self.dscp_rule = rule_object.QosDscpMarkingRule(
+        self.dscp_rule = QosDscpMarkingRule(
             self.ctxt, **self.dscp_rule_data['dscp_marking_rule'])
 
         self._net_data = {'network': {
@@ -118,8 +121,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         self._rules = [self.rule_data['bandwidth_limit_rule']]
         self._dscp_rules = [self.dscp_rule_data['dscp_marking_rule']]
 
-        mock.patch(
-            'neutron.objects.qos.policy.QosPolicy.obj_load_attr').start()
+        mock.patch.object(QosPolicy, 'obj_load_attr').start()
 
     def _init_dvs_config(self):
         # Ensure that DVS is enabled
@@ -146,7 +148,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                                              update_bindings_mock):
         """Test the DVS update when a QoS rule is attached to a network"""
         # Create a policy with a rule
-        _policy = policy_object.QosPolicy(
+        _policy = QosPolicy(
             self.ctxt, **self.policy_data['policy'])
         setattr(_policy, "rules", [self.rule, self.ingress_rule,
                                    self.dscp_rule])
@@ -175,16 +177,16 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         # Create a default policy with a rule
         policy_data = copy.deepcopy(self.policy_data['policy'])
         policy_data['is_default'] = True
-        _policy = policy_object.QosPolicy(self.ctxt, **policy_data)
+        _policy = QosPolicy(self.ctxt, **policy_data)
         setattr(_policy, "rules", [self.rule, self.dscp_rule])
-        default_policy = policy_object.QosPolicyDefault(
+        default_policy = QosPolicyDefault(
             qos_policy_id=policy_data['id'])
 
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',
                         return_value=_policy) as get_rules_mock,\
-            mock.patch('neutron.objects.qos.policy.QosPolicyDefault.'
-                       'get_object', return_value=default_policy):
+            mock.patch.object(
+                QosPolicyDefault, 'get_object', return_value=default_policy):
             # create the network (with no specific qos policy)
             net_data = copy.deepcopy(self._net_data)
             del net_data['network']['qos_policy_id']
@@ -204,7 +206,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                                        dvs_update_mock,
                                        update_bindings_mock):
         # Create a policy with a rule
-        _policy = policy_object.QosPolicy(
+        _policy = QosPolicy(
             self.ctxt, **self.policy_data['policy'])
 
         # set the rule in the policy data
@@ -213,8 +215,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',
                         return_value=_policy) as get_rules_mock,\
-            mock.patch('neutron.objects.qos.policy.QosPolicy.get_object',
-                       return_value=_policy):
+            mock.patch.object(QosPolicy, 'get_object', return_value=_policy):
             # create the network to use this policy
             net = self._create_net()
             dvs_update_mock.called = False
@@ -270,7 +271,7 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
                                             dvs_update_mock,
                                             update_bindings_mock):
         # Create a policy with a rule
-        _policy = policy_object.QosPolicy(
+        _policy = QosPolicy(
             self.ctxt, **self.policy_data['policy'])
 
         # set the rule in the policy data
