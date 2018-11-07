@@ -16,6 +16,7 @@
 import netaddr
 
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
 from oslo_utils import uuidutils
@@ -45,6 +46,7 @@ from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import faults
 from neutron_lib.api import validators
@@ -76,6 +78,7 @@ from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import policy_constants
+from vmware_nsxlib.v3 import policy_defs
 from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 LOG = log.getLogger(__name__)
@@ -793,11 +796,100 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
+    def _get_tier0_uuid_by_net_id(self, context, network_id):
+        if not network_id:
+            return
+        network = self.get_network(context, network_id)
+        if not network.get(pnet.PHYSICAL_NETWORK):
+            return self.default_tier0_router
+        else:
+            return network.get(pnet.PHYSICAL_NETWORK)
+
+    def _get_tier0_uuid_by_router(self, context, router):
+        network_id = router.gw_port_id and router.gw_port.network_id
+        return self._get_tier0_uuid_by_net_id(context, network_id)
+
     def _update_router_gw_info(self, context, router_id, info):
+        # Get the original data of the router GW
         router = self._get_router(context, router_id)
+        org_tier0_uuid = self._get_tier0_uuid_by_router(context, router)
+        org_enable_snat = router.enable_snat
+        orgaddr, orgmask, _orgnexthop = (
+            self._get_external_attachment_info(
+                context, router))
+        self._validate_router_gw(context, router_id, info, org_enable_snat)
+
+        # First update the neutron DB
         super(NsxPolicyPlugin, self)._update_router_gw_info(
             context, router_id, info, router=router)
-        #TODO(asarfaty): Update the NSX
+
+        # Get the new tier0 of the updated router (or None if GW was removed)
+        new_tier0_uuid = self._get_tier0_uuid_by_router(context, router)
+        new_enable_snat = router.enable_snat
+        newaddr, newmask, _newnexthop = self._get_external_attachment_info(
+            context, router)
+        router_name = utils.get_name_and_uuid(router['name'] or 'router',
+                                              router['id'])
+        router_subnets = self._find_router_subnets(
+            context.elevated(), router_id)
+        actions = self._get_update_router_gw_actions(
+            org_tier0_uuid, orgaddr, org_enable_snat,
+            new_tier0_uuid, newaddr, new_enable_snat)
+
+        if actions['add_service_router']:
+            edge_cluster = self.nsxpolicy.tier0.get_edge_cluster_path(
+                new_tier0_uuid)
+            if edge_cluster:
+                self.nsxpolicy.tier1.set_edge_cluster_path(
+                    router_id, edge_cluster)
+
+        if actions['remove_snat_rules']:
+            #self.nsxpolicy.tier1.delete_gw_snat_rules(nsx_router_id, orgaddr)
+            pass
+        if actions['remove_no_dnat_rules']:
+            for subnet in router_subnets:
+                #self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
+                pass
+
+        if (actions['remove_router_link_port'] or
+            actions['add_router_link_port']):
+            # GW was changed
+            #TODO(asarfaty): adding the router name even though it was not
+            # changed because otherwise the NSX will set it to default.
+            # This code should be removed once NSX supports it.
+            self.nsxpolicy.tier1.update(router_id, name=router_name,
+                                        tier0=new_tier0_uuid)
+
+            # Set/Unset the router TZ to allow vlan switches traffic
+            #TODO(asarfaty) no api for this yet
+
+        if actions['add_snat_rules']:
+            # Add SNAT rules for all the subnets which are in different scope
+            # than the GW
+            #gw_address_scope = self._get_network_address_scope(
+            #    context, router.gw_port.network_id)
+            for subnet in router_subnets:
+                #self._add_subnet_snat_rule(context, router_id, nsx_router_id,
+                #                           subnet, gw_address_scope, newaddr)
+                pass
+        if actions['add_no_dnat_rules']:
+            for subnet in router_subnets:
+                #self._add_subnet_no_dnat_rule(context, nsx_router_id, subnet)
+                pass
+
+        #self.nsxpolicy.tier1.update_route_advertisement(
+        #    router_id,
+        #    actions['advertise_route_nat_flag'],
+        #    actions['advertise_route_connected_flag'])
+
+        # TODO(asarfaty): handle enable/disable snat, router adv flags, etc.
+
+        if actions['remove_service_router']:
+            # disable edge firewall before removing  the service router
+            #TODO(asarfaty) no api for this yet
+
+            # remove the edge cluster
+            self.nsxpolicy.tier1.remove_edge_cluster(router_id)
 
     def create_router(self, context, router):
         r = router['router']
@@ -812,11 +904,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                               router['id'])
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name)
-        #TODO(annak): handle GW
         try:
             self.nsxpolicy.tier1.create_or_overwrite(
                 router_name, router['id'],
-                tier0=self.default_tier0_router,
+                tier0=None,
                 tags=tags)
         #TODO(annak): narrow down the exception
         except Exception as ex:
@@ -826,8 +917,19 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           {'id': router['id'], 'e': ex})
                 self.delete_router(context, router['id'])
 
-        LOG.debug("Created router %s: %s. GW info %s",
-                  router['id'], r, gw_info)
+        if gw_info and gw_info != const.ATTR_NOT_SPECIFIED:
+            try:
+                self._update_router_gw_info(context, router['id'], gw_info)
+            except (db_exc.DBError, nsx_lib_exc.ManagerError):
+                with excutils.save_and_reraise_exception():
+                    LOG.error("Failed to set gateway info for router "
+                              "being created: %s - removing router",
+                              router['id'])
+                    self.delete_router(context, router['id'])
+                    LOG.info("Create router failed while setting external "
+                             "gateway. Router:%s has been removed from "
+                             "DB and backend",
+                             router['id'])
         return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
@@ -859,10 +961,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         network_id = self._get_interface_network(context, interface_info)
         extern_net = self._network_is_external(context, network_id)
         router_db = self._get_router(context, router_id)
-        gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
-                         else None)
-        LOG.debug("Adding router %s interface %s with GW %s",
-                  router_id, network_id, gw_network_id)
+
         # A router interface cannot be an external network
         if extern_net:
             msg = _("An external network cannot be attached as "
@@ -874,29 +973,54 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
              context, router_id, interface_info)
 
         self._validate_interface_address_scope(context, router_db, info)
-        subnet = self.get_subnet(context, info['subnet_ids'][0])
 
-        segment_id = self._get_network_nsx_segment_id(context, network_id)
         # TODO(annak): Validate TZ
         try:
-            # This is always an overwrite call
-            # NOTE: Connecting network to multiple routers is not supported
-            self.nsxpolicy.segment.create_or_overwrite(segment_id,
-                                                       tier1_id=router_id)
+            #TODO(asarfaty): adding the segment name even though it was not
+            # changed because otherwise the NSX will set it to default.
+            # This code should be removed once NSX supports it.
+            net = self._get_network(context, network_id)
+            net_name = utils.get_name_and_uuid(
+                net['name'] or 'network', network_id)
+            segment_id = self._get_network_nsx_id(context, network_id)
+            subnet = self.get_subnet(context, info['subnet_ids'][0])
+            pol_subnet = policy_defs.Subnet(
+                gateway_address=("%s/32" % subnet.get('gateway_ip')))
+            self.nsxpolicy.segment.update(segment_id,
+                                          name=net_name,
+                                          tier1_id=router_id,
+                                          subnets=[pol_subnet])
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error('Failed to create router interface for subnet '
+                LOG.error('Failed to create router interface for network '
                           '%(id)s on NSX backend. Exception: %(e)s',
-                          {'id': subnet['id'], 'e': ex})
+                          {'id': network_id, 'e': ex})
                 self.remove_router_interface(
                     context, router_id, interface_info)
 
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
-        #TODO(asarfaty) Update the NSX logical router ports
+        # Update the neutron router first
         info = super(NsxPolicyPlugin, self).remove_router_interface(
             context, router_id, interface_info)
+        network_id = info['network_id']
+        # Remove the tier1 router from this segment on the nSX
+        try:
+            #TODO(asarfaty): adding the segment name even though it was not
+            # changed because otherwise the NSX will set it to default.
+            # This code should be removed once NSX supports it.
+            net = self._get_network(context, network_id)
+            net_name = utils.get_name_and_uuid(
+                net['name'] or 'network', network_id)
+            segment_id = self._get_network_nsx_id(context, network_id)
+            self.nsxpolicy.segment.update(segment_id, name=net_name,
+                                          tier1_id=None)
+        except Exception as ex:
+            # do not fail the neutron action
+            LOG.error('Failed to remove router interface for network '
+                      '%(id)s on NSX backend. Exception: %(e)s',
+                      {'id': network_id, 'e': ex})
         return info
 
     def create_floatingip(self, context, floatingip):

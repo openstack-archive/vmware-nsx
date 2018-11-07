@@ -150,7 +150,10 @@ class NSXClient(object):
         segments = self.get_os_nsx_segments()
         print("Number of OS segments to be deleted: %s" % len(segments))
         for s in segments:
+            # Delete all the ports
             self.cleanup_segment_ports(s['id'])
+            # Disassociate from a tier1 router
+            self.nsxlib.segment.update(s['id'], tier1_id=None)
             self.nsxlib.segment.delete(s['id'])
 
     def get_os_nsx_segment_ports(self, segment_id):

@@ -14,6 +14,7 @@
 #    under the License.
 
 
+import netaddr
 from oslo_config import cfg
 from oslo_log import log as logging
 from six import moves
@@ -789,3 +790,110 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
             self.update_security_group_on_port(
                 context, port_id, {'port': original_port},
                 updated_port, original_port)
+
+    def _get_external_attachment_info(self, context, router):
+        gw_port = router.gw_port
+        ipaddress = None
+        netmask = None
+        nexthop = None
+
+        if gw_port:
+            # gw_port may have multiple IPs, only configure the first one
+            if gw_port.get('fixed_ips'):
+                ipaddress = gw_port['fixed_ips'][0]['ip_address']
+
+            network_id = gw_port.get('network_id')
+            if network_id:
+                ext_net = self._get_network(context, network_id)
+                if not ext_net.external:
+                    msg = (_("Network '%s' is not a valid external "
+                             "network") % network_id)
+                    raise n_exc.BadRequest(resource='router', msg=msg)
+                if ext_net.subnets:
+                    ext_subnet = ext_net.subnets[0]
+                    netmask = str(netaddr.IPNetwork(ext_subnet.cidr).netmask)
+                    nexthop = ext_subnet.gateway_ip
+
+        return (ipaddress, netmask, nexthop)
+
+    def _validate_router_gw(self, context, router_id, info, org_enable_snat):
+        # Ensure that a router cannot have SNAT disabled if there are
+        # floating IP's assigned
+        if (info and 'enable_snat' in info and
+            org_enable_snat != info.get('enable_snat') and
+            info.get('enable_snat') is False and
+            self.router_gw_port_has_floating_ips(context, router_id)):
+            msg = _("Unable to set SNAT disabled. Floating IPs assigned")
+            raise n_exc.InvalidInput(error_message=msg)
+
+    def _get_update_router_gw_actions(
+        self,
+        org_tier0_uuid, orgaddr, org_enable_snat,
+        new_tier0_uuid, newaddr, new_enable_snat):
+        """Return a dictionary of flags indicating which actions should be
+           performed on this router GW update.
+        """
+        actions = {}
+        # Remove router link port between tier1 and tier0 if tier0 router link
+        # is removed or changed
+        actions['remove_router_link_port'] = (
+            org_tier0_uuid and
+            (not new_tier0_uuid or org_tier0_uuid != new_tier0_uuid))
+
+        # Remove SNAT rules for gw ip if gw ip is deleted/changed or
+        # enable_snat is updated from True to False
+        actions['remove_snat_rules'] = (
+            org_enable_snat and orgaddr and
+            (newaddr != orgaddr or not new_enable_snat))
+
+        # Remove No-DNAT rules if GW was removed or snat was disabled
+        actions['remove_no_dnat_rules'] = (
+            orgaddr and org_enable_snat and
+            (not newaddr or not new_enable_snat))
+
+        # Revocate bgp announce for nonat subnets if tier0 router link is
+        # changed or enable_snat is updated from False to True
+        actions['revocate_bgp_announce'] = (
+            not org_enable_snat and org_tier0_uuid and
+            (new_tier0_uuid != org_tier0_uuid or new_enable_snat))
+
+        # Add router link port between tier1 and tier0 if tier0 router link is
+        # added or changed to a new one
+        actions['add_router_link_port'] = (
+            new_tier0_uuid and
+            (not org_tier0_uuid or org_tier0_uuid != new_tier0_uuid))
+
+        # Add SNAT rules for gw ip if gw ip is add/changed or
+        # enable_snat is updated from False to True
+        actions['add_snat_rules'] = (
+            new_enable_snat and newaddr and
+            (newaddr != orgaddr or not org_enable_snat))
+
+        # Add No-DNAT rules if GW was added, and the router has SNAT enabled,
+        # or if SNAT was enabled
+        actions['add_no_dnat_rules'] = (
+            new_enable_snat and newaddr and
+            (not orgaddr or not org_enable_snat))
+
+        # Bgp announce for nonat subnets if tier0 router link is changed or
+        # enable_snat is updated from True to False
+        actions['bgp_announce'] = (
+            not new_enable_snat and new_tier0_uuid and
+            (new_tier0_uuid != org_tier0_uuid or not org_enable_snat))
+
+        # Advertise NAT routes if enable SNAT to support FIP. In the NoNAT
+        # use case, only NSX connected routes need to be advertised.
+        actions['advertise_route_nat_flag'] = (
+            True if new_enable_snat else False)
+        actions['advertise_route_connected_flag'] = (
+            True if not new_enable_snat else False)
+
+        # TODO(asarfaty): calculate flags for add/remove service router
+        actions['remove_service_router'] = (
+            actions['remove_router_link_port'] and
+            not actions['add_router_link_port'])
+        actions['add_service_router'] = (
+            actions['add_router_link_port'] and
+            not actions['remove_router_link_port'])
+
+        return actions

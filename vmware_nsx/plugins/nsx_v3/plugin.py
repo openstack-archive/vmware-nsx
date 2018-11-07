@@ -3157,31 +3157,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
-    def _get_external_attachment_info(self, context, router):
-        gw_port = router.gw_port
-        ipaddress = None
-        netmask = None
-        nexthop = None
-
-        if gw_port:
-            # gw_port may have multiple IPs, only configure the first one
-            if gw_port.get('fixed_ips'):
-                ipaddress = gw_port['fixed_ips'][0]['ip_address']
-
-            network_id = gw_port.get('network_id')
-            if network_id:
-                ext_net = self._get_network(context, network_id)
-                if not ext_net.external:
-                    msg = (_("Network '%s' is not a valid external "
-                             "network") % network_id)
-                    raise n_exc.BadRequest(resource='router', msg=msg)
-                if ext_net.subnets:
-                    ext_subnet = ext_net.subnets[0]
-                    netmask = str(netaddr.IPNetwork(ext_subnet.cidr).netmask)
-                    nexthop = ext_subnet.gateway_ip
-
-        return (ipaddress, netmask, nexthop)
-
     def _get_tier0_uuid_by_net_id(self, context, network_id):
         if not network_id:
             return
@@ -3221,15 +3196,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         orgaddr, orgmask, _orgnexthop = (
             self._get_external_attachment_info(
                 context, router))
-
-        # Ensure that a router cannot have SNAT disabled if there are
-        # floating IP's assigned
-        if (info and 'enable_snat' in info and
-            org_enable_snat != info.get('enable_snat') and
-            info.get('enable_snat') is False and
-            self.router_gw_port_has_floating_ips(context, router_id)):
-            msg = _("Unable to set SNAT disabled. Floating IPs assigned")
-            raise n_exc.InvalidInput(error_message=msg)
+        self._validate_router_gw(context, router_id, info, org_enable_snat)
 
         router_subnets = self._find_router_subnets(
             context.elevated(), router_id)
@@ -3254,72 +3221,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, router))
         nsx_router_id = nsx_db.get_nsx_router_id(context.session, router_id)
 
-        # Remove router link port between tier1 and tier0 if tier0 router link
-        # is removed or changed
-        remove_router_link_port = (org_tier0_uuid and
-                                   (not new_tier0_uuid or
-                                    org_tier0_uuid != new_tier0_uuid))
+        actions = self._get_update_router_gw_actions(
+            org_tier0_uuid, orgaddr, org_enable_snat,
+            new_tier0_uuid, newaddr, new_enable_snat)
 
-        # Remove SNAT rules for gw ip if gw ip is deleted/changed or
-        # enable_snat is updated from True to False
-        remove_snat_rules = (org_enable_snat and orgaddr and
-                             (newaddr != orgaddr or
-                              not new_enable_snat))
-
-        # Remove No-DNAT rules if GW was removed or snat was disabled
-        remove_no_dnat_rules = (orgaddr and org_enable_snat and
-                                (not newaddr or not new_enable_snat))
-
-        # Revocate bgp announce for nonat subnets if tier0 router link is
-        # changed or enable_snat is updated from False to True
-        revocate_bgp_announce = (not org_enable_snat and org_tier0_uuid and
-                                 (new_tier0_uuid != org_tier0_uuid or
-                                  new_enable_snat))
-
-        # Add router link port between tier1 and tier0 if tier0 router link is
-        # added or changed to a new one
-        add_router_link_port = (new_tier0_uuid and
-                                (not org_tier0_uuid or
-                                 org_tier0_uuid != new_tier0_uuid))
-
-        # Add SNAT rules for gw ip if gw ip is add/changed or
-        # enable_snat is updated from False to True
-        add_snat_rules = (new_enable_snat and newaddr and
-                          (newaddr != orgaddr or
-                           not org_enable_snat))
-
-        # Add No-DNAT rules if GW was added, and the router has SNAT enabled,
-        # or if SNAT was enabled
-        add_no_dnat_rules = (new_enable_snat and newaddr and
-                             (not orgaddr or not org_enable_snat))
-
-        # Bgp announce for nonat subnets if tier0 router link is changed or
-        # enable_snat is updated from True to False
-        bgp_announce = (not new_enable_snat and new_tier0_uuid and
-                        (new_tier0_uuid != org_tier0_uuid or
-                         not org_enable_snat))
-
-        # Advertise NAT routes if enable SNAT to support FIP. In the NoNAT
-        # use case, only NSX connected routes need to be advertised.
-        advertise_route_nat_flag = True if new_enable_snat else False
-        advertise_route_connected_flag = True if not new_enable_snat else False
-
-        if revocate_bgp_announce:
+        if actions['revocate_bgp_announce']:
             # TODO(berlin): revocate bgp announce on org tier0 router
             pass
-        if remove_snat_rules:
+        if actions['remove_snat_rules']:
             self.nsxlib.router.delete_gw_snat_rules(nsx_router_id, orgaddr)
-        if remove_no_dnat_rules:
+        if actions['remove_no_dnat_rules']:
             for subnet in router_subnets:
                 self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
-        if remove_router_link_port:
+        if actions['remove_router_link_port']:
             # remove the link port and reset the router transport zone
             self.nsxlib.router.remove_router_link_port(nsx_router_id)
             if self.nsxlib.feature_supported(
                 nsxlib_consts.FEATURE_ROUTER_TRANSPORT_ZONE):
                 self.nsxlib.router.update_router_transport_zone(
                     nsx_router_id, None)
-        if add_router_link_port:
+        if actions['add_router_link_port']:
             # First update edge cluster info for router
             edge_cluster_uuid = self._get_edge_cluster(new_tier0_uuid)
             self.nsxlib.router.update_router_edge_cluster(
@@ -3338,7 +3259,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self.nsxlib.router.add_router_link_port(nsx_router_id,
                                                     new_tier0_uuid,
                                                     tags=tags)
-        if add_snat_rules:
+        if actions['add_snat_rules']:
             # Add SNAT rules for all the subnets which are in different scope
             # than the gw
             gw_address_scope = self._get_network_address_scope(
@@ -3346,17 +3267,18 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             for subnet in router_subnets:
                 self._add_subnet_snat_rule(context, router_id, nsx_router_id,
                                            subnet, gw_address_scope, newaddr)
-        if add_no_dnat_rules:
+        if actions['add_no_dnat_rules']:
             for subnet in router_subnets:
                 self._add_subnet_no_dnat_rule(context, nsx_router_id, subnet)
 
-        if bgp_announce:
+        if actions['bgp_announce']:
             # TODO(berlin): bgp announce on new tier0 router
             pass
 
-        self.nsxlib.router.update_advertisement(nsx_router_id,
-                                                advertise_route_nat_flag,
-                                                advertise_route_connected_flag)
+        self.nsxlib.router.update_advertisement(
+            nsx_router_id,
+            actions['advertise_route_nat_flag'],
+            actions['advertise_route_connected_flag'])
 
     def _add_subnet_snat_rule(self, context, router_id, nsx_router_id, subnet,
                               gw_address_scope, gw_ip):
