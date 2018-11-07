@@ -188,7 +188,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 return None
 
         try:
-            resource_api.get(name_or_id)
+            resource_api.get(name_or_id, silent=True)
             return name_or_id
         except nsx_lib_exc.ResourceNotFound:
             try:
@@ -516,6 +516,19 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return address_bindings
 
     def _get_network_nsx_id(self, context, network_id):
+        """Return the id of this logical switch in the nsx manager
+
+        (Not the segment in the policy manager)
+        The nova api will use this to attach to the instance
+        """
+        #TODO(asarfaty): This is a backend call that will be called for
+        # each get_port/s. We should consider caching the results or adding
+        # to DB
+        if not self._network_is_external(context, network_id):
+            segment_id = self._get_network_nsx_segment_id(context, network_id)
+            return self.nsxpolicy.segment.get_realized_id(segment_id)
+
+    def _get_network_nsx_segment_id(self, context, network_id):
         """Return the NSX segment ID matching the neutron network id
 
         Usually the NSX ID is the same as the neutron ID. The exception is
@@ -549,9 +562,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         address_bindings = self._build_port_address_bindings(
             context, port_data)
         device_owner = port_data.get('device_owner')
-        vif_id = None
+        attachment_type = vif_id = None
         if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
             vif_id = port_data['id']
+            attachment_type = nsxlib_consts.ATTACHMENT_VIF
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name)
 
@@ -559,7 +573,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tags.extend(self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name))
 
-        segment_id = self._get_network_nsx_id(
+        segment_id = self._get_network_nsx_segment_id(
             context, port_data['network_id'])
         self.nsxpolicy.segment_port.create_or_overwrite(
             name, segment_id,
@@ -567,6 +581,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             description=port_data.get('description'),
             address_bindings=address_bindings,
             vif_id=vif_id,
+            attachment_type=attachment_type,
             tags=tags)
 
     def base_create_port(self, context, port):
@@ -606,6 +621,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._process_port_create_security_group(context, port_data, sgids)
             self._process_port_create_provider_security_group(
                 context, port_data, psgids)
+            #TODO(asarfaty): Handle mac learning
 
         if not is_external_net:
             try:
@@ -633,21 +649,20 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     l3_port_check=True, l2gw_port_check=True,
                     force_delete_dhcp=False,
                     force_delete_vpn=False):
+        # first update neutron (this will perform all types of validations)
         port_data = self.get_port(context, port_id)
-        segment_id = self._get_network_nsx_id(
-            context, port_data['network_id'])
+        net_id = port_data['network_id']
+        self.disassociate_floatingips(context, port_id)
+        super(NsxPolicyPlugin, self).delete_port(context, port_id)
 
-        if not self._network_is_external(context, port_data['network_id']):
+        if not self._network_is_external(context, net_id):
             try:
+                segment_id = self._get_network_nsx_segment_id(context, net_id)
                 self.nsxpolicy.segment_port.delete(segment_id, port_data['id'])
             except Exception as ex:
                 LOG.error("Failed to delete port %(id)s on NSX backend "
-                          "due to %(e)s",
-                          {'id': port_data['id'], 'e': ex})
-
-        self.disassociate_floatingips(context, port_id)
-
-        super(NsxPolicyPlugin, self).delete_port(context, port_id)
+                          "due to %(e)s", {'id': port_id, 'e': ex})
+                # Do not fail the neutron action
 
     def _update_port_on_backend(self, context, lport_id,
                                 original_port, updated_port):
@@ -655,12 +670,15 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Update might evolve with more features
         return self._create_port_on_backend(context, updated_port)
 
-    def update_port(self, context, id, port):
+    def update_port(self, context, port_id, port):
         with db_api.CONTEXT_WRITER.using(context):
             # get the original port, and keep it honest as it is later used
             # for notifications
-            original_port = super(NsxPolicyPlugin, self).get_port(context, id)
+            original_port = super(NsxPolicyPlugin, self).get_port(
+                context, port_id)
             port_data = port['port']
+            validate_port_sec = self._should_validate_port_sec_on_update_port(
+                port_data)
             is_external_net = self._network_is_external(
                 context, original_port['network_id'])
             if is_external_net:
@@ -671,8 +689,12 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._validate_max_ips_per_port(
                 port_data.get('fixed_ips', []), device_owner)
 
-            updated_port = super(NsxPolicyPlugin, self).update_port(context,
-                                                                    id, port)
+            direct_vnic_type = self._validate_port_vnic_type(
+                context, port_data, original_port['network_id'])
+
+            updated_port = super(NsxPolicyPlugin, self).update_port(
+                context, port_id, port)
+
             self._extension_manager.process_update_port(context, port_data,
                                                         updated_port)
             # copy values over - except fixed_ips as
@@ -680,15 +702,47 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             port_data.pop('fixed_ips', None)
             updated_port.update(port_data)
 
+            updated_port = self._update_port_preprocess_security(
+                context, port, port_id, updated_port, False,
+                validate_port_sec=validate_port_sec,
+                direct_vnic_type=direct_vnic_type)
+
+            sec_grp_updated = self.update_security_group_on_port(
+                context, port_id, port, original_port, updated_port)
+
+            self._process_port_update_provider_security_group(
+                context, port, original_port, updated_port)
+
+            (port_security, has_ip) = self._determine_port_security_and_has_ip(
+                context, updated_port)
+            self._remove_provider_security_groups_from_list(updated_port)
+            self._process_portbindings_create_and_update(
+                context, port_data, updated_port,
+                vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
+            self._extend_nsx_port_dict_binding(context, updated_port)
+
+            #TODO(asarfaty): Handle mac learning
+
         # update the port in the backend, only if it exists in the DB
         # (i.e not external net)
         if not is_external_net:
-            self._update_port_on_backend(context, id,
-                                         original_port, updated_port)
+            try:
+                self._update_port_on_backend(context, port_id,
+                                             original_port, updated_port)
+            except Exception as e:
+                LOG.error('Failed to update port %(id)s on NSX '
+                          'backend. Exception: %(e)s',
+                          {'id': port_id, 'e': e})
+                # Rollback the change
+                with excutils.save_and_reraise_exception():
+                    with db_api.CONTEXT_WRITER.using(context):
+                        self._revert_neutron_port_update(
+                            context, port_id, original_port, updated_port,
+                            port_security, sec_grp_updated)
 
         # Make sure the port revision is updated
         if 'revision_number' in updated_port:
-            port_model = self._get_port(context, id)
+            port_model = self._get_port(context, port_id)
             updated_port['revision_number'] = port_model.revision_number
 
         # Notifications must be sent after the above transaction is complete
@@ -702,8 +756,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         registry.notify(resources.PORT, events.AFTER_UPDATE, self, **kwargs)
         return updated_port
 
-    def get_port(self, context, id, fields=None):
-        port = super(NsxPolicyPlugin, self).get_port(context, id, fields=None)
+    def get_port(self, context, port_id, fields=None):
+        port = super(NsxPolicyPlugin, self).get_port(
+            context, port_id, fields=None)
         if 'id' in port:
             port_model = self._get_port(context, port['id'])
             resource_extend.apply_funcs('ports', port, port_model)
@@ -821,7 +876,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._validate_interface_address_scope(context, router_db, info)
         subnet = self.get_subnet(context, info['subnet_ids'][0])
 
-        segment_id = self._get_network_nsx_id(context, network_id)
+        segment_id = self._get_network_nsx_segment_id(context, network_id)
         # TODO(annak): Validate TZ
         try:
             # This is always an overwrite call

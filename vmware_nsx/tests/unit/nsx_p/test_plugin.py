@@ -19,6 +19,7 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 from webob import exc
 
+from neutron.extensions import securitygroup as secgrp
 from neutron.tests.unit.db import test_db_base_plugin_v2
 from neutron.tests.unit.extensions import test_securitygroup
 
@@ -368,6 +369,24 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
     def test_update_port_add_additional_ip(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
+    def test_update_port_delete_ip(self):
+        # This test case overrides the default because the nsx plugin
+        # implements port_security/security groups and it is not allowed
+        # to remove an ip address from a port unless the security group
+        # is first removed.
+        with self.subnet() as subnet:
+            with self.port(subnet=subnet) as port:
+                data = {'port': {'admin_state_up': False,
+                                 'fixed_ips': [],
+                                 secgrp.SECURITYGROUPS: []}}
+                req = self.new_update_request('ports',
+                                              data, port['port']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+                self.assertEqual(res['port']['admin_state_up'],
+                                 data['port']['admin_state_up'])
+                self.assertEqual(res['port']['fixed_ips'],
+                                 data['port']['fixed_ips'])
+
 
 class NsxPTestSecurityGroup(NsxPPluginTestCaseMixin,
                             test_securitygroup.TestSecurityGroups,
@@ -525,7 +544,3 @@ class NsxPTestSecurityGroup(NsxPPluginTestCaseMixin,
                                               psec.PORTSECURITY),
                                     **kwargs)
             self.assertEqual(res.status_int, exc.HTTPBadRequest.code)
-
-    # Temporarily skip all port related tests until the plugin supports it
-    def test_update_port_with_security_group(self):
-        self.skipTest('Temporarily not supported')

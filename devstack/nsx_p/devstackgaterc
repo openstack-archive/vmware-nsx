@@ -19,7 +19,37 @@
 # based on the features that are ready to be tested.
 
 # Begin list of exclusions.
-#r="^(?!.*)"
+r="^(?!.*"
+r="$r(?:tempest\.api\.network\.test_extensions\.ExtensionsTestJSON.*)"
+r="$r|(?:tempest\.api\.network\.test_routers\.DvrRoutersTest.*)"
+r="$r|(?:tempest\.api\.network\.test_routers_negative\.DvrRoutersNegativeTest.*)"
 
-r="$r(tempest\.api\.network\.test_security_groups|tempest\.api\.network\.test_networks|tempest\.api\.network\.test_networks_negative).*$"
+r="$r|(?:tempest\.api\.network\.test_allowed_address_pair\.AllowedAddressPairTestJSON\.test_update_port_with_cidr_address_pair.*)"
+#Native DHCP has no agents
+r="$r|(?:tempest\.api\.network\.admin\.test_agent_management\.AgentManagementTestJSON.*)"
+#Can not create more than one DHCP-enabled subnet
+r="$r|(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_create_update_port_with_second_ip.*)"
+r="$r|(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_update_port_with_security_group_and_extra_attributes.*)"
+r="$r|(?:tempest\.api\.network\.test_ports\.PortsTestJSON\.test_update_port_with_two_security_groups_and_extra_attributes.*)"
+r="$r|(?:tempest\.api\.network\.test_extra_dhcp_options\.ExtraDHCPOptionsTestJSON\.test_.*_with_extra_dhcp_options.*)"
+r="$r|(?:tempest\.api\.network\.test_floating_ips\.FloatingIPTestJSON\.test_create_update_floatingip_with_port_multiple_ip_address.*)"
+
+r="$r|(?:tempest\.api\.network\.admin\.test_external_network_extension\.ExternalNetworksTestJSON\.test_update_external_network.*)"
+
+# Some ICMP types are not supported by the NSX backend
+r="$r|(?:tempest\.api\.network\.test_security_groups\.SecGroupTest\.test_create_security_group_rule_with_icmp_type_code.*)"
+
+# Temporarily exclude packages which are not yet supported by the P plugin
+r="$r|(?:tempest\.api\.network\.admin\.test_floating_ips_admin_actions.*)"
+r="$r|(?:tempest\.api\.network\.admin\.test_routers.*)"
+r="$r|(?:tempest\.api\.network\.admin\.test_routers_negative.*)"
+r="$r|(?:tempest\.api\.network\.test_floating_ips.*)"
+r="$r|(?:tempest\.api\.network\.test_routers.*)"
+
+# End list of exclusions.
+r="$r)"
+
+# only run tempest.api.network tests
+r="$r(tempest\.api\.network).*$"
+
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"
