@@ -113,15 +113,19 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
                     LOG.error("NSX-V3 FWaaS V2 plugin does not support %s "
                               "ports", port['device_owner'])
                     return
+                # since this is a deletion of an illegal port, add this port
+                # with a dummy router so that the FWaaS plugin will notice the
+                # change and change the FW status.
+                router_info = 'Dummy'
             else:
                 router_id = port['device_id']
                 router = self.core_plugin.get_router(context, router_id)
                 router_info = self._router_dict_to_obj(router)
-                if router_info:
-                    if router_info in in_ns_ports:
-                        in_ns_ports[router_info].append(port_id)
-                    else:
-                        in_ns_ports[router_info] = [port_id]
+            if router_info:
+                if router_info in in_ns_ports:
+                    in_ns_ports[router_info].append(port_id)
+                else:
+                    in_ns_ports[router_info] = [port_id]
         return list(in_ns_ports.items())
 
     def delete_firewall_group(self, context, firewall_group, host):
