@@ -49,6 +49,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils as plugin_utils
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_utils import uuidutils
 from webob import exc
 
@@ -1427,6 +1428,31 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             ctx = context.get_admin_context()
             networks = self.plugin.get_ports(ctx)
             self.assertListEqual([], networks)
+
+    def test_port_DB_failure_rollback_dhcp_exception(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self.plugin = directory.get_plugin()
+        with mock.patch('vmware_nsx.db.db.add_neutron_nsx_dhcp_binding',
+                        side_effect=db_exc.DBError),\
+            mock.patch.object(self.plugin, '_enable_native_dhcp'),\
+            mock.patch('vmware_nsx.db.db.get_nsx_service_binding'),\
+            self.network() as network,\
+            self.subnet(network, cidr='10.0.1.0/24') as subnet:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'p1',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [{'subnet_id':
+                                       subnet['subnet']['id'],
+                                       'ip_address': '10.0.1.2'}],
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            # making sure the port creation succeeded anyway
+            created_port = self.plugin.create_port(self.ctx, data)
+            self.assertEqual('fake_device', created_port['device_id'])
 
     def test_update_port_add_additional_ip(self):
         """Test update of port with additional IP fails."""
