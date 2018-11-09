@@ -47,8 +47,8 @@ class EdgeHealthMonitorManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                 'interval': hm.delay,
                 'fall_count': hm.max_retries,
                 'timeout': hm.timeout}
-        if monitor_type in [lb_const.LB_HEALTH_MONITOR_HTTP,
-                            lb_const.LB_HEALTH_MONITOR_HTTPS]:
+        if hm.type in [lb_const.LB_HEALTH_MONITOR_HTTP,
+                       lb_const.LB_HEALTH_MONITOR_HTTPS]:
             if hm.http_method:
                 body['request_method'] = hm.http_method
             if hm.url_path:

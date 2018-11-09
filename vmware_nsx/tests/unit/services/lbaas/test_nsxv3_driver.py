@@ -169,6 +169,11 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                        name='member1')
         self.hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
                                           1, pool=self.pool, name='hm1')
+        self.hm_http = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'HTTP',
+                                               3, 3, 1, pool=self.pool,
+                                               http_method='GET',
+                                               url_path="/meh", name='hm2')
+
         self.l7policy = lb_models.L7Policy(L7POLICY_ID, LB_TENANT_ID,
                                            name='policy-test',
                                            description='policy-desc',
@@ -712,6 +717,37 @@ class TestEdgeLbaasV2HealthMonitor(BaseTestEdgeLbaasV2):
                 self.lbv2_driver.health_monitor.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
                                                           self.hm)
+
+    def test_create_http(self):
+        with mock.patch.object(self.monitor_client, 'create'
+                               ) as mock_create_monitor, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(self.pool_client, 'add_monitor_to_pool'
+                              ) as mock_add_monitor_to_pool, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_monitor_binding'
+                              ) as mock_add_monitor_binding:
+            mock_create_monitor.return_value = {'id': LB_MONITOR_ID}
+            mock_get_pool_binding.return_value = POOL_BINDING
+
+            # Verify HTTP-specific  monitor parameters are added
+            self.edge_driver.healthmonitor.create(self.context, self.hm_http)
+            self.assertEqual(1, len(mock_create_monitor.mock_calls))
+            kw_args = mock_create_monitor.mock_calls[0][2]
+            self.assertEqual(self.hm_http.http_method,
+                             kw_args.get('request_method'))
+            self.assertEqual(self.hm_http.url_path,
+                             kw_args.get('request_url'))
+            mock_add_monitor_to_pool.assert_called_with(LB_POOL_ID,
+                                                        LB_MONITOR_ID)
+            mock_add_monitor_binding.assert_called_with(
+                self.context.session, LB_ID, POOL_ID, HM_ID, LB_MONITOR_ID,
+                LB_POOL_ID)
+
+            mock_successful_completion = (
+                self.lbv2_driver.health_monitor.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.hm_http)
 
     def test_update(self):
         new_hm = lb_models.HealthMonitor(HM_ID, LB_TENANT_ID, 'PING', 3, 3,
