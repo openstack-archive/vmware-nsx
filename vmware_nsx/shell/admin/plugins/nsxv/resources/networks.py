@@ -163,6 +163,13 @@ def list_orphaned_networks(resource, event, trigger, **kwargs):
     admin_context = context.get_admin_context()
     missing_networks = []
 
+    # get all neutron distributed routers in advanced
+    with utils.NsxVPluginWrapper() as plugin:
+        neutron_routers = plugin.get_routers(
+            admin_context, fields=['id', 'name', 'distributed'])
+        neutron_dist_routers = [rtr for rtr in neutron_routers
+                                if rtr['distributed']]
+
     # get the list of backend networks:
     backend_networks = get_networks()
     for net in backend_networks:
@@ -174,6 +181,27 @@ def list_orphaned_networks(resource, event, trigger, **kwargs):
             net['type'] == 'Network'):
             # This is not a neutron network
             continue
+        if backend_name.startswith('int-') and net['type'] == 'VirtualWire':
+            # This is a PLR network. Check that the router exists
+            found = False
+            # compare the expected lswitch name by the dist router name & id
+            for rtr in neutron_dist_routers:
+                lswitch_name = ('int-' + rtr['name'] + rtr['id'])[:36]
+                if lswitch_name == backend_name:
+                    found = True
+                    break
+            # if the neutron router got renamed, this will not work.
+            # compare ids prefixes instead (might cause false positives)
+            for rtr in neutron_dist_routers:
+                if rtr['id'][:5] in backend_name:
+                    LOG.info("Logical switch %s probably matches distributed "
+                             "router %s", backend_name, rtr['id'])
+                    found = True
+                    break
+            if not found:
+                missing_networks.append(net)
+            continue
+
         # get the list of neutron networks with this moref
         neutron_networks = nsx_db.get_nsx_network_mapping_for_nsx_id(
             admin_context.session, moref)
