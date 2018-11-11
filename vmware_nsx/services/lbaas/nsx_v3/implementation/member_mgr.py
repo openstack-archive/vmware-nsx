@@ -74,9 +74,10 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             LOG.error("Failed to create LB service: %s", e)
             return
 
-        # Update router to enable advertise_lb_vip flag
-        self.core_plugin.nsxlib.logical_router.update_advertisement(
-            nsx_router_id, advertise_lb_vip=True)
+        # Add rule to advertise external vips
+        lb_utils.update_router_lb_vip_advertisement(
+            context, self.core_plugin, router, nsx_router_id)
+
         return lb_service
 
     def _get_updated_pool_members(self, context, lb_pool, member):

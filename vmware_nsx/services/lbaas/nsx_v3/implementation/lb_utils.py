@@ -20,6 +20,9 @@ from neutron_lib import exceptions as n_exc
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import lb_const
+from vmware_nsxlib.v3 import nsx_constants
+
+ADV_RULE_NAME = 'LB external VIP advertisement'
 
 
 def get_tags(plugin, resource_id, resource_type, project_id, project_name):
@@ -208,3 +211,19 @@ def remove_rule_from_policy(rule):
 def update_rule_in_policy(rule):
     remove_rule_from_policy(rule)
     rule['policy']['rules'].append(rule)
+
+
+def update_router_lb_vip_advertisement(context, core_plugin, router,
+                                       nsx_router_id):
+    # Add a rule to advertise external vips on the router
+    external_subnets = core_plugin._find_router_gw_subnets(context, router)
+    external_cidrs = [s['cidr'] for s in external_subnets]
+    if external_cidrs:
+        adv_rule = {
+            'display_name': ADV_RULE_NAME,
+            'action': nsx_constants.FW_ACTION_ALLOW,
+            'networks': external_cidrs,
+            'rule_filter': {'prefix_operator': 'EQ',
+                            'match_route_types': ['T1_LB_VIP']}}
+        core_plugin.nsxlib.logical_router.update_advertisement_rules(
+            nsx_router_id, [adv_rule], name_prefix=ADV_RULE_NAME)

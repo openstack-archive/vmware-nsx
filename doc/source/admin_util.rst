@@ -534,6 +534,11 @@ LBaaS
 
     nsxadmin -r lb-monitors -o list
 
+- Update advertisement of LB vips on routers::
+
+    nsxadmin -r lb-advertisement -o nsx-update
+
+
 Rate Limit
 ~~~~~~~~~~
 - Show the current NSX rate limit::

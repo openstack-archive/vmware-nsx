@@ -601,6 +601,79 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
     def test_create_existing_binding(self):
         self._test_create(LB_BINDING, POOL_BINDING)
 
+    def test_create_with_service(self):
+        ext_cidr = '1.1.1.0/24'
+        with mock.patch.object(lb_utils, 'validate_lb_member_subnet'
+                               ) as mock_validate_lb_subnet, \
+            mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
+                              ) as mock_get_pool_members, \
+            mock.patch.object(lb_utils, 'get_network_from_subnet'
+                              ) as mock_get_network, \
+            mock.patch.object(lb_utils, 'get_router_from_network'
+                              ) as mock_get_router, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_router_id'
+                              ) as mock_get_nsx_router_id, \
+            mock.patch.object(self.service_client, 'get_router_lb_service'
+                              ) as mock_get_lb_service, \
+            mock.patch.object(self.service_client, 'create'
+                              ) as mock_create_lb_service, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_add_loadbalancer_bidning, \
+            mock.patch.object(self.service_client,
+                              'add_virtual_server'
+                              ) as mock_add_vs_to_service, \
+            mock.patch.object(self.pool_client, 'get'
+                              ) as mock_get_pool, \
+            mock.patch.object(self.pool_client, 'update_pool_with_members'
+                              ) as mock_update_pool_with_members,\
+            mock.patch.object(self.core_plugin.nsxlib.logical_router,
+                              'update_advertisement_rules') as update_adv,\
+            mock.patch.object(self.core_plugin, '_find_router_gw_subnets'
+                              ) as mock_get_subnets,\
+            mock.patch.object(self.core_plugin, 'get_router'
+                              ) as mock_core_get_router:
+            mock_validate_lb_subnet.return_value = True
+            mock_get_pool_members.return_value = [self.member]
+            mock_get_network.return_value = LB_NETWORK
+            mock_get_router.return_value = LB_ROUTER_ID
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_lb_binding.return_value = None
+            mock_get_nsx_router_id.return_value = LB_ROUTER_ID
+            mock_get_lb_service.return_value = {}
+            mock_create_lb_service.return_value = {'id': LB_SERVICE_ID}
+            mock_get_pool.return_value = LB_POOL
+            mock_core_get_router.return_value = {
+                'id': LB_ROUTER_ID,
+                'name': 'router1',
+                'external_gateway_info': 'dummy'}
+            mock_get_subnets.return_value = [{'cidr': ext_cidr}]
+
+            self.edge_driver.member.create(self.context, self.member)
+
+            mock_add_loadbalancer_bidning.assert_called_with(
+                self.context.session, LB_ID, LB_SERVICE_ID, LB_ROUTER_ID,
+                LB_VIP)
+            mock_add_vs_to_service.assert_called_with(LB_SERVICE_ID, LB_VS_ID)
+            mock_update_pool_with_members.assert_called_with(LB_POOL_ID,
+                                                             [LB_MEMBER])
+            update_adv.assert_called_with(
+                LB_ROUTER_ID,
+                [{'networks': [ext_cidr],
+                  'display_name': lb_utils.ADV_RULE_NAME,
+                  'rule_filter': {'match_route_types': ['T1_LB_VIP'],
+                  'prefix_operator': 'EQ'},
+                  'action': 'ALLOW'}],
+                name_prefix=lb_utils.ADV_RULE_NAME)
+            mock_successful_completion = (
+                self.lbv2_driver.member.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          self.member,
+                                                          delete=False)
+
     def test_create_lbs_no_router_gateway(self):
         with mock.patch.object(lb_utils, 'validate_lb_member_subnet'
                                ) as mock_validate_lb_subnet, \
