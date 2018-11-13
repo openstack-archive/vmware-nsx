@@ -704,7 +704,7 @@ class NsxVMetadataProxyHandler(object):
         lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
 
     def configure_router_edge(self, context, rtr_id):
-        ctx = context.elevated()
+        ctx = neutron_context.get_admin_context()
         # Connect router interface to inter-edge network
         port_data = {
             'port': {
