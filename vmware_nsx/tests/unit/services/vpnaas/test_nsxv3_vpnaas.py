@@ -620,6 +620,7 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
             dummy_port = {'id': 'dummy_port',
                           'fixed_ips': [{'ip_address': '1.1.1.1'}]}
             tier0_rtr = {'high_availability_mode': 'ACTIVE_STANDBY'}
+            tier0_uuid = 'tier-0'
             with mock.patch.object(self.service_plugin, '_get_vpnservice',
                                    return_value=FAKE_VPNSERVICE),\
                 mock.patch.object(self.nsxlib_vpn.service,
@@ -630,11 +631,25 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
                                   return_value=FAKE_ROUTER),\
                 mock.patch.object(self.plugin, 'get_ports',
                                   return_value=[dummy_port]),\
-                mock.patch.object(self.plugin, '_get_tier0_uuid_by_router'),\
+                mock.patch.object(self.plugin, '_get_tier0_uuid_by_router',
+                                  return_value=tier0_uuid),\
                 mock.patch.object(self.plugin.nsxlib.logical_router, 'get',
                                   return_value=tier0_rtr):
                 self.driver.create_vpnservice(self.context, FAKE_VPNSERVICE)
                 create_service.assert_called_once()
+                # Delete the service
+                nsx_services = [{'logical_router_id': tier0_uuid,
+                                 'id': 'xxx'}]
+                with mock.patch.object(
+                    self.nsxlib_vpn.service, 'list',
+                    return_value={'results': nsx_services}),\
+                    mock.patch.object(self.service_plugin, 'get_vpnservices',
+                                      return_value=[]),\
+                    mock.patch.object(self.nsxlib_vpn.service,
+                                      'delete') as delete_service:
+                    self.driver.delete_vpnservice(
+                        self.context, FAKE_VPNSERVICE)
+                    delete_service.assert_called_once()
 
     def test_create_another_vpn_service(self):
         # make sure another backend service is not created
@@ -681,4 +696,28 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
                                   return_value=tier0_rtr):
                 self.driver.create_vpnservice(self.context, FAKE_VPNSERVICE)
                 create_service.assert_called_once()
+
+                # now delete both
+                nsx_services = [{'logical_router_id': tier0_rtr_id,
+                                 'id': 'xxx'}]
+                with mock.patch.object(
+                    self.nsxlib_vpn.service, 'list',
+                    return_value={'results': nsx_services}),\
+                    mock.patch.object(self.nsxlib_vpn.service,
+                                      'delete') as delete_service:
+                    self.driver.delete_vpnservice(
+                        self.context, FAKE_VPNSERVICE)
+                    delete_service.assert_not_called()
+
+                with mock.patch.object(
+                    self.nsxlib_vpn.service, 'list',
+                    return_value={'results': nsx_services}),\
+                    mock.patch.object(self.service_plugin, 'get_vpnservices',
+                                      return_value=[]),\
+                    mock.patch.object(self.nsxlib_vpn.service,
+                                      'delete') as delete_service:
+                    self.driver.delete_vpnservice(
+                        self.context, FAKE_VPNSERVICE)
+                    delete_service.assert_called_once()
+
         pass

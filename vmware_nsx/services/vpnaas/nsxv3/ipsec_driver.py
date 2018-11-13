@@ -707,14 +707,14 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         gw = router_db['external_gateway_info']
         return gw['external_fixed_ips'][0]["ip_address"]
 
-    def _find_vpn_service(self, tier0_uuid):
+    def _find_vpn_service(self, tier0_uuid, validate=True):
         # find the service for the tier0 router in the NSX.
         # Note(asarfaty) we expect only a small number of services
         services = self._nsx_vpn.service.list()['results']
         for srv in services:
             if srv['logical_router_id'] == tier0_uuid:
                 # if it exists but disabled: issue an error
-                if not srv.get('enabled', True):
+                if validate and not srv.get('enabled', True):
                     msg = _("NSX vpn service %s must be enabled") % srv['id']
                     raise nsx_exc.NsxPluginException(err_msg=msg)
                 return srv['id']
@@ -730,10 +730,25 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
         # create a new one
         self._create_vpn_service(tier0_uuid)
 
+    def _delete_vpn_service_if_needed(self, context, vpnservice):
+        # Delete the VPN service on the NSX if no other service uses it
+        filters = {'router_id': [vpnservice['router_id']]}
+        services = self.vpn_plugin.get_vpnservices(
+            context.elevated(), filters=filters)
+        if not services:
+            srv_id = self._get_nsx_vpn_service(context, vpnservice)
+            if not srv_id:
+                return
+            try:
+                self._nsx_vpn.service.delete(srv_id)
+            except Exception as e:
+                LOG.error("Failed to delete VPN service %s: %s",
+                          srv_id, e)
+
     def _get_nsx_vpn_service(self, context, vpnservice):
         router_id = vpnservice['router_id']
         tier0_uuid = self._get_tier0_uuid(context, router_id)
-        return self._find_vpn_service(tier0_uuid)
+        return self._find_vpn_service(tier0_uuid, validate=False)
 
     def _get_service_local_address(self, context, vpnservice):
         """Find/Allocate a port on the external network
@@ -802,5 +817,4 @@ class NSXv3IPsecVpnDriver(service_drivers.VpnDriver):
                                          enabled=connection_enabled)
 
     def delete_vpnservice(self, context, vpnservice):
-        # Do not delete the NSX service or DB entry as those will be reused.
-        pass
+        self._delete_vpn_service_if_needed(context, vpnservice)
