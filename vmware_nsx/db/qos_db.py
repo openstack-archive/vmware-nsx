@@ -125,7 +125,8 @@ class QoSDbMixin(qos.QueuePluginBase):
             filters=filters, fields=fields)
 
     def _delete_network_queue_mapping(self, context, network_id):
-        query = self._model_query(context, nsx_models.NetworkQueueMapping)
+        query = model_query.query_with_hooks(
+            context, nsx_models.NetworkQueueMapping)
         with db_api.CONTEXT_WRITER.using(context):
             binding = query.filter_by(network_id=network_id).first()
             if binding:
