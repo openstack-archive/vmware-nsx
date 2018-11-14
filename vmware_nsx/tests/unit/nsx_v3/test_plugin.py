@@ -2229,6 +2229,12 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_add_and_remove_gateway()
 
+    def test__notify_gateway_port_ip_changed(self):
+        self.skipTest('not supported')
+
+    def test__notify_gateway_port_ip_not_changed(self):
+        self.skipTest('not supported')
+
     def test_floatingip_via_router_interface_returns_201(self):
         self.skipTest('not supported')
 

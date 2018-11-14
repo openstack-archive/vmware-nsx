@@ -2748,6 +2748,9 @@ class L3NatTestCaseBase(test_l3_plugin.L3NatTestCaseMixin):
     def test_router_add_interface_subnet_with_bad_tenant_returns_404(self):
         self.skipTest('TBD')
 
+    def test__notify_gateway_port_ip_changed(self):
+        self.skipTest('not supported')
+
     def test_router_add_interface_multiple_ipv6_subnets_same_net(self):
         """Test router-interface-add for multiple ipv6 subnets on a network.
 
