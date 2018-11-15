@@ -422,13 +422,10 @@ class NetworkGatewayMixin(networkgw.NetworkGatewayPluginBase):
                                page_reverse=None):
         marker_obj = db_utils.get_marker_obj(self,
             context, 'gateway_device', limit, marker)
-        return self._get_collection_query(context,
-                                          nsx_models.NetworkGatewayDevice,
-                                          filters=filters,
-                                          sorts=sorts,
-                                          limit=limit,
-                                          marker_obj=marker_obj,
-                                          page_reverse=page_reverse)
+        return model_query.get_collection_query(
+            context, nsx_models.NetworkGatewayDevice,
+            filters=filters, sorts=sorts, limit=limit,
+            marker_obj=marker_obj, page_reverse=page_reverse)
 
     def get_gateway_devices(self, context, filters=None, fields=None,
                             sorts=None, limit=None, marker=None,
