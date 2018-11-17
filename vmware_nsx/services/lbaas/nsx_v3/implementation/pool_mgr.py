@@ -78,8 +78,14 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         # --loadbalancer option. If listener is present, the virtual server
         # will be updated with the pool. Otherwise, just return. The binding
         # will be added later when the pool is associated with layer7 rule.
-        if pool['listener']:
-            listener_id = pool['listener']['id']
+        # NOTE(salv-orlando): Guard against accidental compat breakages
+        try:
+            listener = pool['listener'] or pool['listeners'][0]
+        except IndexError:
+            # If listeners is an empty list we hit this exception
+            listener = None
+        if listener:
+            listener_id = listener['id']
             binding = nsx_db.get_nsx_lbaas_listener_binding(
                 context.session, lb_id, listener_id)
             if binding:
