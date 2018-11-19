@@ -280,9 +280,8 @@ class TestQosNsxVNotification(test_plugin.NsxVPluginV2TestCase,
         with mock.patch('neutron.services.qos.qos_plugin.QoSPlugin.'
                         'get_policy',
                         return_value=_policy) as rules_mock,\
-            mock.patch('neutron.objects.qos.policy.'
-                       'QosPolicy.get_object',
-                       return_value=_policy),\
+            mock.patch.object(QosPolicy, 'get_object',
+                              return_value=_policy),\
             mock.patch.object(self.ctxt.session, 'expunge'):
             # create the network to use this policy
             net = self._create_net()

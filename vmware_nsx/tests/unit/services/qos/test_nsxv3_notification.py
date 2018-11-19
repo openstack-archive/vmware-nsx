@@ -94,9 +94,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
 
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
 
-    @mock.patch(
-        'neutron.objects.rbac_db.RbacNeutronDbObjectMixin'
-        '.create_rbac_policy')
+    @mock.patch.object(QoSPolicy, 'create_rbac_policy')
     @mock.patch.object(nsx_db, 'add_qos_policy_profile_mapping')
     def test_policy_create_profile(self, fake_db_add, fake_rbac_create):
         # test the switch profile creation when a QoS policy is created
@@ -121,9 +119,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
                     # verify that the policy->profile mapping entry was added
                     self.assertTrue(fake_db_add.called)
 
-    @mock.patch(
-        'neutron.objects.rbac_db.RbacNeutronDbObjectMixin'
-        '.create_rbac_policy')
+    @mock.patch.object(QoSPolicy, 'create_rbac_policy')
     def __test_policy_update_profile(self, *mocks):
         # test the switch profile update when a QoS policy is updated
         fields = base_object.get_updatable_fields(
