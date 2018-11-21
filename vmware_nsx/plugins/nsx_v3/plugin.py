@@ -28,9 +28,7 @@ from neutron_lib.api import faults
 from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
-from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import l3 as l3_exc
-from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
 from neutron_lib import rpc as n_rpc
@@ -2786,86 +2784,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                                 is_delete=True)
         super(NsxV3Plugin, self).delete_port(context, port_id)
 
-    def _update_port_preprocess_security(
-            self, context, port, id, updated_port, is_ens_tz_port,
-            validate_port_sec=True, direct_vnic_type=False):
-        delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
-            port)
-        has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
-        has_security_groups = self._check_update_has_security_groups(port)
-        delete_security_groups = self._check_update_deletes_security_groups(
-            port)
-
-        # populate port_security setting
-        port_data = port['port']
-        if psec.PORTSECURITY not in port_data:
-            updated_port[psec.PORTSECURITY] = \
-                self._get_port_security_binding(context, id)
-        has_ip = self._ip_on_port(updated_port)
-        # validate port security and allowed address pairs
-        if not updated_port[psec.PORTSECURITY]:
-            #  has address pairs in request
-            if has_addr_pairs:
-                raise addr_exc.AddressPairAndPortSecurityRequired()
-            elif not delete_addr_pairs:
-                # check if address pairs are in db
-                updated_port[addr_apidef.ADDRESS_PAIRS] = (
-                    self.get_allowed_address_pairs(context, id))
-                if updated_port[addr_apidef.ADDRESS_PAIRS]:
-                    raise addr_exc.AddressPairAndPortSecurityRequired()
-
-        if delete_addr_pairs or has_addr_pairs:
-            self._validate_ipv4_address_pairs(
-                updated_port[addr_apidef.ADDRESS_PAIRS])
-            # delete address pairs and read them in
-            self._delete_allowed_address_pairs(context, id)
-            self._process_create_allowed_address_pairs(
-                context, updated_port,
-                updated_port[addr_apidef.ADDRESS_PAIRS])
-
-        if updated_port[psec.PORTSECURITY] and psec.PORTSECURITY in port_data:
-            # No port security is allowed if the port belongs to an ENS TZ
-            if is_ens_tz_port and not self._ens_psec_supported():
-                raise nsx_exc.NsxENSPortSecurity()
-
-            # No port security is allowed if the port has a direct vnic type
-            if direct_vnic_type:
-                err_msg = _("Security features are not supported for "
-                            "ports with direct/direct-physical VNIC type")
-                raise n_exc.InvalidInput(error_message=err_msg)
-
-        # checks if security groups were updated adding/modifying
-        # security groups, port security is set and port has ip
-        provider_sgs_specified = self._provider_sgs_specified(updated_port)
-        if (validate_port_sec and
-            not (has_ip and updated_port[psec.PORTSECURITY])):
-            if has_security_groups or provider_sgs_specified:
-                LOG.error("Port has conflicting port security status and "
-                          "security groups")
-                raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
-            # Update did not have security groups passed in. Check
-            # that port does not have any security groups already on it.
-            filters = {'port_id': [id]}
-            security_groups = (
-                super(NsxV3Plugin, self)._get_port_security_group_bindings(
-                    context, filters)
-            )
-            if security_groups and not delete_security_groups:
-                raise psec_exc.PortSecurityPortHasSecurityGroup()
-
-        if delete_security_groups or has_security_groups:
-            # delete the port binding and read it with the new rules.
-            self._delete_port_security_group_bindings(context, id)
-            sgids = self._get_security_groups_on_port(context, port)
-            self._process_port_create_security_group(context, updated_port,
-                                                     sgids)
-
-        if psec.PORTSECURITY in port['port']:
-            self._process_port_port_security_update(
-                context, port['port'], updated_port)
-
-        return updated_port
-
     def _get_resource_type_for_device_id(self, device_owner, device_id):
         if device_owner in const.ROUTER_INTERFACE_OWNERS:
             return 'os-router-uuid'
@@ -3052,17 +2970,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return policy_id, profile_id
 
     def update_port(self, context, id, port):
-        switch_profile_ids = None
-
-        # Need to determine if we skip validations for port security.
-        # This is the edge case when the subnet is deleted.
-        validate_port_sec = True
-        fixed_ips = port['port'].get('fixed_ips', [])
-        for fixed_ip in fixed_ips:
-            if 'delete_subnet' in fixed_ip:
-                validate_port_sec = False
-                break
-
         with db_api.CONTEXT_WRITER.using(context):
             # get the original port, and keep it honest as it is later used
             # for notifications
@@ -3070,7 +2977,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._extend_get_port_dict_qos_and_binding(context, original_port)
             self._remove_provider_security_groups_from_list(original_port)
             port_data = port['port']
-
+            validate_port_sec = self._should_validate_port_sec_on_update_port(
+                port_data)
             nsx_lswitch_id, nsx_lport_id = nsx_db.get_nsx_switch_and_port_id(
                 context.session, id)
 
@@ -3159,25 +3067,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                               "changes on neutron")
                 with excutils.save_and_reraise_exception(reraise=False):
                     with db_api.CONTEXT_WRITER.using(context):
-                        super(NsxV3Plugin, self).update_port(
-                            context, id, {'port': original_port})
-
-                        # revert allowed address pairs
-                        if port_security:
-                            orig_pair = original_port.get(
-                                addr_apidef.ADDRESS_PAIRS)
-                            updated_pair = updated_port.get(
-                                addr_apidef.ADDRESS_PAIRS)
-                            if orig_pair != updated_pair:
-                                self._delete_allowed_address_pairs(context, id)
-                            if orig_pair:
-                                self._process_create_allowed_address_pairs(
-                                    context, original_port, orig_pair)
-
-                        if sec_grp_updated:
-                            self.update_security_group_on_port(
-                                context, id, {'port': original_port},
-                                updated_port, original_port)
+                        self._revert_neutron_port_update(
+                            context, id, original_port, updated_port,
+                            port_security, sec_grp_updated)
                     # NOTE(arosen): this is to translate between nsxlib
                     # exceptions and the plugin exceptions. This should be
                     # later refactored.
