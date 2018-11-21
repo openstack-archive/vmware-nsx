@@ -83,7 +83,6 @@ from vmware_nsx.plugins.nsx import utils as tvd_utils
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.common import utils as fwaas_utils
-from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v2
 from vmware_nsx.services.lbaas.nsx_v3.implementation import healthmonitor_mgr
 from vmware_nsx.services.lbaas.nsx_v3.implementation import l7policy_mgr
@@ -456,9 +455,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         return listener_mgr.stats_getter
 
     def _init_fwaas(self):
-        if fwaas_utils.is_fwaas_v1_plugin_enabled():
-            LOG.info("NSXv3 FWaaS v1 plugin enabled")
-            self.fwaas_callbacks = fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1()
         if fwaas_utils.is_fwaas_v2_plugin_enabled():
             LOG.info("NSXv3 FWaaS v2 plugin enabled")
             self.fwaas_callbacks = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2()
@@ -2500,7 +2496,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def update_router_firewall(self, context, router_id, from_fw=False):
         """Rewrite all the rules in the router edge firewall
 
-        This method should be called on FWaaS v1/v2 updates, and on router
+        This method should be called on FWaaS v2 updates, and on router
         interfaces changes.
         When FWaaS is disabled, there is no need to update the NSX router FW,
         as the default rule is allow-all.

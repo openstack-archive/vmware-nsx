@@ -23,12 +23,6 @@ except ImportError:
         as fwaas_constants
 
 
-def is_fwaas_v1_plugin_enabled():
-    fwaas_plugin = directory.get_plugin(fwaas_constants.FIREWALL)
-    if fwaas_plugin:
-        return True
-
-
 def is_fwaas_v2_plugin_enabled():
     fwaas_plugin = directory.get_plugin(fwaas_constants.FIREWALL_V2)
     if fwaas_plugin:

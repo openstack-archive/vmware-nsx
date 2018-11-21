@@ -84,21 +84,6 @@ lines to the policy.json file::
     "delete_flow_classifier": "rule:admin_only",
     "get_flow_classifier": "rule:admin_only"
 
-FWaaS (V1) Driver
-~~~~~~~~~~~~~~~~~
-
-Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
-
-    [[local|localrc]]
-    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
-    ENABLED_SERVICES+=,q-fwaas-v1
-    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
-
-    [[post-config|$NEUTRON_CONF]]
-    [fwaas]
-    enabled = True
-    driver = vmware_nsxv_edge
-
 Neutron dynamic routing plugin (bgp)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -196,22 +181,6 @@ Enable trunk service and configure following flags in ``local.conf``::
     # Trunk plugin NSX-T driver config
     ENABLED_SERVICES+=,q-trunk
     Q_SERVICE_PLUGIN_CLASSES+=,trunk
-
-FWaaS (V1) Driver
-~~~~~~~~~~~~~~~~~
-
-Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
-
-    [[local|localrc]]
-    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
-    ENABLED_SERVICES+=,q-fwaas
-    Q_SERVICE_PLUGIN_CLASSES+=,neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
-
-    [[post-config|$NEUTRON_CONF]]
-    [fwaas]
-    enabled = True
-    driver = vmware_nsxv3_edge_v1
-
 
 FWaaS (V2) Driver
 ~~~~~~~~~~~~~~~~~
@@ -327,23 +296,6 @@ Configure the service provider::
     [[post-config|$NEUTRON_CONF]]
     [DEFAULT]
     api_extensions_path = $DEST/neutron-lbaas/neutron_lbaas/extensions
-
-FWaaS (V1) Driver
-~~~~~~~~~~~~~~~~~
-
-Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
-
-    [[local|localrc]]
-    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
-    ENABLED_SERVICES+=,q-fwaas
-    Q_SERVICE_PLUGIN_CLASSES=vmware_nsxtvd_fwaasv1
-
-    [[post-config|$NEUTRON_CONF]]
-    [fwaas]
-    enabled = True
-    driver = vmware_nsxtvd_edge_v1
-    [DEFAULT]
-    api_extensions_path = $DEST/neutron-fwaas/neutron_fwaas/extensions
 
 
 FWaaS (V2) Driver

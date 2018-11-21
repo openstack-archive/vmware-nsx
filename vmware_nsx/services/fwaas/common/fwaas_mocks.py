@@ -16,7 +16,6 @@
 # This file contains FWaaS mocks, to allow the vmware nsx plugins to work when
 # FWaaS code does not exist, and FWaaS is not configured in neutron
 
-FIREWALL = 'FIREWALL'
 FIREWALL_V2 = 'FIREWALL_V2'
 
 
@@ -26,10 +25,6 @@ class L3WithFWaaS(object):
 
 
 class FwaasDriverBase(object):
-    pass
-
-
-class FirewallPlugin(object):
     pass
 
 
