@@ -12,7 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron.db import common_db_mixin as common_db
 from neutron.db import securitygroups_db
 from neutron_lib.callbacks import registry
 from neutron_lib import context as neutron_context
@@ -36,8 +35,7 @@ from vmware_nsxlib.v3 import security
 LOG = logging.getLogger(__name__)
 
 
-class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin,
-                              common_db.CommonDbMixin):
+class NeutronSecurityGroupApi(securitygroups_db.SecurityGroupDbMixin):
     def __init__(self):
         super(NeutronSecurityGroupApi, self)
         self.context = neutron_context.get_admin_context()
