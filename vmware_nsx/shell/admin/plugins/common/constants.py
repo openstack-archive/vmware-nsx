@@ -17,11 +17,13 @@ NEUTRON_CONF = '/etc/neutron/neutron.conf'
 NSX_INI = '/etc/neutron/plugins/vmware/nsx.ini'
 
 # NSX Plugin Constants
+NSXP_PLUGIN = 'vmware_nsx.plugin.NsxPolicyPlugin'
 NSXV3_PLUGIN = 'vmware_nsx.plugin.NsxV3Plugin'
 NSXV_PLUGIN = 'vmware_nsx.plugin.NsxVPlugin'
 NSXTVD_PLUGIN = 'vmware_nsx.plugin.NsxTVDPlugin'
 VMWARE_NSXV = 'vmware_nsxv'
 VMWARE_NSXV3 = 'vmware_nsxv3'
+VMWARE_NSXP = 'vmware_nsxp'
 VMWARE_NSXTVD = 'vmware_nsxtvd'
 
 # Common Resource Constants
