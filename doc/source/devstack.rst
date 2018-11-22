@@ -14,12 +14,11 @@ LBaaS v2 Driver
 Add lbaas repo as an external repository and configure following flags in ``local.conf``::
 
     [[local]|[localrc]]
-    enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
     enable_service q-lbaasv2
-    Q_SERVICE_PLUGIN_CLASSES=vmware_nsx_lbaasv2
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsx_lbaasv2
 
 Configure the service provider::
-    [[post-config|$NEUTRON_LBAAS_CONF]]
+    [[post-config|$NEUTRON_CONF]]
     [service_providers]
     service_provider = LOADBALANCERV2:VMWareEdge:neutron_lbaas.drivers.vmware.edge_driver_v2.EdgeLoadBalancerDriverV2:default
 
@@ -33,8 +32,8 @@ QoS Driver
 Enable the qos in ``local.conf``::
 
      [[local|localrc]]
-     ENABLED_SERVICES=q-qos
-     Q_SERVICE_PLUGIN_CLASSES=vmware_nsxv_qos
+     ENABLED_SERVICES+=,q-qos
+     Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxv_qos
      NSXV_USE_DVS_FEATURES = True
 
 Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
@@ -68,7 +67,7 @@ Update the ``local.conf`` file::
 
     [[local|localrc]]
     enable_plugin networking-sfc https://git.openstack.org/openstack/networking-sfc master
-    Q_SERVICE_PLUGIN_CLASSES=networking_sfc.services.flowclassifier.plugin.FlowClassifierPlugin
+    Q_SERVICE_PLUGIN_CLASSES+=,networking_sfc.services.flowclassifier.plugin.FlowClassifierPlugin
 
     [[post-config|$NEUTRON_CONF]]
     [flowclassifier]
@@ -134,7 +133,7 @@ Enable the qos in ``local.conf``::
 
     [[local|localrc]]
     ENABLED_SERVICES+=,q-qos
-    Q_SERVICE_PLUGIN_CLASSES=neutron.services.qos.qos_plugin.QoSPlugin
+    Q_SERVICE_PLUGIN_CLASSES+=,neutron.services.qos.qos_plugin.QoSPlugin
 
 Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
 
@@ -169,7 +168,7 @@ Enable trunk service and configure following flags in ``local.conf``::
     [[local]|[localrc]]
     # Trunk plugin NSX-T driver config
     ENABLED_SERVICES+=,q-trunk
-    Q_SERVICE_PLUGIN_CLASSES=trunk
+    Q_SERVICE_PLUGIN_CLASSES+=,trunk
 
 FWaaS (V1) Driver
 ~~~~~~~~~~~~~~~~~
@@ -179,7 +178,7 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [[local|localrc]]
     enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas
-    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
+    Q_SERVICE_PLUGIN_CLASSES+=,neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin
 
     [[post-config|$NEUTRON_CONF]]
     [fwaas]
@@ -193,9 +192,8 @@ FWaaS (V2) Driver
 Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
 
     [[local|localrc]]
-    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas-v2
-    Q_SERVICE_PLUGIN_CLASSES=neutron_fwaas.services.firewall.fwaas_plugin_v2.FirewallPluginV2
+    Q_SERVICE_PLUGIN_CLASSES+=,neutron_fwaas.services.firewall.fwaas_plugin_v2.FirewallPluginV2
 
     [[post-config|$NEUTRON_CONF]]
     [fwaas]
@@ -211,16 +209,14 @@ LBaaS v2 Driver
 Add lbaas repo as an external repository and configure following flags in ``local.conf``::
 
     [[local]|[localrc]]
-    enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
     enable_service q-lbaasv2
-    Q_SERVICE_PLUGIN_CLASSES=vmware_nsx_lbaasv2
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsx_lbaasv2
 
 Configure the service provider::
-    [[post-config|$NEUTRON_LBAAS_CONF]]
+    [[post-config|$NEUTRON_CONF]]
     [service_providers]
     service_provider = LOADBALANCERV2:VMWareEdge:neutron_lbaas.drivers.vmware.edge_driver_v2.EdgeLoadBalancerDriverV2:default
 
-    [[post-config|$NEUTRON_CONF]]
     [DEFAULT]
     api_extensions_path = $DEST/neutron-lbaas/neutron_lbaas/extensions
 
@@ -230,7 +226,6 @@ Neutron VPNaaS
 Add neutron-vpnaas repo as an external repository and configure following flags in ``local.conf``::
 
     [[local|localrc]]
-    enable_plugin neutron-vpnaas https://git.openstack.org/openstack/neutron-vpnaas
     NEUTRON_VPNAAS_SERVICE_PROVIDER=VPN:vmware:vmware_nsx.services.vpnaas.nsxv3.ipsec_driver.NSXv3IPsecVpnDriver:default
     Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsx_vpnaas
 
@@ -272,9 +267,8 @@ LBaaS v2 Driver
 Add lbaas repo as an external repository and configure following flags in ``local.conf``::
 
     [[local]|[localrc]]
-    enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
     enable_service q-lbaasv2
-    Q_SERVICE_PLUGIN_CLASSES=vmware_nsxtvd_lbaasv2
+    Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxtvd_lbaasv2
 
 Configure the service provider::
     [[post-config|$NEUTRON_LBAAS_CONF]]
@@ -309,7 +303,6 @@ FWaaS (V2) Driver
 Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
 
     [[local|localrc]]
-    enable_plugin neutron-fwaas https://git.openstack.org/openstack/neutron-fwaas
     ENABLED_SERVICES+=,q-fwaas-v2
     Q_SERVICE_PLUGIN_CLASSES+=,vmware_nsxtvd_fwaasv2
 
