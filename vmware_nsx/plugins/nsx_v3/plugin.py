@@ -1451,153 +1451,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     return False
         return True if count == 1 else False
 
-    def _enable_native_dhcp(self, context, network, subnet):
-        # Enable native DHCP service on the backend for this network.
-        # First create a Neutron DHCP port and use its assigned IP
-        # address as the DHCP server address in an API call to create a
-        # LogicalDhcpServer on the backend. Then create the corresponding
-        # logical port for the Neutron port with DHCP attachment as the
-        # LogicalDhcpServer UUID.
-
-        # Delete obsolete settings if exist. This could happen when a
-        # previous failed transaction was rolled back. But the backend
-        # entries are still there.
-        self._disable_native_dhcp(context, network['id'])
-
-        # Get existing ports on subnet.
-        existing_ports = super(NsxV3Plugin, self).get_ports(
-            context, filters={'network_id': [network['id']],
-                              'fixed_ips': {'subnet_id': [subnet['id']]}})
-        az = self.get_network_az_by_net_id(context, network['id'])
-        port_data = {
-            "name": "",
-            "admin_state_up": True,
-            "device_id": az._native_dhcp_profile_uuid,
-            "device_owner": const.DEVICE_OWNER_DHCP,
-            "network_id": network['id'],
-            "tenant_id": network["tenant_id"],
-            "mac_address": const.ATTR_NOT_SPECIFIED,
-            "fixed_ips": [{"subnet_id": subnet['id']}],
-            psec.PORTSECURITY: False
-        }
-        # Create the DHCP port (on neutron only) and update its port security
-        port = {'port': port_data}
-        neutron_port = super(NsxV3Plugin, self).create_port(context, port)
-        is_ens_tz_port = self._is_ens_tz_port(context, port_data)
-        self._create_port_preprocess_security(context, port, port_data,
-                                              neutron_port, is_ens_tz_port)
-
-        net_tags = self.nsxlib.build_v3_tags_payload(
-            network, resource_type='os-neutron-net-id',
-            project_name=context.tenant_name)
-        server_data = self.nsxlib.native_dhcp.build_server_config(
-            network, subnet, neutron_port, net_tags,
-            default_dns_nameservers=az.nameservers,
-            default_dns_domain=az.dns_domain)
-        server_data['dhcp_profile_id'] = az._native_dhcp_profile_uuid
-        nsx_net_id = self._get_network_nsx_id(context, network['id'])
-        port_tags = self.nsxlib.build_v3_tags_payload(
-            neutron_port, resource_type='os-neutron-dport-id',
-            project_name=context.tenant_name)
-        dhcp_server = None
-        dhcp_port_profiles = []
-        if (not self._is_ens_tz_net(context, network['id']) and
-            not cfg.CONF.nsx_v3.native_dhcp_metadata):
-            dhcp_port_profiles.append(self._dhcp_profile)
-        try:
-            dhcp_server = self.nsxlib.dhcp_server.create(**server_data)
-            LOG.debug("Created logical DHCP server %(server)s for network "
-                      "%(network)s",
-                      {'server': dhcp_server['id'], 'network': network['id']})
-            name = self._build_port_name(context, port_data)
-            nsx_port = self.nsxlib.logical_port.create(
-                nsx_net_id, dhcp_server['id'], tags=port_tags, name=name,
-                attachment_type=nsxlib_consts.ATTACHMENT_DHCP,
-                switch_profile_ids=dhcp_port_profiles)
-            LOG.debug("Created DHCP logical port %(port)s for "
-                      "network %(network)s",
-                      {'port': nsx_port['id'], 'network': network['id']})
-        except nsx_lib_exc.ManagerError:
-            with excutils.save_and_reraise_exception():
-                LOG.error("Unable to create logical DHCP server for "
-                          "network %s", network['id'])
-                if dhcp_server:
-                    self.nsxlib.dhcp_server.delete(dhcp_server['id'])
-                super(NsxV3Plugin, self).delete_port(
-                    context, neutron_port['id'])
-
-        try:
-            # Add neutron_port_id -> nsx_port_id mapping to the DB.
-            nsx_db.add_neutron_nsx_port_mapping(
-                context.session, neutron_port['id'], nsx_net_id,
-                nsx_port['id'])
-            # Add neutron_net_id -> dhcp_service_id mapping to the DB.
-            nsx_db.add_neutron_nsx_service_binding(
-                context.session, network['id'], neutron_port['id'],
-                nsxlib_consts.SERVICE_DHCP, dhcp_server['id'])
-        except (db_exc.DBError, sql_exc.TimeoutError):
-            with excutils.save_and_reraise_exception():
-                LOG.error("Failed to create mapping for DHCP port %s,"
-                          "deleting port and logical DHCP server",
-                          neutron_port['id'])
-                self.nsxlib.dhcp_server.delete(dhcp_server['id'])
-                self._cleanup_port(context, neutron_port['id'], nsx_port['id'])
-
-        # Configure existing ports to work with the new DHCP server
-        try:
-            for port_data in existing_ports:
-                self._add_dhcp_binding(context, port_data)
-        except Exception:
-            LOG.error('Unable to create DHCP bindings for existing ports '
-                      'on subnet %s', subnet['id'])
-
-    def _disable_native_dhcp(self, context, network_id):
-        # Disable native DHCP service on the backend for this network.
-        # First delete the DHCP port in this network. Then delete the
-        # corresponding LogicalDhcpServer for this network.
-        dhcp_service = nsx_db.get_nsx_service_binding(
-            context.session, network_id, nsxlib_consts.SERVICE_DHCP)
-        if not dhcp_service:
-            return
-
-        if dhcp_service['port_id']:
-            try:
-                self.delete_port(context, dhcp_service['port_id'],
-                                 force_delete_dhcp=True)
-            except nsx_lib_exc.ResourceNotFound:
-                # This could happen when the port has been manually deleted.
-                LOG.error("Failed to delete DHCP port %(port)s for "
-                          "network %(network)s",
-                          {'port': dhcp_service['port_id'],
-                           'network': network_id})
-        else:
-            LOG.error("DHCP port is not configured for network %s",
-                      network_id)
-
-        try:
-            self.nsxlib.dhcp_server.delete(dhcp_service['nsx_service_id'])
-            LOG.debug("Deleted logical DHCP server %(server)s for network "
-                      "%(network)s",
-                      {'server': dhcp_service['nsx_service_id'],
-                       'network': network_id})
-        except nsx_lib_exc.ManagerError:
-            with excutils.save_and_reraise_exception():
-                LOG.error("Unable to delete logical DHCP server %(server)s "
-                          "for network %(network)s",
-                          {'server': dhcp_service['nsx_service_id'],
-                           'network': network_id})
-        try:
-            # Delete neutron_id -> dhcp_service_id mapping from the DB.
-            nsx_db.delete_neutron_nsx_service_binding(
-                context.session, network_id, nsxlib_consts.SERVICE_DHCP)
-            # Delete all DHCP bindings under this DHCP server from the DB.
-            nsx_db.delete_neutron_nsx_dhcp_bindings_by_service_id(
-                context.session, dhcp_service['nsx_service_id'])
-        except db_exc.DBError:
-            with excutils.save_and_reraise_exception():
-                LOG.error("Unable to delete DHCP server mapping for "
-                          "network %s", network_id)
-
     def _validate_address_space(self, context, subnet):
         # Only working for IPv4 at the moment
         if (subnet['ip_version'] != 4):
@@ -2174,6 +2027,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Check the host-switch-mode of the TZ connected to the ports network
         return self._is_ens_tz_net(context, port_data['network_id'])
 
+    def _has_native_dhcp_metadata(self):
+        return cfg.CONF.nsx_v3.native_dhcp_metadata
+
     def _assert_on_dhcp_relay_without_router(self, context, port_data,
                                              original_port=None):
         # Prevent creating/updating port with device owner prefix 'compute'
@@ -2219,11 +2075,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         "connected to the subnet")
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
-
-    def _cleanup_port(self, context, port_id, lport_id):
-        super(NsxV3Plugin, self).delete_port(context, port_id)
-        if lport_id:
-            self.nsxlib.logical_port.delete(lport_id)
 
     def _assert_on_port_admin_state(self, port_data, device_owner):
         """Do not allow changing the admin state of some ports"""
