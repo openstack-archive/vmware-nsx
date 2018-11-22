@@ -1921,8 +1921,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                             oct_const.DEVICE_OWNER_OCTAVIA]:
             orig_state = original_port.get("admin_state_up")
             new_state = port_data.get("admin_state_up")
-            if new_state is not None and (orig_state != new_state) and (
-                    orig_state and not new_state):
+            if new_state is not None and (orig_state != new_state):
                 err_msg = _("Changing admin_state for "
                             "loadbalancer's internal port is not supported")
                 LOG.warning(err_msg)
