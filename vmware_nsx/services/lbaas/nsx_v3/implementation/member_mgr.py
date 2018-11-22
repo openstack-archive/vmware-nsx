@@ -153,8 +153,9 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                                                          router_id)
                 lb_service = service_client.get_router_lb_service(
                     nsx_router_id)
-                virtual_server_ids = (lb_service and
-                                      lb_service.get('virtual_server_ids', []))
+                virtual_server_ids = (
+                    lb_service and
+                    lb_service.get('virtual_server_ids', []) or [])
                 if not lb_service:
                     lb_size = lb_utils.get_lb_flavor_size(
                         self.flavor_plugin, context,
@@ -190,7 +191,7 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             # member has been added to the pool. This allows us to skip this
             # check if there is already a member in the pool
             if vs_id and not old_m:
-                # load the LB service is not already loaded
+                # load the LB service if not already loaded
                 if not lb_service:
                     nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                              router_id)
