@@ -320,7 +320,7 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
             network_id = (gw_info.get('network_id') if gw_info
                           else None)
             if network_id:
-                ext_net = self._get_network(context.elevated(), network_id)
+                ext_net = self._get_network(context, network_id)
                 if not ext_net.external:
                     msg = (_("Network '%s' is not a valid external network") %
                            network_id)
