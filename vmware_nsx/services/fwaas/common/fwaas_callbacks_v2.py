@@ -1,4 +1,4 @@
-# Copyright 2017 VMware, Inc.
+# Copyright 2018 VMware, Inc.
 # All Rights Reserved
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -48,22 +48,20 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
         neutron_conf.agent_mode = 'nsx'
         super(NsxFwaasCallbacksV2, self).__init__(conf=neutron_conf)
         self.agent_api = DummyAgentApi()
-        self._core_plugin = None
+        self.core_plugin = self._get_core_plugin()
 
     @property
     def plugin_type(self):
         pass
 
-    @property
-    def core_plugin(self):
-        """Get the NSX-V3 core plugin"""
-        if not self._core_plugin:
-            self._core_plugin = directory.get_plugin()
-            if self._core_plugin.is_tvd_plugin():
-                # get the plugin that match this driver
-                self._core_plugin = self._core_plugin.get_plugin_by_type(
-                    self.plugin_type)
-        return self._core_plugin
+    def _get_core_plugin(self):
+        """Get the NSX core plugin"""
+        core_plugin = directory.get_plugin()
+        if core_plugin.is_tvd_plugin():
+            # get the plugin that match this driver
+            core_plugin = core_plugin.get_plugin_by_type(
+                self.plugin_type)
+        return core_plugin
 
     # Override functions using the agent_api that is not used by our plugin
     def _get_firewall_group_ports(self, context, firewall_group,
@@ -203,3 +201,33 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
             port_id=port_id).first()
         if entry:
             return entry.firewall_group_id
+
+    def should_apply_firewall_to_router(self, context, router_id):
+        """Return True if there are FWaaS rules that are attached to an
+        interface of the given router.
+        """
+        if not self.fwaas_enabled:
+            return False
+
+        ctx = context.elevated()
+        router_interfaces = self.core_plugin._get_router_interfaces(
+            ctx, router_id)
+        for port in router_interfaces:
+            fwg_id = self._get_port_firewall_group_id(ctx, port['id'])
+            if fwg_id:
+                # check the state of this firewall group
+                fwg = self._get_fw_group_from_plugin(ctx, fwg_id)
+                if fwg is not None:
+                    if fwg.get('status') not in (nl_constants.ERROR,
+                                                 nl_constants.PENDING_DELETE):
+                        # Found a router interface port with rules
+                        return True
+        return False
+
+    def delete_port(self, context, port_id):
+        # Mark the FW group as inactive if this is the last port
+        fwg = self.get_port_fwg(context, port_id)
+        if (fwg and fwg.get('status') == nl_constants.ACTIVE and
+            len(fwg.get('ports', [])) <= 1):
+            self.fwplugin_rpc.set_firewall_group_status(
+                context, fwg['id'], nl_constants.INACTIVE)

@@ -23,27 +23,21 @@ from neutron_lib.plugins import directory
 from oslo_log import log as logging
 
 from vmware_nsx.extensions import projectpluginmap
+from vmware_nsx.services.fwaas.common import fwaas_driver_base
 from vmware_nsxlib.v3 import nsx_constants as consts
 
 LOG = logging.getLogger(__name__)
 RULE_NAME_PREFIX = 'Fwaas-'
 DEFAULT_RULE_NAME = 'Default LR Layer3 Rule'
 
-try:
-    from neutron_fwaas.services.firewall.service_drivers.agents.drivers \
-        import fwaas_base
-except ImportError:
-    # FWaaS project no found
-    from vmware_nsx.services.fwaas.common import fwaas_mocks \
-        as fwaas_base
 
-
-class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
+#TODO(asarfaty): this base class now serves only 1 driver and can be merged
+# with it
+class CommonEdgeFwaasV3Driver(fwaas_driver_base.EdgeFwaasDriverBaseV2):
     """Base class for NSX-V3 driver for Firewall As A Service - V1 & V2."""
 
     def __init__(self, driver_exception, driver_name):
-        super(CommonEdgeFwaasV3Driver, self).__init__()
-        self.driver_name = driver_name
+        super(CommonEdgeFwaasV3Driver, self).__init__(driver_name)
         self.backend_support = True
         self.driver_exception = driver_exception
         registry.subscribe(
@@ -139,7 +133,8 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
             cidr,
             consts.IPV6 if net.version == 6 else consts.IPV4)
 
-    def translate_addresses_to_target(self, cidrs, fwaas_rule_id=None):
+    def translate_addresses_to_target(self, cidrs, plugin_type,
+                                      fwaas_rule_id=None):
         translated_cidrs = []
         for ip in cidrs:
             res = self._translate_cidr(ip, fwaas_rule_id)

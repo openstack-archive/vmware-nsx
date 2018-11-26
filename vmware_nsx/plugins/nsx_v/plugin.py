@@ -144,6 +144,8 @@ from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 from vmware_nsx.services.flowclassifier.nsx_v import utils as fc_utils
+from vmware_nsx.services.fwaas.common import utils as fwaas_utils
+from vmware_nsx.services.fwaas.nsx_v import fwaas_callbacks_v2
 from vmware_nsx.services.lbaas.nsx_v.implementation import healthmon_mgr
 from vmware_nsx.services.lbaas.nsx_v.implementation import l7policy_mgr
 from vmware_nsx.services.lbaas.nsx_v.implementation import l7rule_mgr
@@ -329,9 +331,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # Make sure starting rpc listeners (for QoS and other agents)
         # will happen only once
         self.start_rpc_listeners_called = False
-
-        # Init the FWaaS support
-        self._init_fwaas()
+        self.fwaas_callbacks = None
 
         # Service insertion driver register
         self._si_handler = fc_utils.NsxvServiceInsertionHandler(self)
@@ -411,6 +411,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 octavia_objects = self._get_octavia_objects()
                 self.octavia_listener = octavia_listener.NSXOctaviaListener(
                     **octavia_objects)
+
+            # Init the FWaaS support
+            self._init_fwaas()
 
             self.init_is_complete = True
 
@@ -497,8 +500,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _init_fwaas(self):
         # Bind FWaaS callbacks to the driver
-        #TODO(asarfaty): waiting for FWaaS v2 support
-        self.fwaas_callbacks = None
+        if fwaas_utils.is_fwaas_v2_plugin_enabled():
+            LOG.info("NSXv FWaaS v2 plugin enabled")
+            self.fwaas_callbacks = fwaas_callbacks_v2.NsxvFwaasCallbacksV2()
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
@@ -3913,9 +3917,29 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, router_id, interface_info)
 
     def remove_router_interface(self, context, router_id, interface_info):
+        # Get the router interface port id
+        if self.fwaas_callbacks:
+            port_id = interface_info.get('port_id')
+            if not port_id:
+                subnet_id = interface_info['subnet_id']
+                subnet = self._get_subnet(context, subnet_id)
+                rport_qry = context.session.query(models_v2.Port)
+                ports = rport_qry.filter_by(
+                    device_id=router_id,
+                    device_owner=l3_db.DEVICE_OWNER_ROUTER_INTF,
+                    network_id=subnet['network_id'])
+                for p in ports:
+                    if p['fixed_ips'][0]['subnet_id'] == subnet_id:
+                        port_id = p['id']
+                        break
+
         router_driver = self._find_router_driver(context, router_id)
-        return router_driver.remove_router_interface(
+        result = router_driver.remove_router_interface(
             context, router_id, interface_info)
+        # inform the FWaaS that interface port was removed
+        if self.fwaas_callbacks and port_id:
+            self.fwaas_callbacks.delete_port(context, port_id)
+        return result
 
     def _get_floatingips_by_router(self, context, router_id):
         fip_qry = context.session.query(l3_db_models.FloatingIP)
@@ -4015,35 +4039,22 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         router_db is the neutron router structure
         router_id is the id of the actual router that will be updated on
         the NSX (in case of distributed router it can be plr or tlr)
+
+        This is just a wrapper of update_router_firewall
         """
         if not router_id:
             router_id = router_db['id']
 
-        # Add fw rules if FWaaS is enabled
-        # in case of a distributed-router:
-        # router['id'] is the id of the neutron router (=tlr)
-        # and router_id is the plr/tlr (the one that is being updated)
-        fwaas_rules = None
-        if (self.fwaas_callbacks and
-            self.fwaas_callbacks.should_apply_firewall_to_router(
-                context, router_db, router_id)):
-            fwaas_rules = self.fwaas_callbacks.get_fwaas_rules_for_router(
-                context, router_db['id'])
+        self.update_router_firewall(context, router_id, router_db)
 
-        self.update_router_firewall(context, router_id, router_db,
-                                    fwaas_rules=fwaas_rules)
-
-    def update_router_firewall(self, context, router_id, router_db,
-                               fwaas_rules=None):
+    def update_router_firewall(self, context, router_id, router_db):
         """Recreate all rules in the router edge firewall
 
         router_db is the neutron router structure
         router_id is the id of the actual router that will be updated on
         the NSX (in case of distributed router it can be plr or tlr)
-        if fwaas_rules is not none - this router is attached to a firewall
         """
         fw_rules = []
-        router_with_firewall = True if fwaas_rules is not None else False
         edge_id = self._get_edge_id_by_rtr_id(context, router_id)
 
         # Add FW rule/s to open subnets firewall flows and static routes
@@ -4056,33 +4067,41 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         if self.metadata_proxy_handler:
             fw_rules += nsx_v_md_proxy.get_router_fw_rules()
 
-        # Add FWaaS rules
-        if router_with_firewall and fwaas_rules:
-            fw_rules += fwaas_rules
+        # Add FWaaS rules if FWaaS is enabled
+        if (self.fwaas_callbacks and
+            self.fwaas_callbacks.should_apply_firewall_to_router(
+                context, router_db, router_id)):
+            fwaas_rules = self.fwaas_callbacks.get_fwaas_rules_for_router(
+                context, router_db['id'], edge_id)
+            if fwaas_rules:
+                fw_rules += fwaas_rules
 
-        if not router_with_firewall:
-            dnat_rule = self._get_dnat_fw_rule(context, router_db)
-            if dnat_rule:
-                fw_rules.append(dnat_rule)
+        # The rules added from here forward are relevant only for interface
+        # ports without fwaas firewall group
+        # To allow this traffic on interfaces with firewall group, the user
+        # should add specific rules.
+        dnat_rule = self._get_dnat_fw_rule(context, router_db)
+        if dnat_rule:
+            fw_rules.append(dnat_rule)
 
-            # Add rule for not NAT-ed allocation pools
-            alloc_pool_rule = self._get_allocation_pools_fw_rule(
-                context, router_db)
-            if alloc_pool_rule:
-                fw_rules.append(alloc_pool_rule)
+        # Add rule for not NAT-ed allocation pools
+        alloc_pool_rule = self._get_allocation_pools_fw_rule(
+            context, router_db)
+        if alloc_pool_rule:
+            fw_rules.append(alloc_pool_rule)
 
-            # Add no-snat rules
-            nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
-                context, router_db)
-            fw_rules.extend(nosnat_fw_rules)
+        # Add no-snat rules
+        nosnat_fw_rules = self._get_nosnat_subnets_fw_rules(
+            context, router_db)
+        fw_rules.extend(nosnat_fw_rules)
 
-            vpn_plugin = directory.get_plugin(plugin_const.VPN)
-            if vpn_plugin:
-                vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
-                vpn_rules = (
-                    vpn_driver._generate_ipsecvpn_firewall_rules(
-                        self.plugin_type(), context, edge_id=edge_id))
-                fw_rules.extend(vpn_rules)
+        vpn_plugin = directory.get_plugin(plugin_const.VPN)
+        if vpn_plugin:
+            vpn_driver = vpn_plugin.drivers[vpn_plugin.default_provider]
+            vpn_rules = (
+                vpn_driver._generate_ipsecvpn_firewall_rules(
+                    self.plugin_type(), context, edge_id=edge_id))
+            fw_rules.extend(vpn_rules)
 
         # Get the load balancer rules in case they are refreshed
         # (relevant only for older LB that are still on the router edge)
@@ -4102,11 +4121,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
         fw = {'firewall_rule_list': fw_rules}
         try:
-            # If we have a firewall we shouldn't add the default
-            # allow-external rule
-            allow_external = False if router_with_firewall else True
-            edge_utils.update_firewall(self.nsx_v, context, router_id, fw,
-                                       allow_external=allow_external)
+            edge_utils.update_firewall(self.nsx_v, context, router_id, fw)
         except vsh_exc.ResourceNotFound:
             LOG.error("Failed to update firewall for router %s",
                       router_id)

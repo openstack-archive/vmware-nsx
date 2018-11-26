@@ -20,6 +20,7 @@ from neutron_lib.exceptions import firewall_v2 as exceptions
 
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx import utils as tvd_utils
+from vmware_nsx.services.fwaas.nsx_v import edge_fwaas_driver_v2 as v_driver
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_v2 as t_driver
 
 LOG = logging.getLogger(__name__)
@@ -36,15 +37,13 @@ except ImportError:
 
 class EdgeFwaasTVDriverV2(fwaas_base_v2.FwaasDriverBase):
     """NSX-TV driver for Firewall As A Service - V2.
-
-    This driver is just a wrapper calling the relevant nsx-v3 driver
     """
 
     def __init__(self):
         super(EdgeFwaasTVDriverV2, self).__init__()
         self.driver_name = FWAAS_DRIVER_NAME
 
-        # supported drivers (Only NSX-T):
+        # supported drivers:
         self.drivers = {}
         try:
             self.drivers[projectpluginmap.NsxPlugins.NSX_T] = (
@@ -53,9 +52,19 @@ class EdgeFwaasTVDriverV2(fwaas_base_v2.FwaasDriverBase):
             LOG.warning("EdgeFwaasTVDriverV2 failed to initialize the NSX-T "
                         "driver")
             self.drivers[projectpluginmap.NsxPlugins.NSX_T] = None
+        try:
+            self.drivers[projectpluginmap.NsxPlugins.NSX_V] = (
+                v_driver.EdgeFwaasVDriverV2())
+        except Exception:
+            LOG.warning("EdgeFwaasTVDriverV2 failed to initialize the NSX-V "
+                        "driver")
+            self.drivers[projectpluginmap.NsxPlugins.NSX_V] = None
 
     def get_T_driver(self):
         return self.drivers[projectpluginmap.NsxPlugins.NSX_T]
+
+    def get_V_driver(self):
+        return self.drivers[projectpluginmap.NsxPlugins.NSX_V]
 
     def _get_driver_for_project(self, project):
         plugin_type = tvd_utils.get_tvd_plugin_type_for_project(project)
@@ -87,8 +96,12 @@ class EdgeFwaasTVDriverV2(fwaas_base_v2.FwaasDriverBase):
         d = self._get_driver_for_project(firewall_group['tenant_id'])
         return d.apply_default_policy(agent_mode, apply_list, firewall_group)
 
-    def translate_addresses_to_target(self, cidrs, fwaas_rule_id=None):
+    def translate_addresses_to_target(self, cidrs, plugin_type,
+                                      fwaas_rule_id=None):
         # This api is called directly from the core plugin
-        # Assuming nsx-T as it is the only one supported now.
-        return self.get_T_driver().translate_addresses_to_target(
-            cidrs, fwaas_rule_id=fwaas_rule_id)
+        if not self.drivers.get(plugin_type):
+            LOG.error("%s has no support for plugin %s",
+                      self.driver_name, plugin_type)
+        else:
+            return self.drivers[plugin_type].translate_addresses_to_target(
+                cidrs, fwaas_rule_id=fwaas_rule_id)
