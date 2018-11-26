@@ -42,7 +42,7 @@ class LoadBalancerNSXPluginV2(plugin.LoadBalancerPluginv2):
         driver_obj = driver.load_balancer.lbv2_driver
 
         # Get the current statuses from the driver
-        lb_statuses = driver_obj.loadbalancer.implementor.get_operating_status(
+        lb_statuses = driver_obj.loadbalancer.get_operating_status(
             context, loadbalancer_id, with_members=with_members)
         if not lb_statuses:
             return
