@@ -21,6 +21,7 @@ from neutron.db import models_v2
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib.db import api as db_api
+from neutron_lib.db import model_query
 from neutron_lib import exceptions as n_exc
 from oslo_log import log as logging
 
@@ -547,7 +548,7 @@ class RouterSharedDriver(router_driver.RouterBaseDriver):
         gw_ports_filter = {'network_id': conflict_ext_net_ids,
                            'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW]}
         ports_qry = context.session.query(models_v2.Port)
-        gw_ports = self.plugin._apply_filters_to_query(
+        gw_ports = model_query.apply_filters(
             ports_qry, models_v2.Port, gw_ports_filter).all()
         return list(set([gw_port['device_id'] for gw_port in gw_ports]))
 
