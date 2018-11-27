@@ -59,6 +59,7 @@ class Operations(enum.Enum):
     MIGRATE_TO_DYNAMIC_CRITERIA = 'migrate-to-dynamic-criteria'
     NSX_MIGRATE_V_V3 = 'nsx-migrate-v-v3'
     MIGRATE_TO_POLICY = 'migrate-to-policy'
+    LIST_POLICIES = 'list-policies'
     UPDATE_LOGGING = 'update-logging'
     NSX_MIGRATE_EXCLUDE_PORTS = 'migrate-exclude-ports'
     MIGRATE_VDR_DHCP = 'migrate-vdr-dhcp'
@@ -193,6 +194,7 @@ nsxv_resources = {
                                         [Operations.LIST.value,
                                          Operations.FIX_MISMATCH.value,
                                          Operations.MIGRATE_TO_POLICY.value,
+                                         Operations.LIST_POLICIES.value,
                                          Operations.UPDATE_LOGGING.value]),
     constants.FIREWALL_NSX_GROUPS: Resource(
         constants.FIREWALL_NSX_GROUPS, [Operations.LIST.value,

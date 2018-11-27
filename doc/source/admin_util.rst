@@ -245,6 +245,10 @@ Security Groups, Firewall and Spoofguard
 
     nsxadmin -r firewall-sections -o nsx-reorder
 
+- List NSX service composer policies, that can be used in security groups::
+
+    nsxadmin -r firewall-sections -o list-policies
+
 - Update the default cluster section::
 
     nsxadmin -r firewall-sections -o nsx-update

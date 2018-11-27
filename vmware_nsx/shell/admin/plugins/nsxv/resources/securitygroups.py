@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import operator
 import re
 import xml.etree.ElementTree as et
 
@@ -377,6 +378,18 @@ def fix_security_groups(resource, event, trigger, **kwargs):
 
 
 @admin_utils.output_header
+def list_policies(resource, event, trigger, **kwargs):
+    """List nsx service composer policies"""
+    context = n_context.get_admin_context()
+    with utils.NsxVPluginWrapper() as plugin:
+        policies = plugin.get_nsx_policies(context)
+
+    policies.sort(key=operator.itemgetter('id'))
+    _log_info("NSX service composer policies:", policies,
+              attrs=['id', 'name', 'description'])
+
+
+@admin_utils.output_header
 def migrate_sg_to_policy(resource, event, trigger, **kwargs):
     """Change the mode of a security group from rules to NSX policy"""
     if not kwargs.get('property'):
@@ -525,6 +538,10 @@ registry.subscribe(update_security_groups_logging,
 registry.subscribe(migrate_sg_to_policy,
                    constants.SECURITY_GROUPS,
                    shell.Operations.MIGRATE_TO_POLICY.value)
+
+registry.subscribe(list_policies,
+                   constants.SECURITY_GROUPS,
+                   shell.Operations.LIST_POLICIES.value)
 
 registry.subscribe(reorder_firewall_sections,
                    constants.FIREWALL_SECTIONS,
