@@ -55,7 +55,7 @@ class OctaviaTVDWrapper(object):
         return manager.delete(context, obj, completor, **args)
 
 
-def stats_getter(context, core_plugin):
+def stats_getter(context, core_plugin, ignore_list=None):
     """Call stats of both plugins"""
     for plugin_type in [projectpluginmap.NsxPlugins.NSX_V,
                         projectpluginmap.NsxPlugins.NSX_T]:
