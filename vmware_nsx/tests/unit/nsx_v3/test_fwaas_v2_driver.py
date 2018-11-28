@@ -106,8 +106,15 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
 
         return [rule1, rule2, rule3, rule4]
 
-    def _fake_translated_rules(self, nsx_port_id, is_ingress=True,
-                               logged=False):
+    def _translated_cidr(self, cidr):
+        if cidr is None:
+            return []
+        else:
+            return [{'target_id': cidr,
+                     'target_type': 'IPv4Address'}]
+
+    def _fake_translated_rules(self, nsx_port_id, cidr='10.24.4.0/24',
+                               is_ingress=True, logged=False):
         # The expected translation of the rules in _fake_rules_v4
         service1 = {'l4_protocol': 'TCP',
                     'resource_type': 'L4PortSetNSService',
@@ -115,8 +122,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                     'source_ports': []}
         rule1 = {'action': 'ALLOW',
                  'services': [{'service': service1}],
-                 'sources': [{'target_id': '10.24.4.0/24',
-                              'target_type': 'IPv4Address'}],
+                 'sources': self._translated_cidr(cidr),
                  'display_name': 'Fwaas-fake-fw-rule1',
                  'notes': 'first rule'}
         if not is_ingress:
@@ -298,10 +304,27 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
             mock.patch("vmware_nsx.db.db.get_nsx_switch_and_port_id",
-                       return_value=(FAKE_NSX_LS_ID, 0)):
-            self.assertRaises(exceptions.FirewallInternalDriverError,
-                              self.firewall.create_firewall_group, 'nsx',
-                              apply_list, firewall)
+                       return_value=(FAKE_NSX_LS_ID, 0)),\
+            mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
+                       "update") as update_fw:
+            self.firewall.create_firewall_group('nsx', apply_list, firewall)
+            expected_rules = self._fake_translated_rules(
+                FAKE_NSX_LS_ID, cidr=None) + [
+                {'display_name': "Block port ingress",
+                 'action': consts.FW_ACTION_DROP,
+                 'destinations': [{'target_type': 'LogicalSwitch',
+                                   'target_id': FAKE_NSX_LS_ID}],
+                 'direction': 'IN'},
+                {'display_name': "Block port egress",
+                 'action': consts.FW_ACTION_DROP,
+                 'sources': [{'target_type': 'LogicalSwitch',
+                              'target_id': FAKE_NSX_LS_ID}],
+                 'direction': 'OUT'},
+                self._default_rule()
+            ]
+            update_fw.assert_called_once_with(
+                MOCK_SECTION_ID,
+                rules=expected_rules)
 
     def test_delete_firewall(self):
         apply_list = self._fake_apply_list()
