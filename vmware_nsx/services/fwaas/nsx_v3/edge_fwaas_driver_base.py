@@ -116,16 +116,21 @@ class CommonEdgeFwaasV3Driver(fwaas_base.FwaasDriverBase):
 
     def _translate_cidr(self, cidr, fwaas_rule_id):
         if cidr and cidr.startswith('0.0.0.0/'):
-            LOG.error("Unsupported FWAAS cidr %(cidr)s for rule %(id)s", {
+            LOG.warning("Unsupported FWAAS cidr %(cidr)s for rule %(id)s", {
                 'cidr': cidr, 'id': fwaas_rule_id})
-            raise self.driver_exception(driver=self.driver_name)
+            return
 
         return self.nsx_firewall.get_ip_cidr_reference(
             cidr,
             consts.IPV6 if netaddr.valid_ipv6(cidr) else consts.IPV4)
 
     def translate_addresses_to_target(self, cidrs, fwaas_rule_id=None):
-        return [self._translate_cidr(ip, fwaas_rule_id) for ip in cidrs]
+        translated_cidrs = []
+        for ip in cidrs:
+            res = self._translate_cidr(ip, fwaas_rule_id)
+            if res:
+                translated_cidrs.append(res)
+        return translated_cidrs
 
     @staticmethod
     def _translate_protocol(fwaas_protocol):
