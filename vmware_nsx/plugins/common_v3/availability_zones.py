@@ -85,6 +85,10 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if nameservers:
             self.nameservers = nameservers
 
+        dhcp_relay_service = az_info.get('dhcp_relay_service')
+        if dhcp_relay_service:
+            self.dhcp_relay_service = dhcp_relay_service
+
     def init_defaults(self):
         # Should be implemented by children
         pass

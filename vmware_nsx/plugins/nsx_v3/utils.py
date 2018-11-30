@@ -138,7 +138,7 @@ def get_client_cert_provider(conf_path=cfg.CONF.nsx_v3):
 
 
 def get_nsxlib_wrapper(nsx_username=None, nsx_password=None, basic_auth=False,
-                       plugin_conf=None):
+                       plugin_conf=None, allow_overwrite_header=False):
     client_cert_provider = None
     if not basic_auth:
         # if basic auth requested, dont use cert file even if provided
@@ -164,7 +164,8 @@ def get_nsxlib_wrapper(nsx_username=None, nsx_password=None, basic_auth=False,
         plugin_tag=NSX_NEUTRON_PLUGIN,
         plugin_ver=n_version.version_info.release_string(),
         dns_nameservers=cfg.CONF.nsx_v3.nameservers,
-        dns_domain=cfg.CONF.nsx_v3.dns_domain)
+        dns_domain=cfg.CONF.nsx_v3.dns_domain,
+        allow_overwrite_header=allow_overwrite_header)
     return v3.NsxLib(nsxlib_config)
 
 

@@ -2032,12 +2032,6 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_update_gateway_upon_subnet_create_ipv6()
 
-    @common_v3.with_external_network
-    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
-        super(
-            TestL3NatTestCase,
-            self).test_router_update_gateway_upon_subnet_create_max_ips_ipv6()
-
     @common_v3.with_external_subnet_second_time
     def test_router_add_interface_cidr_overlapped_with_gateway(self):
         super(TestL3NatTestCase,
@@ -2088,15 +2082,16 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase, self).\
             test_router_add_interface_by_port_cidr_overlapped_with_gateway()
 
-    @common_v3.with_external_network
-    def test_router_add_gateway_multiple_subnets_ipv6(self):
-        super(TestL3NatTestCase,
-              self).test_router_add_gateway_multiple_subnets_ipv6()
-
     @common_v3.with_external_subnet
     def test_router_add_and_remove_gateway(self):
         super(TestL3NatTestCase,
               self).test_router_add_and_remove_gateway()
+
+    def test_router_update_gateway_upon_subnet_create_max_ips_ipv6(self):
+        self.skipTest('not supported')
+
+    def test_router_add_gateway_multiple_subnets_ipv6(self):
+        self.skipTest('not supported')
 
     def test__notify_gateway_port_ip_changed(self):
         self.skipTest('not supported')

@@ -370,6 +370,10 @@ nsx_v3_and_p = [
                default="169.254.169.254/31",
                help=_("The metadata route used for native metadata proxy "
                       "service.")),
+    cfg.StrOpt('dhcp_relay_service',
+               help=_("(Optional) This is the name or UUID of the NSX dhcp "
+                      "relay service that will be used to enable DHCP relay "
+                      "on router ports.")),
     cfg.StrOpt('dns_domain',
                default='openstacklocal',
                help=_("Domain to use for building the hostnames.")),
@@ -382,6 +386,11 @@ nsx_v3_and_p = [
                help=_("(Optional) Specifying an edge cluster for Tier1 "
                       "routers to connect other that the one connected to"
                       " the Tier0 router")),
+    cfg.ListOpt('transit_networks',
+                default=['100.64.0.0/16'],
+                help=_("List of transit networks used by NSX tier0 routers. "
+                       "Neutron subnets will not be allowed to use those "
+                       "cidrs")),
 ]
 
 nsx_v3_opts = nsx_v3_and_p + [
@@ -442,10 +451,6 @@ nsx_v3_opts = nsx_v3_and_p + [
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
                help=_("DHCP default lease time.")),
-    cfg.StrOpt('dhcp_relay_service',
-               help=_("(Optional) This is the name or UUID of the NSX dhcp "
-                      "relay service that will be used to enable DHCP relay "
-                      "on router ports.")),
     cfg.BoolOpt('init_objects_by_tags',
                 default=False,
                 help=_("When True, the configured transport zones, router and "
@@ -483,11 +488,6 @@ nsx_v3_opts = nsx_v3_and_p + [
     cfg.BoolOpt('housekeeping_readonly',
                 default=True,
                 help=_("Housekeeping will only warn about breakage.")),
-    cfg.ListOpt('transit_networks',
-                default=['100.64.0.0/16'],
-                help=_("List of transit networks used by NSX tier0 routers. "
-                       "Neutron subnets will not be allowed to use those "
-                       "cidrs")),
 ]
 
 nsx_p_opts = nsx_v3_and_p + [

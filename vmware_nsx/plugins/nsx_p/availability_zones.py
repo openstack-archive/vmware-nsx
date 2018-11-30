@@ -115,6 +115,8 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
             nsxpolicy.tier0, 'default_tier0_router',
             auto_config=True, is_mandatory=True)
 
+        self.dhcp_relay_service = cfg.CONF.nsx_p.dhcp_relay_service
+
 
 class NsxPAvailabilityZones(common_az.ConfiguredAvailabilityZones):
 

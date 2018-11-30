@@ -904,28 +904,14 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                 provider_data['vlan_id'],
                 nsx_id)
 
-    def _is_ddi_supported_on_net_with_type(self, context, network_id):
-        net = self.get_network(context, network_id)
-        # NSX current does not support transparent VLAN ports for
-        # DHCP and metadata
-        if cfg.CONF.vlan_transparent:
-            if net.get('vlan_transparent') is True:
-                return False, "VLAN transparent"
-        # NSX current does not support flat network ports for
-        # DHCP and metadata
-        if net.get(pnet.NETWORK_TYPE) == utils.NsxV3NetworkTypes.FLAT:
-            return False, "flat"
-        # supported for overlay networks, and for vlan networks depending on
-        # NSX version
-        is_overlay = self._is_overlay_network(context, network_id)
-        net_type = "overlay" if is_overlay else "non-overlay"
-        return (is_overlay or self.nsxlib.feature_supported(
-                    nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE)), net_type
-
     def _is_ddi_supported_on_network(self, context, network_id):
         result, _ = self._is_ddi_supported_on_net_with_type(
             context, network_id)
         return result
+
+    def _is_vlan_router_interface_supported(self):
+        return self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE)
 
     def _is_overlay_network(self, context, network_id):
         """Return True if this is an overlay network
@@ -1386,71 +1372,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                 LOG.warning("Failed to update network %(id)s dhcp server on "
                             "the NSX: %(e)s", {'id': network['id'], 'e': e})
 
-    def _has_no_dhcp_enabled_subnet(self, context, network):
-        # Check if there is no DHCP-enabled subnet in the network.
-        for subnet in network.subnets:
-            if subnet.enable_dhcp:
-                return False
-        return True
-
-    def _has_single_dhcp_enabled_subnet(self, context, network):
-        # Check if there is only one DHCP-enabled subnet in the network.
-        count = 0
-        for subnet in network.subnets:
-            if subnet.enable_dhcp:
-                count += 1
-                if count > 1:
-                    return False
-        return True if count == 1 else False
-
-    def _validate_address_space(self, context, subnet):
-        # Only working for IPv4 at the moment
-        if (subnet['ip_version'] != 4):
-            return
-
-        # get the subnet IPs
-        if ('allocation_pools' in subnet and
-            validators.is_attr_set(subnet['allocation_pools'])):
-            # use the pools instead of the cidr
-            subnet_networks = [
-                netaddr.IPRange(pool.get('start'), pool.get('end'))
-                for pool in subnet.get('allocation_pools')]
-        else:
-            cidr = subnet.get('cidr')
-            if not validators.is_attr_set(cidr):
-                return
-            subnet_networks = [netaddr.IPNetwork(subnet['cidr'])]
-
-        # Check if subnet overlaps with shared address space.
-        # This is checked on the backend when attaching subnet to a router.
-        shared_ips_cidrs = cfg.CONF.nsx_v3.transit_networks
-        for subnet_net in subnet_networks:
-            for shared_ips in shared_ips_cidrs:
-                if netaddr.IPSet(subnet_net) & netaddr.IPSet([shared_ips]):
-                    msg = _("Subnet overlaps with shared address space "
-                            "%s") % shared_ips
-                    LOG.error(msg)
-                    raise n_exc.InvalidInput(error_message=msg)
-
-        # Ensure that the NSX uplink does not lie on the same subnet as
-        # the external subnet
-        filters = {'id': [subnet['network_id']],
-                   'router:external': [True]}
-        external_nets = self.get_networks(context, filters=filters)
-        tier0_routers = [ext_net[pnet.PHYSICAL_NETWORK]
-                         for ext_net in external_nets
-                         if ext_net.get(pnet.PHYSICAL_NETWORK)]
-        for tier0_rtr in set(tier0_routers):
-            tier0_ips = self.nsxlib.logical_router_port.get_tier0_uplink_ips(
-                tier0_rtr)
-            for ip_address in tier0_ips:
-                for subnet_network in subnet_networks:
-                    if (netaddr.IPAddress(ip_address) in subnet_network):
-                        msg = _("External subnet cannot overlap with T0 "
-                                "router address %s") % ip_address
-                        LOG.error(msg)
-                        raise n_exc.InvalidInput(error_message=msg)
-
     def _create_bulk_with_callback(self, resource, context, request_items,
                                    post_create_func=None, rollback_func=None):
         # This is a copy of the _create_bulk() in db_base_plugin_v2.py,
@@ -1613,27 +1534,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         return created_subnet
 
     def delete_subnet(self, context, subnet_id):
-        # TODO(berlin): cancel public external subnet announcement
-        if cfg.CONF.nsx_v3.native_dhcp_metadata:
-            # Ensure that subnet is not deleted if attached to router.
-            self._subnet_check_ip_allocations_internal_router_ports(
-                context, subnet_id)
-            subnet = self.get_subnet(context, subnet_id)
-            if subnet['enable_dhcp']:
-                lock = 'nsxv3_network_' + subnet['network_id']
-                with locking.LockManager.get_lock(lock):
-                    # Check if it is the last DHCP-enabled subnet to delete.
-                    network = self._get_network(context, subnet['network_id'])
-                    if self._has_single_dhcp_enabled_subnet(context, network):
-                        try:
-                            self._disable_native_dhcp(context, network['id'])
-                        except Exception as e:
-                            LOG.error("Failed to disable native DHCP for"
-                                      "network %(id)s. Exception: %(e)s",
-                                      {'id': network['id'], 'e': e})
-                        super(NsxV3Plugin, self).delete_subnet(
-                            context, subnet_id)
-                        return
+        # Call common V3 code to delete the subnet
         super(NsxV3Plugin, self).delete_subnet(context, subnet_id)
 
     def update_subnet(self, context, subnet_id, subnet):
@@ -4299,3 +4200,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                         nsx_router_id, ext_addr,
                         source_net=subnet['cidr'],
                         bypass_firewall=False)
+
+    def _get_tier0_uplink_ips(self, tier0_id):
+        return self.nsxlib.logical_router_port.get_tier0_uplink_ips(tier0_id)

@@ -27,6 +27,7 @@ class FixExternalNetBaseTest(object):
     """
     def setUp(self, *args, **kwargs):
         self.original_subnet = self.subnet
+        self.original_create_subnet = self._create_subnet
         self.original_network = self.network
         self.subnet_calls = []
         super(FixExternalNetBaseTest, self).setUp(*args, **kwargs)
@@ -45,11 +46,23 @@ class FixExternalNetBaseTest(object):
                                    network_req.get_response(self.api))
         return network
 
-    def external_subnet(self, **kwargs):
-        if 'network' in kwargs:
-            return self.original_subnet(**kwargs)
+    def external_subnet(self, network=None, **kwargs):
+        # External subnet ,ust have dhcp disabled
+        kwargs['enable_dhcp'] = False
+        if network:
+            return self.original_subnet(network=network, **kwargs)
         ext_net = self._create_external_network()
         return self.original_subnet(network=ext_net, **kwargs)
+
+    def create_external_subnet(self, *args, **kwargs):
+        kwargs['enable_dhcp'] = False
+        return super(FixExternalNetBaseTest, self)._create_subnet(
+            *args, **kwargs)
+
+    def no_dhcp_subnet(self, *args, **kwargs):
+        if 'enable_dhcp' in kwargs:
+            return self.original_subnet(*args, **kwargs)
+        return self.original_subnet(*args, enable_dhcp=False, **kwargs)
 
     def external_subnet_by_list(self, *args, **kwargs):
         if len(self.subnet_calls) > 0:
@@ -70,7 +83,8 @@ class FixExternalNetBaseTest(object):
         with self._create_l3_ext_network() as ext_net,\
             self.subnet(network=ext_net, cidr=public_cidr,
                         set_context=set_context,
-                        tenant_id=tenant_id) as public_sub:
+                        tenant_id=tenant_id,
+                        enable_dhcp=False) as public_sub:
             private_port = None
             if port_id:
                 private_port = self._show('ports', port_id)
@@ -168,6 +182,21 @@ def with_external_subnet_third_time(f, *args, **kwargs):
 def with_external_network(f, *args, **kwargs):
     obj = args[0]
     obj.network = obj.external_network
+    obj.subnet = obj.external_subnet
+    obj._create_subnet = obj.create_external_subnet
     result = f(*args, **kwargs)
+    obj._create_subnet = obj.original_create_subnet
+    obj.subnet = obj.original_subnet
     obj.network = obj.original_network
+    return result
+
+
+# Override subnet creation in some tests to create a subnet with dhcp
+# disabled
+@decorator.decorator
+def with_no_dhcp_subnet(f, *args, **kwargs):
+    obj = args[0]
+    obj.subnet = obj.no_dhcp_subnet
+    result = f(*args, **kwargs)
+    obj.subnet = obj.original_subnet
     return result

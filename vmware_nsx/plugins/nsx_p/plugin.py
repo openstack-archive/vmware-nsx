@@ -143,7 +143,17 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self.cfg_group = 'nsx_p'  # group name for nsx_p section in nsx.ini
         self.init_availability_zones()
 
+        self.nsxpolicy = v3_utils.get_nsxpolicy_wrapper()
+        # NOTE: This is needed for passthrough APIs, should be removed when
+        # policy has full support
+        self.nsxlib = None
+        if cfg.CONF.nsx_p.allow_passthrough:
+            self.nsxlib = v3_utils.get_nsxlib_wrapper(
+                plugin_conf=cfg.CONF.nsx_p,
+                allow_overwrite_header=True)
+
         super(NsxPolicyPlugin, self).__init__()
+
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
         LOG.info("Starting NsxPolicyPlugin (Experimental only!)")
@@ -151,13 +161,17 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
 
-        self.nsxpolicy = v3_utils.get_nsxpolicy_wrapper()
         nsxlib_utils.set_inject_headers_callback(v3_utils.inject_headers)
         self._validate_nsx_policy_version()
 
         self._init_default_config()
         self._prepare_default_rules()
         self._init_segment_profiles()
+
+        for az in self.get_azs_list():
+            az.translate_configured_names_to_uuids(self.nsxpolicy)
+
+        self._init_native_dhcp()
 
         # subscribe the init complete method last, so it will be called only
         # if init was successful
@@ -260,8 +274,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # reinitialize the cluster upon fork for api workers to ensure
             # each process has its own keepalive loops + state
             self.nsxpolicy.reinitialize_cluster(resource, event, trigger,
-                                             payload=payload)
+                                                payload=payload)
 
+            if self.nsxlib:
+                self.nsxlib.reinitialize_cluster(resource, event, trigger,
+                                                 payload=payload)
             self.init_is_complete = True
 
     def _extend_fault_map(self):
@@ -481,14 +498,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return updated_net
 
     def create_subnet(self, context, subnet):
-        self._validate_host_routes_input(subnet)
-        created_subnet = super(
-            NsxPolicyPlugin, self).create_subnet(context, subnet)
-        # TODO(asarfaty): Handle dhcp on the policy manager
-        return created_subnet
+        return self._create_subnet(context, subnet)
 
     def delete_subnet(self, context, subnet_id):
-        # TODO(asarfaty): cleanup dhcp on the policy manager
+        # Call common V3 code to delete the subnet
         super(NsxPolicyPlugin, self).delete_subnet(context, subnet_id)
 
     def update_subnet(self, context, subnet_id, subnet):
@@ -538,7 +551,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # to DB
         if not self._network_is_external(context, network_id):
             segment_id = self._get_network_nsx_segment_id(context, network_id)
-            return self.nsxpolicy.segment.get_realized_id(segment_id)
+            return self.nsxpolicy.segment.get_realized_logical_switch_id(
+                segment_id)
 
     def _get_network_nsx_segment_id(self, context, network_id):
         """Return the NSX segment ID matching the neutron network id
@@ -641,12 +655,12 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             context, port_data, port_data['network_id'],
             projectpluginmap.NsxPlugins.NSX_T)
 
-        with db_api.CONTEXT_WRITER.using(context):
-            is_external_net = self._network_is_external(
-                context, port_data['network_id'])
-            if is_external_net:
-                self._assert_on_external_net_with_compute(port_data)
+        is_external_net = self._network_is_external(
+            context, port_data['network_id'])
+        if is_external_net:
+            self._assert_on_external_net_with_compute(port_data)
 
+        with db_api.CONTEXT_WRITER.using(context):
             neutron_db = self.base_create_port(context, port)
             port["port"].update(neutron_db)
 
@@ -1863,4 +1877,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return False
 
     def _has_native_dhcp_metadata(self):
+        return True
+
+    def _get_tier0_uplink_ips(self, tier0_id):
+        #TODO(annak): implement
+        return []
+
+    def _is_vlan_router_interface_supported(self):
         return True
