@@ -3599,12 +3599,15 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
     def _update_router_gw_info(self, context, router_id, info,
                                is_routes_update=False,
                                force_update=False):
-        router_driver = self._find_router_driver(context, router_id)
+        with db_api.CONTEXT_WRITER.using(context):
+            # use the reader context a this might be called from create_router
+            router_db = self._get_router(context, router_id)
+            router_driver = self._get_router_driver(context, router_db)
+
         if info:
             try:
                 ext_ips = info.get('external_fixed_ips')
                 network_id = info.get('network_id')
-                router_db = self._get_router(context, router_id)
 
                 org_enable_snat = router_db.enable_snat
                 # Ensure that a router cannot have SNAT disabled if there are
