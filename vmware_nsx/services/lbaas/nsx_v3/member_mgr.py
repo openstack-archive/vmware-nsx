@@ -155,8 +155,9 @@ class EdgeMemberManager(base_mgr.Nsxv3LoadbalancerBaseManager):
                                                          router_id)
                 lb_service = service_client.get_router_lb_service(
                     nsx_router_id)
-                virtual_server_ids = (lb_service and
-                                      lb_service.get('virtual_server_ids', []))
+                virtual_server_ids = (
+                    lb_service and
+                    lb_service.get('virtual_server_ids', []) or [])
                 if not lb_service:
                     lb_size = lb_utils.get_lb_flavor_size(
                         self.flavor_plugin, context, loadbalancer.flavor_id)
