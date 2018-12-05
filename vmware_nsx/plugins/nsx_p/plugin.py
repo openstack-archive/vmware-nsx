@@ -704,6 +704,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # first update neutron (this will perform all types of validations)
         port_data = self.get_port(context, port_id)
         net_id = port_data['network_id']
+        # if needed, check to see if this is a port owned by
+        # a l3 router.  If so, we should prevent deletion here
+        if l3_port_check:
+            self.prevent_l3_port_deletion(context, port_id)
         self.disassociate_floatingips(context, port_id)
         super(NsxPolicyPlugin, self).delete_port(context, port_id)
 
@@ -882,7 +886,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             action=policy_constants.NAT_ACTION_SNAT,
             #sequence_number=GW_NAT_PRI # TODO(asarfaty) handle priorities
             translated_network=gw_ip,
-            source_network=subnet['cidr'])
+            source_network=subnet['cidr'],
+            firewall_match=policy_constants.NAT_FIREWALL_MATCH_INTERNAL)
 
     def _get_snat_rule_id(self, subnet):
         return 'S-' + subnet['id']
@@ -899,7 +904,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nat_rule_id=self._get_no_dnat_rule_id(subnet),
             action=policy_constants.NAT_ACTION_NO_DNAT,
             #sequence_number=GW_NAT_PRI # TODO(asarfaty) handle priorities
-            destination_network=subnet['cidr'])
+            destination_network=subnet['cidr'],
+            firewall_match=policy_constants.NAT_FIREWALL_MATCH_BYPASS)
 
     def _del_subnet_no_dnat_rule(self, router_id, subnet):
         # Delete the previously created NO-DNAT rules
@@ -946,6 +952,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if edge_cluster:
                 self.nsxpolicy.tier1.set_edge_cluster_path(
                     router_id, edge_cluster)
+            else:
+                LOG.error("Tier0 %s does not have an edge cluster",
+                          new_tier0_uuid)
 
         if actions['remove_snat_rules']:
             for subnet in router_subnets:
@@ -1059,6 +1068,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             context, router_id, router)
 
     def add_router_interface(self, context, router_id, interface_info):
+        LOG.info("Adding router %s interface %s", router_id, interface_info)
         network_id = self._get_interface_network(context, interface_info)
         extern_net = self._network_is_external(context, network_id)
         router_db = self._get_router(context, router_id)
@@ -1087,8 +1097,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 net['name'] or 'network', network_id)
             segment_id = self._get_network_nsx_segment_id(context, network_id)
             subnet = self.get_subnet(context, info['subnet_ids'][0])
+            cidr_prefix = int(subnet['cidr'].split('/')[1])
+            gw_addr = "%s/%s" % (subnet['gateway_ip'], cidr_prefix)
             pol_subnet = policy_defs.Subnet(
-                gateway_address=("%s/32" % subnet.get('gateway_ip')))
+                gateway_address=gw_addr)
             self.nsxpolicy.segment.update(segment_id,
                                           name=net_name,
                                           tier1_id=router_id,
@@ -1116,6 +1128,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
+        LOG.info("Removing router %s interface %s", router_id, interface_info)
         # find the subnet - it is need for removing the SNAT rule
         subnet = subnet_id = None
         if 'port_id' in interface_info:
@@ -1158,6 +1171,38 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                       {'id': network_id, 'e': ex})
         return info
 
+    def _get_fip_snat_rule_id(self, fip_id):
+        return 'S-' + fip_id
+
+    def _get_fip_dnat_rule_id(self, fip_id):
+        return 'D-' + fip_id
+
+    def _add_fip_nat_rules(self, tier1_id, fip_id, ext_ip, int_ip):
+        self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
+            'snat for fip %s' % fip_id,
+            tier1_id,
+            nat_rule_id=self._get_fip_snat_rule_id(fip_id),
+            action=policy_constants.NAT_ACTION_SNAT,
+            translated_network=ext_ip,
+            source_network=int_ip,
+            firewall_match=policy_constants.NAT_FIREWALL_MATCH_INTERNAL)
+        self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
+            'dnat for fip %s' % fip_id,
+            tier1_id,
+            nat_rule_id=self._get_fip_dnat_rule_id(fip_id),
+            action=policy_constants.NAT_ACTION_DNAT,
+            translated_network=int_ip,
+            destination_network=ext_ip,
+            firewall_match=policy_constants.NAT_FIREWALL_MATCH_INTERNAL)
+
+    def _delete_fip_nat_rules(self, tier1_id, fip_id):
+        self.nsxpolicy.tier1_nat_rule.delete(
+            tier1_id,
+            nat_rule_id=self._get_fip_snat_rule_id(fip_id))
+        self.nsxpolicy.tier1_nat_rule.delete(
+            tier1_id,
+            nat_rule_id=self._get_fip_dnat_rule_id(fip_id))
+
     def create_floatingip(self, context, floatingip):
         new_fip = super(NsxPolicyPlugin, self).create_floatingip(
                 context, floatingip, initial_status=(
@@ -1167,42 +1212,51 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router_id = new_fip['router_id']
         if not router_id:
             return new_fip
-        #TODO(asarfaty): Update the NSX router
+
+        try:
+            self._add_fip_nat_rules(
+                router_id, new_fip['id'],
+                new_fip['floating_ip_address'],
+                new_fip['fixed_ip_address'])
+        except nsx_lib_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                self.delete_floatingip(context, new_fip['id'])
+
         return new_fip
 
     def delete_floatingip(self, context, fip_id):
         fip = self.get_floatingip(context, fip_id)
         router_id = fip['router_id']
-        port_id = fip['port_id']
-        LOG.debug("Deleting floating IP %s. Router %s, Port %s",
-                  fip_id, router_id, port_id)
-
         if router_id:
-            #TODO(asarfaty): Update the NSX router
-            pass
+            self._delete_fip_nat_rules(router_id, fip_id)
 
         super(NsxPolicyPlugin, self).delete_floatingip(context, fip_id)
 
     def update_floatingip(self, context, fip_id, floatingip):
         old_fip = self.get_floatingip(context, fip_id)
-        old_port_id = old_fip['port_id']
         new_status = (const.FLOATINGIP_STATUS_ACTIVE
                       if floatingip['floatingip'].get('port_id')
                       else const.FLOATINGIP_STATUS_DOWN)
         new_fip = super(NsxPolicyPlugin, self).update_floatingip(
             context, fip_id, floatingip)
         router_id = new_fip['router_id']
-        new_port_id = new_fip['port_id']
+
+        if (old_fip['router_id'] and
+            (not router_id or old_fip['router_id'] != router_id)):
+            # Delete the old rules (if the router did not change - rewriting
+            # the rules with _add_fip_nat_rules is enough)
+            self._delete_fip_nat_rules(old_fip['router_id'], fip_id)
 
         if router_id:
-            #TODO(asarfaty): Update the NSX router
-            LOG.debug("Updating floating IP %s. Router %s, Port %s "
-                      "(old port %s)",
-                      fip_id, router_id, new_port_id, old_port_id)
+            self._add_fip_nat_rules(
+                router_id, new_fip['id'],
+                new_fip['floating_ip_address'],
+                new_fip['fixed_ip_address'])
 
         if new_fip['status'] != new_status:
             new_fip['status'] = new_status
             self.update_floatingip_status(context, fip_id, new_status)
+
         return new_fip
 
     def disassociate_floatingips(self, context, port_id):
@@ -1213,8 +1267,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if not fip_db.router_id:
                 continue
             if fip_db.router_id:
-                # TODO(asarfaty): Update the NSX logical router
-                pass
+                # Delete the old rules
+                self._delete_fip_nat_rules(fip_db.router_id, fip_db.id)
             self.update_floatingip_status(context, fip_db.id,
                                           const.FLOATINGIP_STATUS_DOWN)
 

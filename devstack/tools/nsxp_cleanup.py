@@ -70,16 +70,16 @@ class NSXClient(object):
             # allow admin user to delete entities created
             # under openstack principal identity
             allow_overwrite_header=True)
-        self.nsxlib = v3.NsxPolicyLib(nsxlib_config)
+        self.nsxpolicy = v3.NsxPolicyLib(nsxlib_config)
 
     def get_nsx_os_domains(self):
-        domains = self.get_os_resources(self.nsxlib.domain.list())
+        domains = self.get_os_resources(self.nsxpolicy.domain.list())
         return [d['id'] for d in domains]
 
     def cleanup_domains(self, domains):
         """Delete all OS created NSX Policy segments ports per segment"""
         for domain_id in domains:
-            self.nsxlib.domain.delete(domain_id)
+            self.nsxpolicy.domain.delete(domain_id)
 
     def get_os_resources(self, resources):
         """
@@ -95,8 +95,8 @@ class NSXClient(object):
         Retrieve all NSX policy groups & maps created from OpenStack (by tags)
         If the DB is available - use only objects in the neutron DB
         """
-        groups = self.get_os_resources(self.nsxlib.group.list(domain_id))
-        maps = self.get_os_resources(self.nsxlib.comm_map.list(domain_id))
+        groups = self.get_os_resources(self.nsxpolicy.group.list(domain_id))
+        maps = self.get_os_resources(self.nsxpolicy.comm_map.list(domain_id))
 
         if self.neutron_db:
             db_sgs = self.neutron_db.get_security_groups()
@@ -110,36 +110,43 @@ class NSXClient(object):
         print("Number of OS Communication maps of domain %s to be deleted: "
               "%s" % (domain_id, len(maps)))
         for m in maps:
-            self.nsxlib.comm_map.delete(domain_id, m['id'])
+            self.nsxpolicy.comm_map.delete(domain_id, m['id'])
         print("Number of OS Groups of domain %s to be deleted: "
               "%s" % (domain_id, len(groups)))
         for grp in groups:
-            self.nsxlib.group.delete(domain_id, grp['id'])
+            self.nsxpolicy.group.delete(domain_id, grp['id'])
 
     def get_os_nsx_tier1_routers(self):
         """
         Retrieve all NSX policy routers created from OpenStack (by tags)
         If the DB is available - use only objects in the neutron DB
         """
-        routers = self.get_os_resources(self.nsxlib.tier1.list())
+        routers = self.get_os_resources(self.nsxpolicy.tier1.list())
         if routers and self.neutron_db:
             db_routers = self.neutron_db.get_routers()
             routers = [r for r in routers if r['id'] in db_routers]
         return routers
+
+    def cleanup_tier1_nat_rules(self, tier1_uuid):
+        rules = self.nsxpolicy.tier1_nat_rule.list(tier1_uuid)
+        for rule in rules:
+            self.nsxpolicy.tier1_nat_rule.delete(tier1_uuid, rule['id'])
 
     def cleanup_tier1_routers(self):
         """Delete all OS created NSX Policy routers"""
         routers = self.get_os_nsx_tier1_routers()
         print("Number of OS Tier1 routers to be deleted: %s" % len(routers))
         for rtr in routers:
-            self.nsxlib.tier1.delete(rtr['id'])
+            # remove all nat rules from this router before deletion
+            self.cleanup_tier1_nat_rules(rtr['id'])
+            self.nsxpolicy.tier1.delete(rtr['id'])
 
     def get_os_nsx_segments(self):
         """
         Retrieve all NSX policy segments created from OpenStack (by tags)
         If the DB is available - use only objects in the neutron DB
         """
-        segments = self.get_os_resources(self.nsxlib.segment.list())
+        segments = self.get_os_resources(self.nsxpolicy.segment.list())
         if segments and self.neutron_db:
             db_networks = self.neutron_db.get_networks()
             segments = [s for s in segments if s['id'] in db_networks]
@@ -153,8 +160,8 @@ class NSXClient(object):
             # Delete all the ports
             self.cleanup_segment_ports(s['id'])
             # Disassociate from a tier1 router
-            self.nsxlib.segment.update(s['id'], tier1_id=None)
-            self.nsxlib.segment.delete(s['id'])
+            self.nsxpolicy.segment.update(s['id'], tier1_id=None)
+            self.nsxpolicy.segment.delete(s['id'])
 
     def get_os_nsx_segment_ports(self, segment_id):
         """
@@ -162,7 +169,7 @@ class NSXClient(object):
         If the DB is available - use only objects in the neutron DB
         """
         segment_ports = self.get_os_resources(
-            self.nsxlib.segment_port.list(segment_id))
+            self.nsxpolicy.segment_port.list(segment_id))
         if segment_ports and self.neutron_db:
             db_ports = self.neutron_db.get_ports()
             segment_ports = [s for s in segment_ports if s['id'] in db_ports]
@@ -172,7 +179,7 @@ class NSXClient(object):
         """Delete all OS created NSX Policy segments ports per segment"""
         segment_ports = self.get_os_nsx_segment_ports(segment_id)
         for p in segment_ports:
-            self.nsxlib.segment_port.delete(segment_id, p['id'])
+            self.nsxpolicy.segment_port.delete(segment_id, p['id'])
 
     def get_os_nsx_services(self):
         """
@@ -180,7 +187,7 @@ class NSXClient(object):
         (by tags)
         If the DB is available - use only objects in the neutron DB
         """
-        services = self.get_os_resources(self.nsxlib.service.list())
+        services = self.get_os_resources(self.nsxpolicy.service.list())
         if services and self.neutron_db:
             db_rules = self.neutron_db.get_security_groups_rules()
             services = [s for s in services if s['id'] in db_rules]
@@ -191,7 +198,7 @@ class NSXClient(object):
         services = self.get_os_nsx_services()
         print("Number of OS rule services to be deleted: %s" % len(services))
         for srv in services:
-            self.nsxlib.service.delete(srv['id'])
+            self.nsxpolicy.service.delete(srv['id'])
 
     def cleanup_all(self):
         """
