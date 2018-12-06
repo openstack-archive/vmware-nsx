@@ -137,26 +137,29 @@ def get_client_cert_provider(conf_path=cfg.CONF.nsx_v3):
         return DbCertProvider
 
 
-def get_nsxlib_wrapper(nsx_username=None, nsx_password=None, basic_auth=False):
+def get_nsxlib_wrapper(nsx_username=None, nsx_password=None, basic_auth=False,
+                       plugin_conf=None):
     client_cert_provider = None
     if not basic_auth:
         # if basic auth requested, dont use cert file even if provided
         client_cert_provider = get_client_cert_provider()
 
+    if not plugin_conf:
+        plugin_conf = cfg.CONF.nsx_v3
     nsxlib_config = config.NsxLibConfig(
-        username=nsx_username or cfg.CONF.nsx_v3.nsx_api_user,
-        password=nsx_password or cfg.CONF.nsx_v3.nsx_api_password,
+        username=nsx_username or plugin_conf.nsx_api_user,
+        password=nsx_password or plugin_conf.nsx_api_password,
         client_cert_provider=client_cert_provider,
-        retries=cfg.CONF.nsx_v3.http_retries,
-        insecure=cfg.CONF.nsx_v3.insecure,
-        ca_file=cfg.CONF.nsx_v3.ca_file,
-        concurrent_connections=cfg.CONF.nsx_v3.concurrent_connections,
-        http_timeout=cfg.CONF.nsx_v3.http_timeout,
-        http_read_timeout=cfg.CONF.nsx_v3.http_read_timeout,
-        conn_idle_timeout=cfg.CONF.nsx_v3.conn_idle_timeout,
+        retries=plugin_conf.http_retries,
+        insecure=plugin_conf.insecure,
+        ca_file=plugin_conf.ca_file,
+        concurrent_connections=plugin_conf.concurrent_connections,
+        http_timeout=plugin_conf.http_timeout,
+        http_read_timeout=plugin_conf.http_read_timeout,
+        conn_idle_timeout=plugin_conf.conn_idle_timeout,
         http_provider=None,
-        max_attempts=cfg.CONF.nsx_v3.retries,
-        nsx_api_managers=cfg.CONF.nsx_v3.nsx_api_managers,
+        max_attempts=plugin_conf.retries,
+        nsx_api_managers=plugin_conf.nsx_api_managers,
         plugin_scope=OS_NEUTRON_ID_SCOPE,
         plugin_tag=NSX_NEUTRON_PLUGIN,
         plugin_ver=n_version.version_info.release_string(),

@@ -597,6 +597,29 @@ NSX Policy Plugin
     nsxadmin -r routers -o list
 
 
+Client Certificate
+~~~~~~~~~~~~~~~~~~
+
+- Generate new client certificate (this command will delete previous certificate if exists)::
+
+    nsxadmin -r certificate -o generate [--property username=<username> --property password=<password> --property key-size=<size> --property sig-alg=<alg> --property valid-days=<days> --property country=<country> --property state=<state> --property org=<organization> --property unit=<unit> --property host=<hostname>]
+
+- Delete client certificate::
+
+    nsxadmin -r certificate -o clean
+
+- Show client certificate details::
+
+    nsxadmin -r certificate -o show
+
+- Import external certificate to NSX::
+
+    nsxadmin -r certificate -o import [--property username=<username> --property password=<password> --property filename=<cert filename>]
+
+- List certificates associated with openstack principal identity in NSX::
+
+    nsxadmin -r certificate -o nsx-list
+
 Upgrade Steps (NSX-T Version 1.0.0 to Version 1.1.0)
 ----------------------------------------------------
 
