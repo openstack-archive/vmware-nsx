@@ -505,7 +505,11 @@ nsx_p_opts = nsx_v3_and_p + [
                       "specified. If only one VLAN transport zone is present "
                       "on backend, it will be assumed as default unless this "
                       "value is provided")),
-               ]
+    cfg.BoolOpt('allow_passthrough',
+                default=True,
+                help=_("If True, use nsx manager api for cases which are not "
+                       "supported by the policy manager api")),
+]
 
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000

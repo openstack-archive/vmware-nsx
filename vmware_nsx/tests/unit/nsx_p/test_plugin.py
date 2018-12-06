@@ -40,6 +40,7 @@ from vmware_nsx.common import utils
 from vmware_nsx.tests.unit.common_plugin import common_v3
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import policy_constants
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxPolicyPlugin'
 NSX_OVERLAY_TZ_NAME = 'OVERLAY_TZ'
@@ -85,6 +86,12 @@ class NsxPPluginTestCaseMixin(
         mock.patch("vmware_nsxlib.v3.policy_resources."
                    "NsxPolicyCommunicationMapApi._get_last_seq_num",
                    return_value=-1).start()
+        mock.patch("vmware_nsxlib.v3.policy_resources."
+                   "NsxPolicyResourceBase._wait_until_realized",
+                   return_value={'state': policy_constants.STATE_REALIZED}
+                   ).start()
+        mock.patch("vmware_nsxlib.v3.policy_resources."
+                   "NsxPolicyTier1Api.update_transport_zone").start()
 
     def setup_conf_overrides(self):
         cfg.CONF.set_override('default_overlay_tz', NSX_OVERLAY_TZ_NAME,
