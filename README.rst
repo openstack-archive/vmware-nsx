@@ -18,9 +18,9 @@ Code is available both git.openstack.org_ and github_.
 .. _github: https://github.com/openstack/vmware-nsx
 
 For help on usage and hacking of VMware-NSX, please send a message to the
-openstack-dev_ mailing list.
+openstack-discuss_ mailing list.
 
-.. _openstack-dev: mailto:openstack-dev@lists.openstack.org
+.. _openstack-discuss: mailto:openstack-discuss@lists.openstack.org
 
 For information on how to contribute to VMware-NSX, please see the
 contents of the CONTRIBUTING.rst file.
