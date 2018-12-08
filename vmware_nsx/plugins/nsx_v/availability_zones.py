@@ -179,7 +179,7 @@ class NsxVAvailabilityZone(common_az.ConfiguredAvailabilityZone):
             self.mgt_net_proxy_netmask = None
             self.mgt_net_default_gateway = None
 
-    def init_default_az(self):
+    def init_defaults(self):
         # use the default configuration
         self.resource_pool = cfg.CONF.nsxv.resource_pool_id
         self.datastore_id = cfg.CONF.nsxv.datastore_id

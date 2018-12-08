@@ -350,6 +350,34 @@ nsx_v3_and_p = [
                        "specifying Transport Zone UUID usable for VLAN "
                        "provider networks, as well as ranges of VLAN "
                        "tags on each available for allocation to networks.")),
+    cfg.ListOpt('availability_zones',
+                default=[],
+                help=_('Optional parameter defining the networks availability '
+                       'zones names for the native dhcp configuration. The '
+                       'configuration of each zone will be under a group '
+                       'names [az:<name>]')),
+    cfg.StrOpt('metadata_proxy',
+               help=_("This is the name or UUID of the NSX Metadata Proxy "
+                      "that will be used to enable native metadata service. "
+                      "It needs to be created in NSX before starting Neutron "
+                      "with the NSX plugin.")),
+    cfg.StrOpt('dhcp_profile',
+               help=_("This is the name or UUID of the NSX DHCP Profile "
+                      "that will be used to enable native DHCP service. It "
+                      "needs to be created in NSX before starting Neutron "
+                      "with the NSX plugin")),
+    cfg.StrOpt('native_metadata_route',
+               default="169.254.169.254/31",
+               help=_("The metadata route used for native metadata proxy "
+                      "service.")),
+    cfg.StrOpt('dns_domain',
+               default='openstacklocal',
+               help=_("Domain to use for building the hostnames.")),
+    cfg.ListOpt('nameservers',
+                default=[],
+                help=_("List of nameservers to configure for the DHCP "
+                       "binding entries. These will be used if there are no "
+                       "nameservers defined on the subnet.")),
 ]
 
 nsx_v3_opts = nsx_v3_and_p + [
@@ -407,41 +435,13 @@ nsx_v3_opts = nsx_v3_and_p + [
                 default=True,
                 help=_("If true, DHCP and metadata proxy services will be "
                        "provided by NSX backend.")),
-    cfg.StrOpt('native_metadata_route',
-               default="169.254.169.254/31",
-               help=_("The metadata route used for native metadata proxy "
-                      "service.")),
-    cfg.StrOpt('dhcp_profile',
-               help=_("This is the name or UUID of the NSX DHCP Profile "
-                      "that will be used to enable native DHCP service. It "
-                      "needs to be created in NSX before starting Neutron "
-                      "with the NSX plugin")),
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
                help=_("DHCP default lease time.")),
-    cfg.StrOpt('dns_domain',
-               default='openstacklocal',
-               help=_("Domain to use for building the hostnames.")),
-    cfg.ListOpt('nameservers',
-                default=[],
-                help=_("List of nameservers to configure for the DHCP "
-                       "binding entries. These will be used if there are no "
-                       "nameservers defined on the subnet.")),
-    cfg.StrOpt('metadata_proxy',
-               help=_("This is the name or UUID of the NSX Metadata Proxy "
-                      "that will be used to enable native metadata service. "
-                      "It needs to be created in NSX before starting Neutron "
-                      "with the NSX plugin.")),
     cfg.StrOpt('dhcp_relay_service',
                help=_("(Optional) This is the name or UUID of the NSX dhcp "
                       "relay service that will be used to enable DHCP relay "
                       "on router ports.")),
-    cfg.ListOpt('availability_zones',
-                default=[],
-                help=_('Optional parameter defining the networks availability '
-                       'zones names for the native dhcp configuration. The '
-                       'configuration of each zone will be under a group '
-                       'names [az:<name>]')),
     cfg.BoolOpt('init_objects_by_tags',
                 default=False,
                 help=_("When True, the configured transport zones, router and "

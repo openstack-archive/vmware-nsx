@@ -31,7 +31,7 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
-from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
+from vmware_nsx.plugins.common_v3 import availability_zones as nsx_az
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import nsx_constants

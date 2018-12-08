@@ -24,7 +24,7 @@ from oslo_log import log as logging
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import utils as nsx_utils
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
-from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
+from vmware_nsx.plugins.common_v3 import availability_zones as nsx_az
 from vmware_nsx.shell.admin.plugins.common import constants
 from vmware_nsx.shell.admin.plugins.common import formatters
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
