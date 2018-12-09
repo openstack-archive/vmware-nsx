@@ -71,7 +71,6 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as const
 from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
-from neutron_lib.utils import helpers
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -3369,12 +3368,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 action="NO_DNAT",
                 match_destination_network=subnet['cidr'])
 
-    def _assert_on_router_admin_state(self, router_data):
-        if router_data.get("admin_state_up") is False:
-            err_msg = _("admin_state_up=False routers are not supported")
-            LOG.warning(err_msg)
-            raise n_exc.InvalidInput(error_message=err_msg)
-
     def validate_router_dhcp_relay(self, context):
         """Fail router creation dhcp relay is configured without IPAM"""
         if (self._availability_zones_data.dhcp_relay_configured() and
@@ -3495,29 +3488,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # get the availability zones from the hints
         return [self.get_router_az(router).name]
 
-    def _validate_ext_routes(self, context, router_id, gw_info, new_routes):
-        ext_net_id = (gw_info['network_id']
-                      if validators.is_attr_set(gw_info) and gw_info else None)
-        if not ext_net_id:
-            port_filters = {'device_id': [router_id],
-                            'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW]}
-            gw_ports = self.get_ports(context, filters=port_filters)
-            if gw_ports:
-                ext_net_id = gw_ports[0]['network_id']
-        if ext_net_id:
-            subnets = self._get_subnets_by_network(context, ext_net_id)
-            ext_cidrs = [subnet['cidr'] for subnet in subnets]
-            for route in new_routes:
-                if netaddr.all_matching_cidrs(
-                    route['nexthop'], ext_cidrs):
-                    error_message = (_("route with destination %(dest)s have "
-                                       "an external nexthop %(nexthop)s which "
-                                       "can't be supported") %
-                                     {'dest': route['destination'],
-                                      'nexthop': route['nexthop']})
-                    LOG.error(error_message)
-                    raise n_exc.InvalidInput(error_message=error_message)
-
     def _update_router_wrapper(self, context, router_id, router):
         if cfg.CONF.api_replay_mode:
             # NOTE(arosen): the mock.patch here is needed for api_replay_mode
@@ -3535,6 +3505,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._assert_on_router_admin_state(router_data)
 
         if validators.is_attr_set(gw_info):
+            self._validate_update_router_gw(context, router_id, gw_info)
             router_ports = self._get_router_interfaces(context, router_id)
             for port in router_ports:
                 # if setting this router as no-snat, make sure gw address scope
@@ -3565,14 +3536,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         routes_removed = []
         try:
             if 'routes' in router_data:
-                new_routes = router_data['routes']
-                self._validate_ext_routes(context, router_id, gw_info,
-                                          new_routes)
-                self._validate_routes(context, router_id, new_routes)
-                old_routes = self._get_extra_routes_by_router_id(
-                    context, router_id)
-                routes_added, routes_removed = helpers.diff_list_of_dict(
-                    old_routes, new_routes)
+                routes_added, routes_removed = self._get_static_routes_diff(
+                    context, router_id, gw_info, router_data)
                 nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                          router_id)
                 for route in routes_removed:
