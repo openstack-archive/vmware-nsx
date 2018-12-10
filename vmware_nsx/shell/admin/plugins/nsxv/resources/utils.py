@@ -131,12 +131,12 @@ class NsxVPluginWrapper(plugin.NsxVPlugin):
     def get_ports(self, context, filters=None, fields=None):
         filters = self._update_filters(filters)
         return super(NsxVPluginWrapper, self).get_ports(
-            self.context, filters=filters, fields=fields)
+            context, filters=filters, fields=fields)
 
     def get_routers(self, context, filters=None, fields=None):
         filters = self._update_filters(filters)
         return super(NsxVPluginWrapper, self).get_routers(
-            self.context, filters=filters, fields=fields)
+            context, filters=filters, fields=fields)
 
 
 def get_nsxv_backend_edges():
