@@ -16,8 +16,6 @@
 import copy
 
 import mock
-
-from neutron_lib.exceptions import firewall_v1 as exceptions
 from neutron_lib.plugins import directory
 
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_base
@@ -105,6 +103,13 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'id': 'fake-fw-rule4'}
         return [rule1, rule2, rule3, rule4]
 
+    def _translated_cidr(self, cidr):
+        if cidr is None:
+            return []
+        else:
+            return [{'target_id': cidr,
+                     'target_type': 'IPv4Address'}]
+
     def _fake_translated_rules(self, logged=False, cidr='10.24.4.0/24'):
         # The expected translation of the rules in _fake_rules_v4
         service1 = {'l4_protocol': 'TCP',
@@ -113,8 +118,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                     'source_ports': []}
         rule1 = {'action': 'ALLOW',
                  'services': [{'service': service1}],
-                 'sources': [{'target_id': cidr,
-                              'target_type': 'IPv4Address'}],
+                 'sources': self._translated_cidr(cidr),
                  'display_name': 'Fwaas-fake-fw-rule1',
                  'notes': 'first rule'}
         service2 = {'l4_protocol': 'TCP',
@@ -134,8 +138,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                               {'service': service3_2}],
                  'display_name': 'Fwaas-fake-fw-rule3'}
         rule4 = {'action': 'DROP',
-                 'sources': [{'target_id': cidr,
-                              'target_type': 'IPv4Address'}],
+                 'sources': self._translated_cidr(cidr),
                  'display_name': 'Fwaas-fake-fw-rule4'}
 
         if logged:
@@ -248,7 +251,9 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         apply_list = self._fake_apply_list()
         rule_list = self._fake_rules_v4(cidr='0.0.0.0/24')
         firewall = self._fake_firewall(rule_list)
-        with mock.patch.object(self.plugin, '_get_router_interfaces',
+        with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
+                        "update") as update_fw, \
+            mock.patch.object(self.plugin, '_get_router_interfaces',
                               return_value=[]), \
             mock.patch.object(self.plugin, 'get_ports',
                               return_value=[]), \
@@ -260,9 +265,12 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             mock.patch.object(self.plugin.fwaas_callbacks,
                               '_get_fw_from_plugin',
                               return_value=firewall):
-            self.assertRaises(exceptions.FirewallInternalDriverError,
-                              self.firewall.create_firewall, 'nsx',
-                              apply_list, firewall)
+            self.firewall.create_firewall('nsx', apply_list, firewall)
+            self.assertEqual(1, update_fw.call_count)
+            update_fw.assert_called_with(
+                MOCK_SECTION_ID,
+                rules=(self._fake_translated_rules(cidr=None) +
+                       [self._default_rule()]))
 
     def test_delete_firewall(self):
         apply_list = self._fake_apply_list()
