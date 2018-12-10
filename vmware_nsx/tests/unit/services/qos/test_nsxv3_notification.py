@@ -17,10 +17,10 @@ import mock
 from neutron_lib import context
 from neutron_lib import exceptions
 from neutron_lib.objects import registry as obj_reg
+from neutron_lib.objects import utils as obj_utils
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
-from neutron.objects import base as base_object
 from neutron.services.qos import qos_plugin
 from neutron.tests.unit.services.qos import base
 
@@ -122,7 +122,7 @@ class TestQosNsxV3Notification(base.BaseQosTestCase,
     @mock.patch.object(QoSPolicy, 'create_rbac_policy')
     def __test_policy_update_profile(self, *mocks):
         # test the switch profile update when a QoS policy is updated
-        fields = base_object.get_updatable_fields(
+        fields = obj_utils.get_updatable_fields(
             QoSPolicy, self.policy_data['policy'])
         with mock.patch(
             'vmware_nsxlib.v3.core_resources.NsxLibQosSwitchingProfile.update'
