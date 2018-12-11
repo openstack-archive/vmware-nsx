@@ -1085,7 +1085,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             net = self._get_network(context, network_id)
             net_name = utils.get_name_and_uuid(
                 net['name'] or 'network', network_id)
-            segment_id = self._get_network_nsx_id(context, network_id)
+            segment_id = self._get_network_nsx_segment_id(context, network_id)
             subnet = self.get_subnet(context, info['subnet_ids'][0])
             pol_subnet = policy_defs.Subnet(
                 gateway_address=("%s/32" % subnet.get('gateway_ip')))
@@ -1141,7 +1141,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             net = self._get_network(context, network_id)
             net_name = utils.get_name_and_uuid(
                 net['name'] or 'network', network_id)
-            segment_id = self._get_network_nsx_id(context, network_id)
+            segment_id = self._get_network_nsx_segment_id(context, network_id)
             self.nsxpolicy.segment.update(segment_id, name=net_name,
                                           tier1_id=None)
 
