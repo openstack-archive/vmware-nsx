@@ -68,6 +68,7 @@ from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
+from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
@@ -80,6 +81,7 @@ from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 from vmware_nsxlib.v3 import policy_constants
 from vmware_nsxlib.v3 import policy_defs
+from vmware_nsxlib.v3 import security
 from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 LOG = log.getLogger(__name__)
@@ -97,7 +99,8 @@ NSX_P_PROVIDER_SECTION_CATEGORY = policy_constants.CATEGORY_INFRASTRUCTURE
 SPOOFGUARD_PROFILE_UUID = 'neutron-spoofguard-profile'
 NO_SPOOFGUARD_PROFILE_UUID = policy_defs.SpoofguardProfileDef.DEFAULT_PROFILE
 MAC_DISCOVERY_PROFILE_UUID = 'neutron-mac-discovery-profile'
-NO_SEG_SECURITY_PROFILE_UUID = (
+NO_SEG_SECURITY_PROFILE_UUID = 'neutron-no-segment-security-profile'
+SEG_SECURITY_PROFILE_UUID = (
     policy_defs.SegmentSecurityProfileDef.DEFAULT_PROFILE)
 
 
@@ -141,7 +144,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "security-group-logging",
                                    "provider-security-group",
                                    "port-security-groups-filtering",
-                                   "vlan-transparent"]
+                                   "vlan-transparent",
+                                   'mac-learning']
 
     @resource_registry.tracked_resources(
         network=models_v2.Network,
@@ -284,14 +288,32 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 mac_learning_enabled=True,
                 tags=self.nsxpolicy.build_v3_api_version_tag())
 
-        # No Port security segment-security profile
-        # (default NSX profile. just verify it exists)
+        # No Port security segment-security profile (find it or create)
         try:
             self.nsxpolicy.segment_security_profile.get(
                 NO_SEG_SECURITY_PROFILE_UUID)
         except nsx_lib_exc.ResourceNotFound:
+            self.nsxpolicy.segment_security_profile.create_or_overwrite(
+                NO_SEG_SECURITY_PROFILE_UUID,
+                profile_id=NO_SEG_SECURITY_PROFILE_UUID,
+                bpdu_filter_enable=False,
+                dhcp_client_block_enabled=False,
+                dhcp_client_block_v6_enabled=False,
+                dhcp_server_block_enabled=False,
+                dhcp_server_block_v6_enabled=False,
+                non_ip_traffic_block_enabled=False,
+                ra_guard_enabled=False,
+                rate_limits_enabled=False,
+                tags=self.nsxpolicy.build_v3_api_version_tag())
+
+        # Port security segment-security profile
+        # (default NSX profile. just verify it exists)
+        try:
+            self.nsxpolicy.segment_security_profile.get(
+                SEG_SECURITY_PROFILE_UUID)
+        except nsx_lib_exc.ResourceNotFound:
             msg = (_("Cannot find segment security profile %s") %
-                   NO_SEG_SECURITY_PROFILE_UUID)
+                   SEG_SECURITY_PROFILE_UUID)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
     @staticmethod
@@ -613,10 +635,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return tags
 
-    def _create_port_on_backend(self, context, port_data):
+    def _create_port_on_backend(self, context, port_data, is_psec_on):
         # TODO(annak): admin_state not supported by policy
         # TODO(annak): handle exclude list
-        # TODO(annak): switching profiles when supported
         name = self._build_port_name(context, port_data)
         address_bindings = self._build_port_address_bindings(
             context, port_data)
@@ -632,6 +653,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tags.extend(self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name))
 
+        if self._is_excluded_port(device_owner, is_psec_on):
+            tags.append({'scope': security.PORT_SG_SCOPE,
+                         'tag': nsxlib_consts.EXCLUDE_PORT})
+
         segment_id = self._get_network_nsx_segment_id(
             context, port_data['network_id'])
         self.nsxpolicy.segment_port.create_or_overwrite(
@@ -642,6 +667,34 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             vif_id=vif_id,
             attachment_type=attachment_type,
             tags=tags)
+
+        # add the security profiles to the port
+        if is_psec_on:
+            spoofguard_profile = SPOOFGUARD_PROFILE_UUID
+            seg_sec_profile = SEG_SECURITY_PROFILE_UUID
+        else:
+            spoofguard_profile = NO_SPOOFGUARD_PROFILE_UUID
+            seg_sec_profile = NO_SEG_SECURITY_PROFILE_UUID
+        self.nsxpolicy.segment_port_security_profiles.create_or_overwrite(
+            name, segment_id, port_data['id'],
+            spoofguard_profile_id=spoofguard_profile,
+            segment_security_profile_id=seg_sec_profile)
+
+        # add the mac discovery profile to the port
+        mac_discovery_profile = None
+        mac_disc_profile_must = False
+        if is_psec_on:
+            address_pairs = port_data.get(addr_apidef.ADDRESS_PAIRS)
+            if validators.is_attr_set(address_pairs) and address_pairs:
+                mac_disc_profile_must = True
+        mac_learning_enabled = (
+            validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
+            port_data.get(mac_ext.MAC_LEARNING) is True)
+        if mac_disc_profile_must or mac_learning_enabled:
+            mac_discovery_profile = MAC_DISCOVERY_PROFILE_UUID
+        self.nsxpolicy.segment_port_discovery_profiles.create_or_overwrite(
+            name, segment_id, port_data['id'],
+            mac_discovery_profile_id=mac_discovery_profile)
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxPolicyPlugin, self).create_port(context, port)
@@ -680,11 +733,25 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._process_port_create_security_group(context, port_data, sgids)
             self._process_port_create_provider_security_group(
                 context, port_data, psgids)
-            #TODO(asarfaty): Handle mac learning
+
+            # Handle port mac learning
+            if validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)):
+                # Make sure mac_learning and port sec are not both enabled
+                if port_data.get(mac_ext.MAC_LEARNING) and is_psec_on:
+                    msg = _('Mac learning requires that port security be '
+                            'disabled')
+                    LOG.error(msg)
+                    raise n_exc.InvalidInput(error_message=msg)
+                # save the mac learning value in the DB
+                self._create_mac_learning_state(context, port_data)
+            elif mac_ext.MAC_LEARNING in port_data:
+                # This is due to the fact that the default is
+                # ATTR_NOT_SPECIFIED
+                port_data.pop(mac_ext.MAC_LEARNING)
 
         if not is_external_net:
             try:
-                self._create_port_on_backend(context, port_data)
+                self._create_port_on_backend(context, port_data, is_psec_on)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error('Failed to create port %(id)s on NSX '
@@ -721,17 +788,22 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not self._network_is_external(context, net_id):
             try:
                 segment_id = self._get_network_nsx_segment_id(context, net_id)
-                self.nsxpolicy.segment_port.delete(segment_id, port_data['id'])
+                self.nsxpolicy.segment_port_security_profiles.delete(
+                    segment_id, port_id)
+                self.nsxpolicy.segment_port_discovery_profiles.delete(
+                    segment_id, port_id)
+                self.nsxpolicy.segment_port.delete(segment_id, port_id)
             except Exception as ex:
                 LOG.error("Failed to delete port %(id)s on NSX backend "
                           "due to %(e)s", {'id': port_id, 'e': ex})
                 # Do not fail the neutron action
 
     def _update_port_on_backend(self, context, lport_id,
-                                original_port, updated_port):
+                                original_port, updated_port,
+                                is_psec_on):
         # For now port create and update are the same
         # Update might evolve with more features
-        return self._create_port_on_backend(context, updated_port)
+        return self._create_port_on_backend(context, updated_port, is_psec_on)
 
     def update_port(self, context, port_id, port):
         with db_api.CONTEXT_WRITER.using(context):
@@ -740,6 +812,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             original_port = super(NsxPolicyPlugin, self).get_port(
                 context, port_id)
             port_data = port['port']
+            self._validate_update_port(context, port_id, original_port,
+                                       port_data)
             validate_port_sec = self._should_validate_port_sec_on_update_port(
                 port_data)
             is_external_net = self._network_is_external(
@@ -784,14 +858,23 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
             self._extend_nsx_port_dict_binding(context, updated_port)
 
-            #TODO(asarfaty): Handle mac learning
+            mac_learning_state = updated_port.get(mac_ext.MAC_LEARNING)
+            if mac_learning_state is not None:
+                if port_security and mac_learning_state:
+                    msg = _('Mac learning requires that port security be '
+                            'disabled')
+                    LOG.error(msg)
+                    raise n_exc.InvalidInput(error_message=msg)
+                self._update_mac_learning_state(context, port_id,
+                                                mac_learning_state)
 
         # update the port in the backend, only if it exists in the DB
         # (i.e not external net)
         if not is_external_net:
             try:
                 self._update_port_on_backend(context, port_id,
-                                             original_port, updated_port)
+                                             original_port, updated_port,
+                                             port_security)
             except Exception as e:
                 LOG.error('Failed to update port %(id)s on NSX '
                           'backend. Exception: %(e)s',

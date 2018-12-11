@@ -34,6 +34,7 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context
+from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
 from vmware_nsx.common import utils
@@ -401,6 +402,141 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
                                  data['port']['admin_state_up'])
                 self.assertEqual(res['port']['fixed_ips'],
                                  data['port']['fixed_ips'])
+
+    def test_create_port_with_mac_learning_true(self):
+        plugin = directory.get_plugin()
+        ctx = context.get_admin_context()
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01',
+                        'mac_learning_enabled': True}
+                    }
+            port = plugin.create_port(ctx, data)
+            self.assertTrue(port['mac_learning_enabled'])
+
+    def test_create_port_with_mac_learning_false(self):
+        plugin = directory.get_plugin()
+        ctx = context.get_admin_context()
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01',
+                        'mac_learning_enabled': False}
+                    }
+            port = plugin.create_port(ctx, data)
+            self.assertFalse(port['mac_learning_enabled'])
+
+    def test_update_port_with_mac_learning_true(self):
+        plugin = directory.get_plugin()
+        ctx = context.get_admin_context()
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = plugin.create_port(ctx, data)
+            data['port']['mac_learning_enabled'] = True
+            update_res = plugin.update_port(ctx, port['id'], data)
+            self.assertTrue(update_res['mac_learning_enabled'])
+
+    def test_update_port_with_mac_learning_false(self):
+        plugin = directory.get_plugin()
+        ctx = context.get_admin_context()
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = plugin.create_port(ctx, data)
+            data['port']['mac_learning_enabled'] = False
+            update_res = plugin.update_port(ctx, port['id'], data)
+            self.assertFalse(update_res['mac_learning_enabled'])
+
+    def test_update_port_with_mac_learning_failes(self):
+        plugin = directory.get_plugin()
+        ctx = context.get_admin_context()
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': constants.DEVICE_OWNER_FLOATINGIP,
+                        'fixed_ips': [],
+                        'port_security_enabled': False,
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = plugin.create_port(ctx, data)
+            data['port']['mac_learning_enabled'] = True
+            self.assertRaises(
+                n_exc.InvalidInput,
+                plugin.update_port, ctx, port['id'], data)
+
+    def _create_l3_ext_network(
+        self, physical_network=DEFAULT_TIER0_ROUTER_UUID):
+        name = 'l3_ext_net'
+        net_type = utils.NetworkTypes.L3_EXT
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        return self.network(name=name,
+                            router__external=True,
+                            providernet_args=providernet_args,
+                            arg_list=(pnet.NETWORK_TYPE,
+                                      pnet.PHYSICAL_NETWORK))
+
+    def test_fail_create_port_with_ext_net(self):
+        expected_error = 'InvalidInput'
+        with self._create_l3_ext_network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+                res = self._create_port(self.fmt,
+                                        network['network']['id'],
+                                        exc.HTTPBadRequest.code,
+                                        device_owner=device_owner)
+                data = self.deserialize(self.fmt, res)
+                self.assertEqual(expected_error, data['NeutronError']['type'])
+
+    def test_fail_update_port_with_ext_net(self):
+        with self._create_l3_ext_network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24') as subnet:
+                with self.port(subnet=subnet) as port:
+                    device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'X'
+                    data = {'port': {'device_owner': device_owner}}
+                    req = self.new_update_request('ports',
+                                                  data, port['port']['id'])
+                    res = req.get_response(self.api)
+                    self.assertEqual(exc.HTTPBadRequest.code,
+                                     res.status_int)
 
 
 class NsxPTestSecurityGroup(NsxPPluginTestCaseMixin,
