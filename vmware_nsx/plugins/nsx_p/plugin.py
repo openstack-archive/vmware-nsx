@@ -809,6 +809,61 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         network_id = router.gw_port_id and router.gw_port.network_id
         return self._get_tier0_uuid_by_net_id(context, network_id)
 
+    def _add_subnet_snat_rule(self, context, router_id, subnet,
+                              gw_address_scope, gw_ip):
+        # if the subnets address scope is the same as the gateways:
+        # no need for SNAT
+        #TODO(asarfaty): move to common code
+        if gw_address_scope:
+            subnet_address_scope = self._get_subnetpool_address_scope(
+                context, subnet['subnetpool_id'])
+            if (gw_address_scope == subnet_address_scope):
+                LOG.info("No need for SNAT rule for router %(router)s "
+                         "and subnet %(subnet)s because they use the "
+                         "same address scope %(addr_scope)s.",
+                         {'router': router_id,
+                          'subnet': subnet['id'],
+                          'addr_scope': gw_address_scope})
+                return
+
+        self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
+            'snat for subnet %s' % subnet['id'],
+            router_id,
+            nat_rule_id=self._get_snat_rule_id(subnet),
+            action=policy_constants.NAT_ACTION_SNAT,
+            #sequence_number=GW_NAT_PRI # TODO(asarfaty) handle priorities
+            translated_network=gw_ip,
+            source_network=subnet['cidr'])
+
+    def _get_snat_rule_id(self, subnet):
+        return 'S-' + subnet['id']
+
+    def _get_no_dnat_rule_id(self, subnet):
+        return 'ND-' + subnet['id']
+
+    def _add_subnet_no_dnat_rule(self, context, router_id, subnet):
+        # Add NO-DNAT rule to allow internal traffic between VMs, even if
+        # they have floating ips (Only for routers with snat enabled)
+        self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
+            'no-dnat for subnet %s' % subnet['id'],
+            router_id,
+            nat_rule_id=self._get_no_dnat_rule_id(subnet),
+            action=policy_constants.NAT_ACTION_NO_DNAT,
+            #sequence_number=GW_NAT_PRI # TODO(asarfaty) handle priorities
+            destination_network=subnet['cidr'])
+
+    def _del_subnet_no_dnat_rule(self, router_id, subnet):
+        # Delete the previously created NO-DNAT rules
+        self.nsxpolicy.tier1_nat_rule.delete(
+            router_id,
+            nat_rule_id=self._get_no_dnat_rule_id(subnet))
+
+    def _del_subnet_snat_rule(self, router_id, subnet):
+        # Delete the previously created SNAT rules
+        self.nsxpolicy.tier1_nat_rule.delete(
+            router_id,
+            nat_rule_id=self._get_snat_rule_id(subnet))
+
     def _update_router_gw_info(self, context, router_id, info):
         # Get the original data of the router GW
         router = self._get_router(context, router_id)
@@ -844,12 +899,11 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     router_id, edge_cluster)
 
         if actions['remove_snat_rules']:
-            #self.nsxpolicy.tier1.delete_gw_snat_rules(nsx_router_id, orgaddr)
-            pass
+            for subnet in router_subnets:
+                self._del_subnet_snat_rule(router_id, subnet)
         if actions['remove_no_dnat_rules']:
             for subnet in router_subnets:
-                #self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
-                pass
+                self._del_subnet_no_dnat_rule(router_id, subnet)
 
         if (actions['remove_router_link_port'] or
             actions['add_router_link_port']):
@@ -866,16 +920,14 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if actions['add_snat_rules']:
             # Add SNAT rules for all the subnets which are in different scope
             # than the GW
-            #gw_address_scope = self._get_network_address_scope(
-            #    context, router.gw_port.network_id)
+            gw_address_scope = self._get_network_address_scope(
+                context, router.gw_port.network_id)
             for subnet in router_subnets:
-                #self._add_subnet_snat_rule(context, router_id, nsx_router_id,
-                #                           subnet, gw_address_scope, newaddr)
-                pass
+                self._add_subnet_snat_rule(context, router_id,
+                                           subnet, gw_address_scope, newaddr)
         if actions['add_no_dnat_rules']:
             for subnet in router_subnets:
-                #self._add_subnet_no_dnat_rule(context, nsx_router_id, subnet)
-                pass
+                self._add_subnet_no_dnat_rule(context, router_id, subnet)
 
         #self.nsxpolicy.tier1.update_route_advertisement(
         #    router_id,
@@ -961,6 +1013,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         network_id = self._get_interface_network(context, interface_info)
         extern_net = self._network_is_external(context, network_id)
         router_db = self._get_router(context, router_id)
+        gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
+                         else None)
 
         # A router interface cannot be an external network
         if extern_net:
@@ -990,6 +1044,18 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                           name=net_name,
                                           tier1_id=router_id,
                                           subnets=[pol_subnet])
+
+            # add the SNAT/NO_DNAT rules for this interface
+            if router_db.enable_snat and gw_network_id:
+                if router_db.gw_port.get('fixed_ips'):
+                    gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
+                    gw_address_scope = self._get_network_address_scope(
+                        context, gw_network_id)
+                    self._add_subnet_snat_rule(
+                        context, router_id,
+                        subnet, gw_address_scope, gw_ip)
+                self._add_subnet_no_dnat_rule(context, router_id, subnet)
+
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error('Failed to create router interface for network '
@@ -1001,10 +1067,23 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return info
 
     def remove_router_interface(self, context, router_id, interface_info):
+        # find the subnet - it is need for removing the SNAT rule
+        subnet = subnet_id = None
+        if 'port_id' in interface_info:
+            port_id = interface_info['port_id']
+            port = self._get_port(context, port_id)
+            if port.get('fixed_ips'):
+                subnet_id = port['fixed_ips'][0]['subnet_id']
+        elif 'subnet_id' in interface_info:
+            subnet_id = interface_info['subnet_id']
+        if subnet_id:
+            subnet = self.get_subnet(context, subnet_id)
+
         # Update the neutron router first
         info = super(NsxPolicyPlugin, self).remove_router_interface(
             context, router_id, interface_info)
         network_id = info['network_id']
+
         # Remove the tier1 router from this segment on the nSX
         try:
             #TODO(asarfaty): adding the segment name even though it was not
@@ -1016,6 +1095,13 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             segment_id = self._get_network_nsx_id(context, network_id)
             self.nsxpolicy.segment.update(segment_id, name=net_name,
                                           tier1_id=None)
+
+            # try to delete the SNAT/NO_DNAT rules of this subnet
+            router_db = self._get_router(context, router_id)
+            if subnet and router_db.gw_port and router_db.enable_snat:
+                self._del_subnet_snat_rule(router_id, subnet)
+                self._del_subnet_no_dnat_rule(router_id, subnet)
+
         except Exception as ex:
             # do not fail the neutron action
             LOG.error('Failed to remove router interface for network '
