@@ -93,6 +93,12 @@ NSX_P_DEFAULT_SECTION_CATEGORY = policy_constants.CATEGORY_APPLICATION
 NSX_P_REGULAR_SECTION_CATEGORY = policy_constants.CATEGORY_ENVIRONMENT
 NSX_P_PROVIDER_SECTION_CATEGORY = policy_constants.CATEGORY_INFRASTRUCTURE
 
+SPOOFGUARD_PROFILE_UUID = 'neutron-spoofguard-profile'
+NO_SPOOFGUARD_PROFILE_UUID = policy_defs.SpoofguardProfileDef.DEFAULT_PROFILE
+MAC_DISCOVERY_PROFILE_UUID = 'neutron-mac-discovery-profile'
+NO_SEG_SECURITY_PROFILE_UUID = (
+    policy_defs.SegmentSecurityProfileDef.DEFAULT_PROFILE)
+
 
 @resource_extend.has_resource_extenders
 class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
@@ -168,6 +174,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         self._init_default_config()
         self._prepare_default_rules()
+        self._init_segment_profiles()
 
         # subscribe the init complete method last, so it will be called only
         # if init was successful
@@ -236,6 +243,48 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsxlib_consts.FEATURE_NSX_POLICY_NETWORKING):
             msg = (_("The NSX Policy plugin cannot be used with NSX version "
                      "%(ver)s") % {'ver': self._nsx_version})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
+    def _init_segment_profiles(self):
+        """Find/Create segment profiles this plugin will use"""
+        # Spoofguard profile (find it or create)
+        try:
+            self.nsxpolicy.spoofguard_profile.get(SPOOFGUARD_PROFILE_UUID)
+        except nsx_lib_exc.ResourceNotFound:
+            self.nsxpolicy.spoofguard_profile.create_or_overwrite(
+                SPOOFGUARD_PROFILE_UUID,
+                profile_id=SPOOFGUARD_PROFILE_UUID,
+                address_binding_whitelist=True,
+                tags=self.nsxpolicy.build_v3_api_version_tag())
+
+        # No Port security spoofguard profile
+        # (default NSX profile. just verify it exists)
+        try:
+            self.nsxpolicy.spoofguard_profile.get(NO_SPOOFGUARD_PROFILE_UUID)
+        except nsx_lib_exc.ResourceNotFound:
+            msg = (_("Cannot find spoofguard profile %s") %
+                   NO_SPOOFGUARD_PROFILE_UUID)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
+        # Mac discovery profile (find it or create)
+        try:
+            self.nsxpolicy.mac_discovery_profile.get(
+                MAC_DISCOVERY_PROFILE_UUID)
+        except nsx_lib_exc.ResourceNotFound:
+            self.nsxpolicy.mac_discovery_profile.create_or_overwrite(
+                MAC_DISCOVERY_PROFILE_UUID,
+                profile_id=MAC_DISCOVERY_PROFILE_UUID,
+                mac_learning_enabled=True,
+                tags=self.nsxpolicy.build_v3_api_version_tag())
+
+        # No Port security segment-security profile
+        # (default NSX profile. just verify it exists)
+        try:
+            self.nsxpolicy.segment_security_profile.get(
+                NO_SEG_SECURITY_PROFILE_UUID)
+        except nsx_lib_exc.ResourceNotFound:
+            msg = (_("Cannot find segment security profile %s") %
+                   NO_SEG_SECURITY_PROFILE_UUID)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
     @staticmethod
