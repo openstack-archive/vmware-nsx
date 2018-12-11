@@ -44,24 +44,28 @@ _NSXLIB = None
 
 
 def get_nsxv3_client(nsx_username=None, nsx_password=None,
-                     use_basic_auth=False):
+                     use_basic_auth=False,
+                     plugin_conf=None):
 
     return get_connected_nsxlib(nsx_username,
                                 nsx_password,
-                                use_basic_auth).client
+                                use_basic_auth,
+                                plugin_conf).client
 
 
 def get_connected_nsxlib(nsx_username=None, nsx_password=None,
-                         use_basic_auth=False):
+                         use_basic_auth=False,
+                         plugin_conf=None):
     global _NSXLIB
 
     # for non-default agruments, initiate new lib
     if nsx_username or use_basic_auth:
         return v3_utils.get_nsxlib_wrapper(nsx_username,
                                            nsx_password,
-                                           use_basic_auth)
+                                           use_basic_auth,
+                                           plugin_conf)
     if _NSXLIB is None:
-        _NSXLIB = v3_utils.get_nsxlib_wrapper()
+        _NSXLIB = v3_utils.get_nsxlib_wrapper(plugin_conf=plugin_conf)
     return _NSXLIB
 
 

@@ -201,6 +201,13 @@ function nsxp_configure_service {
     _nsxp_ini_set retries $NSX_RETRIES
     _nsxp_ini_set insecure $NSX_INSECURE
     _nsxp_ini_set ca_file $NSX_CA_FILE
+
+    if [[ "$NSX_USE_CLIENT_CERT_AUTH" == "True" ]]; then
+        _nsxp_ini_set nsx_use_client_auth "True"
+        _nsxp_ini_set nsx_client_cert_file "$CLIENT_CERT_FILE"
+        _nsxp_ini_set nsx_client_cert_storage "nsx-db"
+        _nsxp_ini_set nsx_client_cert_pk_password "openstack"
+    fi
 }
 
 function init_vmware_nsx_p {

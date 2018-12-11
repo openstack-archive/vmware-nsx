@@ -248,6 +248,12 @@ nsxp_resources = {
                                  [Operations.LIST.value]),
     constants.ROUTERS: Resource(constants.ROUTERS,
                                 [Operations.LIST.value]),
+    constants.CERTIFICATE: Resource(constants.CERTIFICATE,
+                                    [Operations.GENERATE.value,
+                                     Operations.SHOW.value,
+                                     Operations.CLEAN.value,
+                                     Operations.IMPORT.value,
+                                     Operations.NSX_LIST.value]),
 }
 
 nsxv3_resources_names = list(nsxv3_resources.keys())
