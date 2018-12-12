@@ -206,11 +206,6 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         mock_ensure_global_sg_placeholder = mock.patch.object(
             nsx_plugin.NsxV3Plugin, '_ensure_global_sg_placeholder')
         mock_ensure_global_sg_placeholder.start()
-
-        mock_get_edge_cluster = mock.patch.object(
-            nsx_plugin.NsxV3Plugin, '_get_edge_cluster',
-            return_value=uuidutils.generate_uuid())
-        mock_get_edge_cluster.start()
         mock.patch(
             'neutron_lib.rpc.Connection.consume_in_threads',
             return_value=[]).start()
@@ -223,6 +218,10 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
 
         _mock_nsx_backend_calls()
         self.setup_conf_overrides()
+        self.mock_get_edge_cluster = mock.patch.object(
+            nsx_plugin.NsxV3Plugin, '_get_edge_cluster',
+            return_value=uuidutils.generate_uuid())
+        self.mock_get_edge_cluster.start()
         self.mock_plugin_methods()
         # ignoring the given plugin and use the nsx-v3 one
         if not plugin.endswith('NsxTVDPlugin'):
@@ -3004,6 +3003,30 @@ class TestL3NatTestCase(L3NatTest,
     def test_route_update_illegal(self):
         self._test_route_update_illegal('0.0.0.0/0')
         self._test_route_update_illegal('0.0.0.0/16')
+
+    def test_update_router_distinct_edge_cluster(self):
+        self.mock_get_edge_cluster.stop()
+        edge_cluster = uuidutils.generate_uuid()
+        mock.patch(
+            "vmware_nsxlib.v3.core_resources.NsxLibEdgeCluster."
+            "get_id_by_name_or_id",
+            return_value=edge_cluster).start()
+        cfg.CONF.set_override('edge_cluster', edge_cluster, 'nsx_v3')
+        with self.address_scope(name='as1') as addr_scope, \
+                self._create_l3_ext_network() as ext_net:
+            ext_subnet = self._prepare_external_subnet_on_address_scope(
+                ext_net, addr_scope)
+
+            # create a router with this gateway
+            with self.router() as r, \
+                    self._mock_add_remove_service_router() as change_sr:
+                router_id = r['router']['id']
+                self.plugin.init_availability_zones()
+                for az in self.plugin.get_azs_list():
+                    az.translate_configured_names_to_uuids(self.plugin.nsxlib)
+                self._add_external_gateway_to_router(
+                    router_id, ext_subnet['network_id'])
+                change_sr.assert_called_once_with(mock.ANY, edge_cluster)
 
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,

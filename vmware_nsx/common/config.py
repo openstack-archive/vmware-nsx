@@ -378,6 +378,10 @@ nsx_v3_and_p = [
                 help=_("List of nameservers to configure for the DHCP "
                        "binding entries. These will be used if there are no "
                        "nameservers defined on the subnet.")),
+    cfg.StrOpt('edge_cluster',
+               help=_("(Optional) Specifying an edge cluster for Tier1 "
+                      "routers to connect other that the one connected to"
+                      " the Tier0 router")),
 ]
 
 nsx_v3_opts = nsx_v3_and_p + [
@@ -916,6 +920,10 @@ nsxv3_az_opts = [
                help=_("Name or UUID of the default tier0 router that will be "
                       "used for connecting to tier1 logical routers and "
                       "configuring external networks")),
+    cfg.StrOpt('edge_cluster',
+               help=_("(Optional) Specifying an edge cluster for Tier1 "
+                      "routers to connect other that the one connected to"
+                      " the Tier0 router")),
 ]
 
 nsx_tvd_opts = [

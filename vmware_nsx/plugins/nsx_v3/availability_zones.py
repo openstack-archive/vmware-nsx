@@ -40,6 +40,10 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
         if dhcp_relay_service:
             self.dhcp_relay_service = dhcp_relay_service
 
+        edge_cluster = az_info.get('edge_cluster')
+        if edge_cluster:
+            self.edge_cluster = edge_cluster
+
     def init_defaults(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy
@@ -52,10 +56,25 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
         self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
         self.dhcp_relay_service = cfg.CONF.nsx_v3.dhcp_relay_service
         self.default_tier0_router = cfg.CONF.nsx_v3.default_tier0_router
+        self.edge_cluster = cfg.CONF.nsx_v3.edge_cluster
 
     def translate_configured_names_to_uuids(self, nsxlib):
         # Mandatory configurations (in AZ or inherited from global values)
         # Unless this is the default AZ, and metadata is disabled.
+        if self.edge_cluster:
+            edge_cluster_uuid = None
+            if cfg.CONF.nsx_v3.init_objects_by_tags:
+                # Find the edge cluster by its tag
+                edge_cluster_uuid = nsxlib.get_id_by_resource_and_tag(
+                    nsxlib.edge_cluster.resource_type,
+                    cfg.CONF.nsx_v3.search_objects_scope,
+                    self.edge_cluster)
+            if not edge_cluster_uuid:
+                edge_cluster_uuid = (nsxlib.edge_cluster
+                                     .get_id_by_name_or_id(self.edge_cluster))
+            self._edge_cluster_uuid = edge_cluster_uuid
+        else:
+            self._edge_cluster_uuid = None
         if self.dhcp_profile:
             dhcp_id = None
             if cfg.CONF.nsx_v3.init_objects_by_tags:
