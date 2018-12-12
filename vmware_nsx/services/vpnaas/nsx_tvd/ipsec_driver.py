@@ -106,3 +106,11 @@ class NSXIPsecVpnDriver(service_drivers.VpnDriver):
         if driver and hasattr(driver, 'get_ipsec_site_connection_status'):
             return driver.get_ipsec_site_connection_status(
                 context, ipsec_site_conn_id)
+
+    def validate_router_gw_info(self, context, router_id, gw_info):
+        # Currently only NSX-T supports it. In the future we will need to
+        # decide on the driver by the tenant
+        driver = self.drivers.get(projectpluginmap.NsxPlugins.NSX_T)
+        if driver and hasattr(driver, 'validate_router_gw_info'):
+            return driver.validate_router_gw_info(
+                context, router_id, gw_info)
