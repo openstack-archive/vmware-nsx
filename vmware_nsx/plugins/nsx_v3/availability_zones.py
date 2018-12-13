@@ -12,88 +12,35 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from oslo_config import cfg
 
-from vmware_nsx._i18n import _
 from vmware_nsx.common import availability_zones as common_az
 from vmware_nsx.common import config
-from vmware_nsx.common import exceptions as nsx_exc
+from vmware_nsx.plugins.common_v3 import availability_zones as v3_az
+
 from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 
-DEFAULT_NAME = common_az.DEFAULT_NAME + 'v3'
 
+class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
 
-class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
-
-    def init_from_config_line(self, config_line):
-        # Not supported for nsx_v3 (old configuration)
-        raise nsx_exc.NsxInvalidConfiguration(
-            opt_name="availability_zones",
-            opt_value=config_line,
-            reason=_("Expected a list of names"))
+    def _has_native_dhcp_metadata(self):
+        return cfg.CONF.nsx_v3.native_dhcp_metadata
 
     def init_from_config_section(self, az_name):
+        super(NsxV3AvailabilityZone, self).init_from_config_section(az_name)
+
         az_info = config.get_nsxv3_az_opts(self.name)
 
-        if cfg.CONF.nsx_v3.native_dhcp_metadata:
-            # The optional parameters will get the global values if not
-            # defined for this AZ
-            self.metadata_proxy = az_info.get('metadata_proxy')
-            if not self.metadata_proxy:
-                raise nsx_exc.NsxInvalidConfiguration(
-                    opt_name="metadata_proxy",
-                    opt_value='None',
-                    reason=(_("metadata_proxy for availability zone %s "
-                              "must be defined") % az_name))
+        switching_profiles = az_info.get('switching_profiles')
+        if switching_profiles:
+            self.switching_profiles = switching_profiles
 
-            self.dhcp_profile = az_info.get('dhcp_profile')
-            if not self.dhcp_profile:
-                raise nsx_exc.NsxInvalidConfiguration(
-                    opt_name="dhcp_profile",
-                    opt_value='None',
-                    reason=(_("dhcp_profile for availability zone %s "
-                              "must be defined") % az_name))
+        dhcp_relay_service = az_info.get('dhcp_relay_service')
+        if dhcp_relay_service:
+            self.dhcp_relay_service = dhcp_relay_service
 
-            self.native_metadata_route = az_info.get('native_metadata_route')
-            if self.native_metadata_route is None:
-                nmr = cfg.CONF.nsx_v3.native_metadata_route
-                self.native_metadata_route = nmr
-        else:
-            self.metadata_proxy = None
-            self.dhcp_profile = None
-            self.native_metadata_route = None
-
-        self.dns_domain = az_info.get('dns_domain')
-        if self.dns_domain is None:
-            self.dns_domain = cfg.CONF.nsx_v3.dns_domain
-
-        self.nameservers = az_info.get('nameservers')
-        if self.nameservers is None:
-            self.nameservers = cfg.CONF.nsx_v3.nameservers
-
-        self.default_overlay_tz = az_info.get('default_overlay_tz')
-        if self.default_overlay_tz is None:
-            self.default_overlay_tz = cfg.CONF.nsx_v3.default_overlay_tz
-
-        self.default_vlan_tz = az_info.get('default_vlan_tz')
-        if self.default_vlan_tz is None:
-            self.default_vlan_tz = cfg.CONF.nsx_v3.default_vlan_tz
-
-        self.switching_profiles = az_info.get('switching_profiles')
-        if self.switching_profiles is None:
-            self.switching_profiles = cfg.CONF.nsx_v3.switching_profiles
-
-        self.dhcp_relay_service = az_info.get('dhcp_relay_service')
-        if self.dhcp_relay_service is None:
-            self.dhcp_relay_service = cfg.CONF.nsx_v3.dhcp_relay_service
-
-        self.default_tier0_router = az_info.get('default_tier0_router')
-        if self.default_tier0_router is None:
-            self.default_tier0_router = cfg.CONF.nsx_v3.default_tier0_router
-
-    def init_default_az(self):
+    def init_defaults(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy
         self.dhcp_profile = cfg.CONF.nsx_v3.dhcp_profile
@@ -231,7 +178,7 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):
 
-    default_name = DEFAULT_NAME
+    default_name = v3_az.DEFAULT_NAME
 
     def __init__(self, use_tvd_config=False):
         if use_tvd_config:

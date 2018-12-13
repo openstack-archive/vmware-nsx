@@ -73,6 +73,7 @@ from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.common_v3 import plugin as nsx_plugin_common
+from vmware_nsx.plugins.nsx_p import availability_zones as nsxp_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
@@ -160,6 +161,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._extension_manager = managers.ExtensionManager(
             extension_drivers=extension_drivers)
         self.cfg_group = 'nsx_p'  # group name for nsx_p section in nsx.ini
+        self.init_availability_zones()
+
         super(NsxPolicyPlugin, self).__init__()
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
@@ -235,6 +238,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             cfg.CONF.nsx_p.default_vlan_tz,
             filter_list_results=lambda tzs: [
                 tz for tz in tzs if tz['tz_type'].startswith('VLAN')])
+
+    def init_availability_zones(self):
+        self._availability_zones_data = nsxp_az.NsxPAvailabilityZones()
 
     def _validate_nsx_policy_version(self):
         self._nsx_version = self.nsxpolicy.get_version()

@@ -29,6 +29,7 @@ class ConfiguredAvailabilityZone(object):
 
     def __init__(self, config_line, default_name=DEFAULT_NAME):
         self.name = ""
+        self.init_defaults()
         self._is_default = False
         if config_line and ':' in config_line:
             # Older configuration - each line contains all the relevant
@@ -47,7 +48,6 @@ class ConfiguredAvailabilityZone(object):
             # Default zone configuration
             self.name = default_name
             self._is_default = True
-            self.init_default_az()
 
     def is_default(self):
         return self._is_default
@@ -68,7 +68,7 @@ class ConfiguredAvailabilityZone(object):
         pass
 
     @abc.abstractmethod
-    def init_default_az(self):
+    def init_defaults(self):
         pass
 
 
