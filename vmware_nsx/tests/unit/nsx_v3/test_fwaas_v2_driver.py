@@ -17,7 +17,6 @@ import copy
 
 import mock
 
-from neutron_lib.exceptions import firewall_v2 as exceptions
 from neutron_lib.plugins import directory
 
 from vmware_nsx.services.fwaas.nsx_v3 import edge_fwaas_driver_base
@@ -73,7 +72,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         rule['action'] = consts.FW_ACTION_ALLOW
         return rule
 
-    def _fake_rules_v4(self, is_ingress=True, cidr='10.24.4.0/24'):
+    def _fake_rules_v4(self, is_ingress=True, cidr='10.24.4.0/24',
+                       is_conflict=False):
         rule1 = {'enabled': True,
                  'action': 'allow',
                  'ip_version': 4,
@@ -98,11 +98,15 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'ip_version': 4,
                  'id': 'fake-fw-rule4'}
         if is_ingress:
-            # source ips are allowed
-            rule1['source_ip_address'] = cidr
+            if not is_conflict:
+                rule1['source_ip_address'] = cidr
+            else:
+                rule1['destination_ip_address'] = cidr
         else:
-            # dest ips are allowed for egress rules
-            rule1['destination_ip_address'] = cidr
+            if not is_conflict:
+                rule1['destination_ip_address'] = cidr
+            else:
+                rule1['source_ip_address'] = cidr
 
         return [rule1, rule2, rule3, rule4]
 
@@ -114,7 +118,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                      'target_type': 'IPv4Address'}]
 
     def _fake_translated_rules(self, nsx_port_id, cidr='10.24.4.0/24',
-                               is_ingress=True, logged=False):
+                               is_ingress=True, is_conflict=False,
+                               logged=False):
         # The expected translation of the rules in _fake_rules_v4
         service1 = {'l4_protocol': 'TCP',
                     'resource_type': 'L4PortSetNSService',
@@ -125,8 +130,12 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                  'sources': self._translated_cidr(cidr),
                  'display_name': 'Fwaas-fake-fw-rule1',
                  'notes': 'first rule'}
-        if not is_ingress:
+        if ((is_ingress and is_conflict) or
+            (not is_ingress and not is_conflict)):
+            # Swap ips
             rule1['destinations'] = rule1['sources']
+            del rule1['sources']
+        if 'sources' in rule1 and not rule1['sources']:
             del rule1['sources']
         service2 = {'l4_protocol': 'TCP',
                     'resource_type': 'L4PortSetNSService',
@@ -157,7 +166,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             new_val = [{'target_id': nsx_port_id,
                         'target_type': 'LogicalSwitch'}]
             for rule in (rule1, rule2, rule3, rule4):
-                rule[field] = new_val
+                if not rule.get(field):
+                    rule[field] = new_val
                 rule['direction'] = direction
         if logged:
             for rule in (rule1, rule2, rule3, rule4):
@@ -237,9 +247,11 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                 MOCK_SECTION_ID,
                 rules=expected_rules)
 
-    def _setup_firewall_with_rules(self, func, is_ingress=True):
+    def _setup_firewall_with_rules(self, func, is_ingress=True,
+                                   is_conflict=False):
         apply_list = self._fake_apply_list()
-        rule_list = self._fake_rules_v4(is_ingress=is_ingress)
+        rule_list = self._fake_rules_v4(is_ingress=is_ingress,
+                                        is_conflict=is_conflict)
         firewall = self._fake_firewall_group(rule_list, is_ingress=is_ingress)
         port = {'id': FAKE_PORT_ID, 'network_id': FAKE_NET_ID}
         with mock.patch.object(self.plugin, '_get_router_interfaces',
@@ -256,7 +268,8 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                        "update") as update_fw:
             func('nsx', apply_list, firewall)
             expected_rules = self._fake_translated_rules(
-                FAKE_NSX_LS_ID, is_ingress=is_ingress) + [
+                FAKE_NSX_LS_ID, is_ingress=is_ingress,
+                is_conflict=is_conflict) + [
                 {'display_name': "Block port ingress",
                  'action': consts.FW_ACTION_DROP,
                  'destinations': [{'target_type': 'LogicalSwitch',
@@ -287,14 +300,13 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
         self._setup_firewall_with_rules(self.firewall.update_firewall_group,
                                         is_ingress=False)
 
-    def test_create_firewall_with_illegal_rules(self):
-        """Use ingress rules as the egress list and verify failure"""
-        apply_list = self._fake_apply_list()
-        rule_list = self._fake_rules_v4(is_ingress=True)
-        firewall = self._fake_firewall_group(rule_list, is_ingress=False)
-        self.assertRaises(exceptions.FirewallInternalDriverError,
-                          self.firewall.create_firewall_group, 'nsx',
-                          apply_list, firewall)
+    def test_create_firewall_with_egress_conflicting_rules(self):
+        self._setup_firewall_with_rules(self.firewall.update_firewall_group,
+                                        is_ingress=False, is_conflict=True)
+
+    def test_create_firewall_with_ingress_conflicting_rules(self):
+        self._setup_firewall_with_rules(self.firewall.update_firewall_group,
+                                        is_ingress=True, is_conflict=True)
 
     def test_create_firewall_with_illegal_cidr(self):
         apply_list = self._fake_apply_list()
