@@ -118,7 +118,6 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                     'source_ports': []}
         rule1 = {'action': 'ALLOW',
                  'services': [{'service': service1}],
-                 'sources': self._translated_cidr(cidr),
                  'display_name': 'Fwaas-fake-fw-rule1',
                  'notes': 'first rule'}
         service2 = {'l4_protocol': 'TCP',
@@ -138,8 +137,9 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
                               {'service': service3_2}],
                  'display_name': 'Fwaas-fake-fw-rule3'}
         rule4 = {'action': 'DROP',
-                 'sources': self._translated_cidr(cidr),
                  'display_name': 'Fwaas-fake-fw-rule4'}
+        if cidr:
+            rule1['sources'] = rule4['sources'] = self._translated_cidr(cidr)
 
         if logged:
             for rule in (rule1, rule2, rule3, rule4):
