@@ -1233,15 +1233,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         # Remove the tier1 router from this segment on the nSX
         try:
-            #TODO(asarfaty): adding the segment name even though it was not
-            # changed because otherwise the NSX will set it to default.
-            # This code should be removed once NSX supports it.
-            net = self._get_network(context, network_id)
-            net_name = utils.get_name_and_uuid(
-                net['name'] or 'network', network_id)
             segment_id = self._get_network_nsx_segment_id(context, network_id)
-            self.nsxpolicy.segment.update(segment_id, name=net_name,
-                                          tier1_id=None)
+            self.nsxpolicy.segment.remove_connectivity_and_subnets(segment_id)
 
             # try to delete the SNAT/NO_DNAT rules of this subnet
             router_db = self._get_router(context, router_id)

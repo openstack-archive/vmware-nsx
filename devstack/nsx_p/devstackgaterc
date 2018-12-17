@@ -39,9 +39,6 @@ r="$r|(?:tempest\.api\.network\.admin\.test_external_network_extension\.External
 # Some ICMP types are not supported by the NSX backend
 r="$r|(?:tempest\.api\.network\.test_security_groups\.SecGroupTest\.test_create_security_group_rule_with_icmp_type_code.*)"
 
-# TODO(asarfaty): Make this test pass
-r="$r|(?:tempest\.api\.network\.test_routers_negative\.RoutersNegativeTest\.test_router_remove_interface_in_use_returns_409.*)"
-
 # End list of exclusions.
 r="$r)"
 
