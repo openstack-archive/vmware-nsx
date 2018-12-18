@@ -204,23 +204,6 @@ class TestQoSQueue(test_nsx_plugin.NsxPluginV2TestCase):
             port = self.deserialize('json', res)
             self.assertEqual(len(port['port'][ext_qos.QUEUE]), 36)
 
-    def test_get_port_with_qos_not_admin(self):
-        body = {'qos_queue': {'tenant_id': 'not_admin',
-                              'name': 'foo', 'min': 20, 'max': 20}}
-        res = self._create_qos_queue('json', body, tenant_id='not_admin')
-        q1 = self.deserialize('json', res)
-        res = self._create_network('json', 'net1', True,
-                                   arg_list=(ext_qos.QUEUE, 'tenant_id',),
-                                   queue_id=q1['qos_queue']['id'],
-                                   tenant_id="not_admin")
-        net1 = self.deserialize('json', res)
-        self.assertEqual(len(net1['network'][ext_qos.QUEUE]), 36)
-        res = self._create_port('json', net1['network']['id'],
-                                tenant_id='not_admin', set_context=True)
-
-        port = self.deserialize('json', res)
-        self.assertNotIn(ext_qos.QUEUE, port['port'])
-
     def test_dscp_value_out_of_range(self):
         body = {'qos_queue': {'tenant_id': 'admin', 'dscp': '64',
                               'name': 'foo', 'min': 20, 'max': 20}}
@@ -233,34 +216,6 @@ class TestQoSQueue(test_nsx_plugin.NsxPluginV2TestCase):
                               'name': 'foo', 'min': 20, 'max': 20}}
         res = self._create_qos_queue('json', body)
         self.assertEqual(res.status_int, 400)
-
-    def test_non_admin_cannot_create_queue(self):
-        body = {'qos_queue': {'tenant_id': 'not_admin',
-                              'name': 'foo', 'min': 20, 'max': 20}}
-        res = self._create_qos_queue('json', body, tenant_id='not_admin',
-                                     set_context=True)
-        self.assertEqual(res.status_int, 403)
-
-    def test_update_port_non_admin_does_not_show_queue_id(self):
-        body = {'qos_queue': {'tenant_id': 'not_admin',
-                              'name': 'foo', 'min': 20, 'max': 20}}
-        res = self._create_qos_queue('json', body, tenant_id='not_admin')
-        q1 = self.deserialize('json', res)
-        res = self._create_network('json', 'net1', True,
-                                   arg_list=(ext_qos.QUEUE,),
-                                   tenant_id='not_admin',
-                                   queue_id=q1['qos_queue']['id'])
-
-        net1 = self.deserialize('json', res)
-        res = self._create_port('json', net1['network']['id'],
-                                tenant_id='not_admin', set_context=True)
-        port = self.deserialize('json', res)
-        device_id = "00fff4d0-e4a8-4a3a-8906-4c4cdafb59f1"
-        data = {'port': {'device_id': device_id}}
-        neutron_context = context.Context('', 'not_admin')
-        port = self._update('ports', port['port']['id'], data,
-                            neutron_context=neutron_context)
-        self.assertNotIn(ext_qos.QUEUE, port['port'])
 
     def _test_rxtx_factor(self, max_value, rxtx_factor):
         with self.qos_queue(max=max_value) as q1:
