@@ -64,7 +64,7 @@ def listener_to_edge_app_profile(listener, edge_cert_id):
                 lb_const.SESSION_PERSISTENCE_COOKIE_MAP):
             cookie_name = pool_sess_persist.get('cookie_name', None)
             if cookie_name is None:
-                cookie_name = 'default_cookie_name'
+                cookie_name = lb_const.SESSION_PERSISTENCE_DEFAULT_COOKIE_NAME
             persistence.update({
                 'cookieName': cookie_name,
                 'cookieMode': lb_const.SESSION_PERSISTENCE_COOKIE_MAP[

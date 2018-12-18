@@ -100,6 +100,7 @@ L7RULE_ID = 'l7rule-111'
 L7POLICY_BINDING = {'l7policy_id': L7POLICY_ID,
                     'lb_vs_id': LB_VS_ID,
                     'lb_rule_id': LB_RULE_ID}
+LB_PP_ID = "ppp-ppp"
 
 FAKE_CERT = {'id': 'cert-xyz'}
 
@@ -164,6 +165,15 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                    listener=self.listener,
                                    listeners=[self.listener],
                                    loadbalancer=self.lb)
+        self.sess_persistence = lb_models.SessionPersistence(
+            POOL_ID, 'HTTP_COOKIE', 'meh_cookie')
+        self.pool_persistency = lb_models.Pool(POOL_ID, LB_TENANT_ID,
+                                   'pool1', '', None, 'HTTP',
+                                   'ROUND_ROBIN', loadbalancer_id=LB_ID,
+                                   listener=self.listener,
+                                   listeners=[self.listener],
+                                   loadbalancer=self.lb,
+                                   session_persistence=self.sess_persistence)
         self.member = lb_models.Member(MEMBER_ID, LB_TENANT_ID, POOL_ID,
                                        MEMBER_ADDRESS, 80, 1, pool=self.pool,
                                        name='member1')
@@ -218,6 +228,8 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                                 'monitor').start()
         self.rule_client = mock.patch.object(load_balancer,
                                              'rule').start()
+        self.pp_client = mock.patch.object(load_balancer,
+                                           'persistence_profile').start()
         self.tm_client = mock.patch.object(nsxlib,
                                            'trust_management').start()
 
@@ -477,7 +489,10 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
                               ) as mock_add_pool_binding, \
             mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
                               ) as mock_get_listener_binding, \
-            mock.patch.object(self.vs_client, 'update', return_value=None), \
+            mock.patch.object(self.pp_client, 'create'
+                              ) as mock_create_pp, \
+            mock.patch.object(self.vs_client, 'update', return_value=None
+                              ) as mock_vs_update, \
             mock.patch.object(nsx_db, 'update_nsx_lbaas_pool_binding'
                               ) as mock_update_pool_binding:
             mock_create_pool.return_value = {'id': LB_POOL_ID}
@@ -487,6 +502,9 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
 
             mock_add_pool_binding.assert_called_with(
                 self.context.session, LB_ID, POOL_ID, LB_POOL_ID)
+            mock_create_pp.assert_not_called()
+            mock_vs_update.assert_called_once_with(
+                LB_VS_ID, pool_id=LB_POOL_ID, persistence_profile_id=None)
             mock_update_pool_binding.assert_called_with(
                 self.context.session, LB_ID, POOL_ID, LB_VS_ID)
             mock_successful_completion = (
@@ -494,6 +512,93 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock_successful_completion.assert_called_with(self.context,
                                                           self.pool,
                                                           delete=False)
+
+    def _test_create_with_persistency(self, vs_data, verify_func):
+        with mock.patch.object(self.pool_client, 'create'
+                               ) as mock_create_pool, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_pool_binding'
+                              ) as mock_add_pool_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
+                              ) as mock_get_listener_binding, \
+            mock.patch.object(self.pp_client, 'create'
+                              ) as mock_create_pp, \
+            mock.patch.object(self.pp_client, 'update', return_value=None,
+                              ) as mock_update_pp, \
+            mock.patch.object(self.vs_client, 'get'
+                              ) as mock_vs_get, \
+            mock.patch.object(self.vs_client, 'update', return_value=None
+                              ) as mock_vs_update, \
+            mock.patch.object(nsx_db, 'update_nsx_lbaas_pool_binding'
+                              ) as mock_update_pool_binding:
+
+            mock_vs_get.return_value = vs_data
+            mock_create_pool.return_value = {'id': LB_POOL_ID}
+            mock_create_pp.return_value = {'id': LB_PP_ID}
+            mock_get_listener_binding.return_value = LISTENER_BINDING
+
+            self.edge_driver.pool.create(self.context, self.pool_persistency)
+
+            mock_add_pool_binding.assert_called_with(
+                self.context.session, LB_ID, POOL_ID, LB_POOL_ID)
+            verify_func(mock_create_pp, mock_update_pp,
+                        mock_update_pool_binding, mock_vs_update)
+            mock_successful_completion = (
+                self.lbv2_driver.pool.successful_completion)
+            mock_successful_completion.assert_called_with(
+                self.context, self.pool_persistency, delete=False)
+
+    def test_create_with_persistency(self):
+
+        def verify_func(mock_create_pp, mock_update_pp,
+                        mock_update_pool_binding, mock_vs_update):
+            mock_create_pp.assert_called_once_with(
+                resource_type='LbCookiePersistenceProfile',
+                cookie_mode='INSERT',
+                cookie_name='meh_cookie',
+                display_name=mock.ANY,
+                tags=mock.ANY)
+            mock_update_pp.assert_not_called()
+            mock_update_pool_binding.assert_called_with(
+                self.context.session, LB_ID, POOL_ID, LB_VS_ID)
+            mock_vs_update.assert_called_once_with(
+                LB_VS_ID, pool_id=LB_POOL_ID, persistence_profile_id=LB_PP_ID)
+
+        vs_data = {'id': LB_VS_ID}
+        self._test_create_with_persistency(vs_data, verify_func)
+
+    def test_create_with_persistency_existing_profile(self):
+        def verify_func(mock_create_pp, mock_update_pp,
+                        mock_update_pool_binding, mock_vs_update):
+            mock_create_pp.assert_not_called()
+            mock_update_pp.assert_called_once_with(
+                LB_PP_ID,
+                resource_type='LbCookiePersistenceProfile',
+                cookie_mode='INSERT',
+                cookie_name='meh_cookie',
+                display_name=mock.ANY,
+                tags=mock.ANY)
+            mock_update_pool_binding.assert_called_with(
+                self.context.session, LB_ID, POOL_ID, LB_VS_ID)
+            mock_vs_update.assert_called_once_with(
+                LB_VS_ID, pool_id=LB_POOL_ID, persistence_profile_id=LB_PP_ID)
+
+        vs_data = {'id': LB_VS_ID,
+                   'persistence_profile_id': LB_PP_ID}
+        self._test_create_with_persistency(vs_data, verify_func)
+
+    def test_create_with_persistency_no_listener(self):
+        def verify_func(mock_create_pp, mock_update_pp,
+                        mock_update_pool_binding, mock_vs_update):
+            mock_create_pp.assert_not_called()
+            mock_update_pp.assert_not_called()
+            mock_update_pool_binding.assert_not_called()
+            mock_vs_update.assert_not_called()
+
+        vs_data = {'id': LB_VS_ID,
+                   'persistence_profile_id': LB_PP_ID}
+        self.pool_persistency.listener = None
+        self.pool_persistency.listeners = []
+        self._test_create_with_persistency(vs_data, verify_func)
 
     def test_update(self):
         new_pool = lb_models.Pool(POOL_ID, LB_TENANT_ID, 'pool-name', '',
@@ -511,6 +616,67 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
                                                           new_pool,
                                                           delete=False)
 
+    def _test_update_with_persistency(self, vs_data, old_pool, new_pool,
+                                      verify_func):
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                               ) as mock_get_pool_binding, \
+            mock.patch.object(self.pp_client, 'create'
+                              ) as mock_create_pp, \
+            mock.patch.object(self.pp_client, 'update', return_value=None,
+                              ) as mock_update_pp, \
+            mock.patch.object(self.pp_client, 'delete', return_value=None,
+                              ) as mock_delete_pp, \
+            mock.patch.object(self.vs_client, 'get'
+                              ) as mock_vs_get, \
+            mock.patch.object(self.vs_client, 'update', return_value=None
+                              ) as mock_vs_update:
+
+            mock_vs_get.return_value = vs_data
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_create_pp.return_value = {'id': LB_PP_ID}
+
+            self.edge_driver.pool.update(self.context, old_pool, new_pool)
+
+            verify_func(mock_create_pp, mock_update_pp,
+                        mock_delete_pp, mock_vs_update)
+            mock_successful_completion = (
+                self.lbv2_driver.pool.successful_completion)
+            mock_successful_completion.assert_called_with(
+                self.context, new_pool, delete=False)
+
+    def test_update_with_persistency(self):
+
+        def verify_func(mock_create_pp, mock_update_pp,
+                        mock_delete_pp, mock_vs_update):
+            mock_create_pp.assert_called_once_with(
+                resource_type='LbCookiePersistenceProfile',
+                cookie_mode='INSERT',
+                cookie_name='meh_cookie',
+                display_name=mock.ANY,
+                tags=mock.ANY)
+            mock_update_pp.assert_not_called()
+            mock_delete_pp.assert_not_called()
+            mock_vs_update.assert_called_once_with(
+                LB_VS_ID, pool_id=LB_POOL_ID, persistence_profile_id=LB_PP_ID)
+
+        vs_data = {'id': LB_VS_ID}
+        self._test_update_with_persistency(vs_data, self.pool,
+                                           self.pool_persistency, verify_func)
+
+    def test_update_remove_persistency(self):
+        def verify_func(mock_create_pp, mock_update_pp,
+                        mock_delete_pp, mock_vs_update):
+            mock_create_pp.assert_not_called()
+            mock_update_pp.assert_not_called()
+            mock_delete_pp.assert_called_with(LB_PP_ID)
+            mock_vs_update.assert_called_once_with(
+                LB_VS_ID, pool_id=LB_POOL_ID, persistence_profile_id=None)
+
+        vs_data = {'id': LB_VS_ID,
+                   'persistence_profile_id': LB_PP_ID}
+        self._test_update_with_persistency(vs_data, self.pool_persistency,
+                                           self.pool, verify_func)
+
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
                                ) as mock_get_pool_binding, \
@@ -527,8 +693,8 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
 
             self.edge_driver.pool.delete(self.context, self.pool)
 
-            mock_update_virtual_server.assert_called_with(LB_VS_ID,
-                                                          pool_id='')
+            mock_update_virtual_server.assert_called_with(
+                LB_VS_ID, persistence_profile_id=None, pool_id=None)
             mock_delete_pool.assert_called_with(LB_POOL_ID)
             mock_delete_pool_binding.assert_called_with(
                 self.context.session, LB_ID, POOL_ID)
@@ -538,6 +704,171 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             mock_successful_completion.assert_called_with(self.context,
                                                           self.pool,
                                                           delete=True)
+
+    def test_delete_with_persistency(self):
+        with mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                               ) as mock_get_pool_binding, \
+            mock.patch.object(self.vs_client, 'get'
+                              ) as mock_vs_get, \
+            mock.patch.object(self.vs_client, 'update', return_value=None
+                              ) as mock_update_virtual_server, \
+            mock.patch.object(self.pool_client, 'delete'
+                              ) as mock_delete_pool, \
+            mock.patch.object(self.pp_client, 'delete', return_value=None,
+                              ) as mock_delete_pp, \
+            mock.patch.object(nsx_db, 'delete_nsx_lbaas_pool_binding'
+                              ) as mock_delete_pool_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding:
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_lb_binding.return_value = None
+            mock_vs_get.return_value = {'id': LB_VS_ID,
+                                        'persistence_profile_id': LB_PP_ID}
+
+            self.edge_driver.pool.delete(self.context, self.pool_persistency)
+
+            mock_delete_pp.assert_called_once_with(LB_PP_ID)
+            mock_update_virtual_server.assert_called_once_with(
+                LB_VS_ID, persistence_profile_id=None, pool_id=None)
+            mock_delete_pool.assert_called_with(LB_POOL_ID)
+            mock_delete_pool_binding.assert_called_with(
+                self.context.session, LB_ID, POOL_ID)
+
+            mock_successful_completion = (
+                self.lbv2_driver.pool.successful_completion)
+            mock_successful_completion.assert_called_with(
+                self.context, self.pool_persistency, delete=True)
+
+    def _verify_create(self, res_type, cookie_name, cookie_mode,
+                       mock_create_pp, mock_update_pp):
+        if cookie_name:
+            mock_create_pp.assert_called_once_with(
+                resource_type=res_type,
+                cookie_name=cookie_name,
+                cookie_mode=cookie_mode,
+                display_name=mock.ANY,
+                tags=mock.ANY)
+        else:
+            mock_create_pp.assert_called_once_with(
+                resource_type=res_type,
+                display_name=mock.ANY,
+                tags=mock.ANY)
+        # Compare tags - kw args are the last item of a mock call tuple
+        self.assertItemsEqual(mock_create_pp.mock_calls[0][-1]['tags'],
+            [{'scope': 'os-lbaas-lb-id', 'tag': 'xxx-xxx'},
+                {'scope': 'os-lbaas-lb-name', 'tag': 'lb1'},
+                {'scope': 'os-lbaas-listener-id', 'tag': 'listener-x'}])
+        mock_update_pp.assert_not_called()
+
+    def _verify_update(self, res_type, cookie_name, cookie_mode,
+                       mock_create_pp, mock_update_pp):
+        if cookie_name:
+            mock_update_pp.assert_called_once_with(
+                LB_PP_ID,
+                resource_type=res_type,
+                cookie_name=cookie_name,
+                cookie_mode=cookie_mode,
+                display_name=mock.ANY,
+                tags=mock.ANY)
+        else:
+            mock_update_pp.assert_called_once_with(
+                LB_PP_ID,
+                resource_type=res_type,
+                display_name=mock.ANY,
+                tags=mock.ANY)
+        # Compare tags - kw args are the last item of a mock call tuple
+        self.assertItemsEqual(mock_update_pp.mock_calls[0][-1]['tags'],
+            [{'scope': 'os-lbaas-lb-id', 'tag': 'xxx-xxx'},
+             {'scope': 'os-lbaas-lb-name', 'tag': 'lb1'},
+             {'scope': 'os-lbaas-listener-id', 'tag': 'listener-x'}])
+        mock_create_pp.assert_not_called()
+
+    def _verify_delete(self, res_type, cookie_name, cookie_mode,
+                       mock_create_pp, mock_update_pp):
+        mock_create_pp.assert_not_called()
+        mock_update_pp.assert_not_called()
+
+    def _test_setup_session_persistence(self, session_persistence,
+                                        res_type, vs_data, verify_func,
+                                       cookie_name=None, cookie_mode=None):
+        with mock.patch.object(self.pp_client, 'create'
+                               ) as mock_create_pp, \
+            mock.patch.object(self.pp_client, 'update', return_value=None,
+                              ) as mock_update_pp:
+
+            mock_create_pp.return_value = {'id': LB_PP_ID}
+            self.pool.session_persistence = session_persistence
+            pool_dict = self.edge_driver.pool.translator(self.pool)
+            list_dict = self.edge_driver.listener.translator(self.listener)
+            pool_impl = self.edge_driver.pool.implementor  # make pep8 happy
+            pp_id, post_func = pool_impl._setup_session_persistence(
+                pool_dict, [], list_dict, vs_data)
+
+            if session_persistence:
+                self.assertEqual(LB_PP_ID, pp_id)
+            else:
+                self.assertIsNone(pp_id)
+                self.assertEqual(({'id': LB_VS_ID,
+                                   'persistence_profile_id': LB_PP_ID},),
+                                 post_func.args)
+            verify_func(res_type, cookie_name, cookie_mode,
+                        mock_create_pp, mock_update_pp)
+
+    def test_setup_session_persistence_sourceip_new_profile(self):
+        sess_persistence = lb_models.SessionPersistence(POOL_ID, 'SOURCE_IP')
+        res_type = 'LbSourceIpPersistenceProfile'
+        self._test_setup_session_persistence(
+            sess_persistence, res_type, {'id': LB_VS_ID}, self._verify_create)
+
+    def test_setup_session_persistence_httpcookie_new_profile(self):
+        sess_persistence = lb_models.SessionPersistence(
+            POOL_ID, 'HTTP_COOKIE')
+        res_type = 'LbCookiePersistenceProfile'
+        self._test_setup_session_persistence(
+            sess_persistence, res_type, {'id': LB_VS_ID},
+            self._verify_create, 'default_cookie_name', 'INSERT')
+
+    def test_setup_session_persistence_appcookie_new_profile(self):
+        sess_persistence = lb_models.SessionPersistence(
+            POOL_ID, 'APP_COOKIE', 'whatever')
+        res_type = 'LbCookiePersistenceProfile'
+        self._test_setup_session_persistence(
+            sess_persistence, res_type, {'id': LB_VS_ID},
+            self._verify_create, 'whatever', 'REWRITE')
+
+    def test_setup_session_persistence_none_from_existing(self):
+        sess_persistence = None
+        self._test_setup_session_persistence(
+            sess_persistence, None,
+            {'id': LB_VS_ID, 'persistence_profile_id': LB_PP_ID},
+            self._verify_delete)
+
+    def test_setup_session_persistence_sourceip_from_existing(self):
+        sess_persistence = lb_models.SessionPersistence(POOL_ID, 'SOURCE_IP')
+        res_type = 'LbSourceIpPersistenceProfile'
+        self._test_setup_session_persistence(
+            sess_persistence, res_type,
+            {'id': LB_VS_ID, 'persistence_profile_id': LB_PP_ID},
+            self._verify_update)
+
+    def test_setup_session_persistence_httpcookie_from_existing(self):
+        sess_persistence = lb_models.SessionPersistence(POOL_ID, 'HTTP_COOKIE')
+        res_type = 'LbCookiePersistenceProfile'
+        self._test_setup_session_persistence(
+            sess_persistence, res_type,
+            {'id': LB_VS_ID, 'persistence_profile_id': LB_PP_ID},
+            self._verify_update,
+            'default_cookie_name', 'INSERT')
+
+    def test_setup_session_persistence_appcookie_from_existing(self):
+        sess_persistence = lb_models.SessionPersistence(
+            POOL_ID, 'APP_COOKIE', 'whatever')
+        res_type = 'LbCookiePersistenceProfile'
+        self._test_setup_session_persistence(
+            sess_persistence, res_type,
+            {'id': LB_VS_ID, 'persistence_profile_id': LB_PP_ID},
+            self._verify_update,
+            'whatever', 'REWRITE')
 
 
 class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
