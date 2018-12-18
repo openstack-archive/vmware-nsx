@@ -164,21 +164,22 @@ class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
                    resource)
             raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
 
-    def _check_lb_service_on_router_interface(self, *args, **kwargs):
+    def _check_lb_service_on_router_interface(
+            self, resource, event, trigger, payload=None):
         # Prevent removing the interface of an LB subnet from a router
-        router_id = kwargs.get('router_id')
-        subnet_id = kwargs.get('subnet_id')
+        router_id = payload.resource_id
+        subnet_id = payload.metadata.get('subnet_id')
         if not router_id or not subnet_id:
             return
 
-        nsx_router_id = nsx_db.get_nsx_router_id(kwargs['context'].session,
-                                                 kwargs['router_id'])
+        nsx_router_id = nsx_db.get_nsx_router_id(payload.context.session,
+                                                 router_id)
         if not nsx_router_id:
             # Skip non-v3 routers (could be a V router in case of TVD plugin)
             return
 
         # get LB ports and check if any loadbalancer is using this subnet
-        if self._get_lb_ports(kwargs['context'].elevated(), [subnet_id]):
+        if self._get_lb_ports(payload.context.elevated(), [subnet_id]):
             msg = _('Cannot delete a router interface as it used by a '
                     'loadbalancer')
             raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
