@@ -105,6 +105,15 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                         raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
             nsx_db.delete_nsx_lbaas_loadbalancer_binding(
                 context.session, lb['id'])
+            router_id = nsx_db.get_neutron_from_nsx_router_id(
+                context.session, nsx_router_id)
+            # Service router is needed only when the LB exist, and
+            # no other services are using it.
+            if not self.core_plugin.service_router_has_services(
+                    context,
+                    router_id):
+                self.core_plugin.delete_service_router(context,
+                                                       router_id)
         completor(success=True)
 
     def refresh(self, context, lb):

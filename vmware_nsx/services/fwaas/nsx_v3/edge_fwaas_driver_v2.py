@@ -83,7 +83,8 @@ class EdgeFwaasV3DriverV2(base_driver.CommonEdgeFwaasV3Driver):
 
         # update each router once
         for router_id in routers:
-            self.core_plugin.update_router_firewall(context, router_id)
+            self.core_plugin.update_router_firewall(context, router_id,
+                                                    from_fw=True)
 
     def get_port_translated_rules(self, nsx_ls_id, firewall_group,
                                   plugin_rules):

@@ -829,7 +829,7 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
     def _get_update_router_gw_actions(
         self,
         org_tier0_uuid, orgaddr, org_enable_snat,
-        new_tier0_uuid, newaddr, new_enable_snat):
+        new_tier0_uuid, newaddr, new_enable_snat, lb_exist, fw_exist):
         """Return a dictionary of flags indicating which actions should be
            performed on this router GW update.
         """
@@ -888,12 +888,20 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
         actions['advertise_route_connected_flag'] = (
             True if not new_enable_snat else False)
 
-        # TODO(asarfaty): calculate flags for add/remove service router
-        actions['remove_service_router'] = (
-            actions['remove_router_link_port'] and
-            not actions['add_router_link_port'])
-        actions['add_service_router'] = (
-            actions['add_router_link_port'] and
-            not actions['remove_router_link_port'])
+        # the purpose of the two vars is to be able to differ between
+        # adding a gateway w/o snat and adding snat (when adding/removing gw
+        # the snat option is on by default.
+
+        real_new_enable_snat = new_enable_snat and newaddr
+        real_org_enable_snat = org_enable_snat and orgaddr
+
+        actions['add_service_router'] = ((real_new_enable_snat and
+                                          not real_org_enable_snat) or
+                                         (real_new_enable_snat and not
+                                         orgaddr and newaddr)
+                                         ) and not (fw_exist or lb_exist)
+        actions['remove_service_router'] = ((not real_new_enable_snat and
+                                             real_org_enable_snat) or (
+                orgaddr and not newaddr)) and not (fw_exist or lb_exist)
 
         return actions

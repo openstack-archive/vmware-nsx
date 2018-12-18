@@ -881,7 +881,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return self.conn.consume_in_threads()
 
     def _get_edge_cluster(self, tier0_uuid):
-        self.nsxlib.router.validate_tier0(self.tier0_groups_dict, tier0_uuid)
+        if (not self.tier0_groups_dict.get(tier0_uuid) or not self.
+                tier0_groups_dict[tier0_uuid].get('edge_cluster_uuid')):
+            self.nsxlib.router.validate_tier0(self.tier0_groups_dict,
+                                              tier0_uuid)
         tier0_info = self.tier0_groups_dict[tier0_uuid]
         return tier0_info['edge_cluster_uuid']
 
@@ -3189,6 +3192,44 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     'net': sub['network_id']})
                 raise n_exc.InvalidInput(error_message=msg)
 
+    def state_firewall_rules(self, context, router_id):
+        if self.fwaas_callbacks and self.fwaas_callbacks.fwaas_enabled:
+            ports = self._get_router_interfaces(context, router_id)
+            return self.fwaas_callbacks.router_with_fwg(context, ports)
+
+    def verify_sr_at_backend(self, context, router_id):
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
+        return self.nsxlib.router.has_service_router(nsx_router_id)
+
+    def service_router_has_services(self, context, router_id):
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
+        router = self._get_router(context, router_id)
+        snat_exist = router.enable_snat
+        lb_exist = nsx_db.has_nsx_lbaas_loadbalancer_binding_by_router(
+            context.session, nsx_router_id)
+        fw_exist = self.state_firewall_rules(context, router_id)
+        if snat_exist or lb_exist or fw_exist:
+            return True
+        return snat_exist or lb_exist or fw_exist
+
+    def create_service_router(self, context, router_id):
+        router = self._get_router(context, router_id)
+        tier0_uuid = self._get_tier0_uuid_by_router(context, router)
+        edge_cluster_uuid = self._get_edge_cluster(tier0_uuid)
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
+        self.nsxlib.router.update_router_edge_cluster(nsx_router_id,
+                                                      edge_cluster_uuid)
+
+    def delete_service_router(self, context, router_id):
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
+        self.nsxlib.router.change_edge_firewall_status(
+                    nsx_router_id, nsxlib_consts.FW_DISABLE)
+        self.nsxlib.router.update_router_edge_cluster(nsx_router_id, None)
+
     def _update_router_gw_info(self, context, router_id, info):
         router = self._get_router(context, router_id)
         org_tier0_uuid = self._get_tier0_uuid_by_router(context, router)
@@ -3196,6 +3237,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         orgaddr, orgmask, _orgnexthop = (
             self._get_external_attachment_info(
                 context, router))
+
         self._validate_router_gw(context, router_id, info, org_enable_snat)
 
         router_subnets = self._find_router_subnets(
@@ -3221,15 +3263,24 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, router))
         nsx_router_id = nsx_db.get_nsx_router_id(context.session, router_id)
 
+        lb_exist = nsx_db.has_nsx_lbaas_loadbalancer_binding_by_router(
+            context.session, nsx_router_id)
+        fw_exist = self.state_firewall_rules(context, router_id)
+
         actions = self._get_update_router_gw_actions(
             org_tier0_uuid, orgaddr, org_enable_snat,
-            new_tier0_uuid, newaddr, new_enable_snat)
+            new_tier0_uuid, newaddr, new_enable_snat, lb_exist, fw_exist)
+
+        if actions['add_service_router']:
+            self.create_service_router(context, router_id)
 
         if actions['revocate_bgp_announce']:
+
             # TODO(berlin): revocate bgp announce on org tier0 router
             pass
         if actions['remove_snat_rules']:
             self.nsxlib.router.delete_gw_snat_rules(nsx_router_id, orgaddr)
+
         if actions['remove_no_dnat_rules']:
             for subnet in router_subnets:
                 self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
@@ -3241,21 +3292,17 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self.nsxlib.router.update_router_transport_zone(
                     nsx_router_id, None)
         if actions['add_router_link_port']:
-            # First update edge cluster info for router
-            edge_cluster_uuid = self._get_edge_cluster(new_tier0_uuid)
-            self.nsxlib.router.update_router_edge_cluster(
-                nsx_router_id, edge_cluster_uuid)
             # Add the overlay transport zone to the router config
             if self.nsxlib.feature_supported(
-                nsxlib_consts.FEATURE_ROUTER_TRANSPORT_ZONE):
+                    nsxlib_consts.FEATURE_ROUTER_TRANSPORT_ZONE):
                 tz_uuid = self.nsxlib.router.get_tier0_router_overlay_tz(
                     new_tier0_uuid)
                 if tz_uuid:
                     self.nsxlib.router.update_router_transport_zone(
                         nsx_router_id, tz_uuid)
             tags = self.nsxlib.build_v3_tags_payload(
-                   router, resource_type='os-neutron-rport',
-                   project_name=context.tenant_name)
+                    router, resource_type='os-neutron-rport',
+                    project_name=context.tenant_name)
             self.nsxlib.router.add_router_link_port(nsx_router_id,
                                                     new_tier0_uuid,
                                                     tags=tags)
@@ -3279,6 +3326,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             nsx_router_id,
             actions['advertise_route_nat_flag'],
             actions['advertise_route_connected_flag'])
+
+        if actions['remove_service_router']:
+            self.delete_service_router(context, router_id)
 
     def _add_subnet_snat_rule(self, context, router_id, nsx_router_id, subnet,
                               gw_address_scope, gw_ip):
@@ -3610,7 +3660,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return nsx_router_id, section_id
 
-    def update_router_firewall(self, context, router_id):
+    def update_router_firewall(self, context, router_id, from_fw=False):
         """Rewrite all the rules in the router edge firewall
 
         This method should be called on FWaaS v1/v2 updates, and on router
@@ -3629,7 +3679,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # let the fwaas callbacks update the router FW
             return self.fwaas_callbacks.update_router_firewall(
                 context, self.nsxlib, router_id, ports,
-                nsx_router_id, section_id)
+                nsx_router_id, section_id, from_fw=from_fw)
 
     def _get_port_relay_servers(self, context, port_id, network_id=None):
         if not network_id:
