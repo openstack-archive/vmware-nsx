@@ -15,10 +15,7 @@
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import availability_zones as common_az
-from vmware_nsx.common import config
 from vmware_nsx.common import exceptions as nsx_exc
-
-DEFAULT_NAME = common_az.DEFAULT_NAME + 'v3'
 
 
 class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
@@ -34,8 +31,12 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         # May be overriden by children
         return True
 
+    def get_az_opts(self):
+        # Should be implemented by children
+        pass
+
     def init_from_config_section(self, az_name):
-        az_info = config.get_nsxv3_az_opts(self.name)
+        az_info = self.get_az_opts()
 
         if self._has_native_dhcp_metadata():
             # The optional parameters will get the global values if not

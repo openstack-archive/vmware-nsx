@@ -21,8 +21,13 @@ from vmware_nsx.plugins.common_v3 import availability_zones as v3_az
 from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 
+DEFAULT_NAME = common_az.DEFAULT_NAME + 'v3'
+
 
 class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
+
+    def get_az_opts(self):
+        return config.get_nsxv3_az_opts(self.name)
 
     def _has_native_dhcp_metadata(self):
         return cfg.CONF.nsx_v3.native_dhcp_metadata
@@ -30,7 +35,7 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
     def init_from_config_section(self, az_name):
         super(NsxV3AvailabilityZone, self).init_from_config_section(az_name)
 
-        az_info = config.get_nsxv3_az_opts(self.name)
+        az_info = self.get_az_opts()
 
         switching_profiles = az_info.get('switching_profiles')
         if switching_profiles:
@@ -197,7 +202,7 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
 
 class NsxV3AvailabilityZones(common_az.ConfiguredAvailabilityZones):
 
-    default_name = v3_az.DEFAULT_NAME
+    default_name = DEFAULT_NAME
 
     def __init__(self, use_tvd_config=False):
         if use_tvd_config:

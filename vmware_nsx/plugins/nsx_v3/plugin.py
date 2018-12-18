@@ -19,13 +19,11 @@ import mock
 import netaddr
 from neutron_lib.agent import topics
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
-from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import extensions
 from neutron_lib.api import faults
-from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
@@ -39,24 +37,11 @@ from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
 from neutron.api.rpc.handlers import dhcp_rpc
 from neutron.api.rpc.handlers import metadata_rpc
 from neutron.db import agents_db
-from neutron.db import agentschedulers_db
-from neutron.db import allowedaddresspairs_db as addr_pair_db
-from neutron.db.availability_zone import router as router_az_db
 from neutron.db import db_base_plugin_v2
-from neutron.db import dns_db
-from neutron.db import external_net_db
-from neutron.db import extradhcpopt_db
-from neutron.db import extraroute_db
-from neutron.db import l3_attrs_db
 from neutron.db import l3_db
-from neutron.db import l3_gwmode_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
-from neutron.db import portbindings_db
-from neutron.db import portsecurity_db
-from neutron.db import securitygroups_db
-from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
@@ -82,7 +67,6 @@ import webob.exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.api_replay import utils as api_replay_utils
-from vmware_nsx.common import availability_zones as nsx_com_az
 from vmware_nsx.common import config  # noqa
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import l3_rpc_agent_api
@@ -91,8 +75,6 @@ from vmware_nsx.common import managers
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
-from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
 from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import housekeeper as hk_ext
@@ -145,30 +127,8 @@ NSX_V3_CLIENT_SSL_PROFILE = 'nsx-default-client-ssl-profile'
 NSX_V3_OS_DFW_UUID = '00000000-def0-0000-0fed-000000000000'
 
 
-# NOTE(asarfaty): the order of inheritance here is important. in order for the
-# QoS notification to work, the AgentScheduler init must be called first
-# NOTE(arosen): same is true with the ExtendedSecurityGroupPropertiesMixin
-# this needs to be above securitygroups_db.SecurityGroupDbMixin.
-# FIXME(arosen): we can solve this inheritance order issue by just mixining in
-# the classes into a new class to handle the order correctly.
 @resource_extend.has_resource_extenders
-class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
-                  addr_pair_db.AllowedAddressPairsMixin,
-                  nsx_plugin_common.NsxPluginV3Base,
-                  extend_sg_rule.ExtendedSecurityGroupRuleMixin,
-                  securitygroups_db.SecurityGroupDbMixin,
-                  external_net_db.External_net_db_mixin,
-                  extraroute_db.ExtraRoute_db_mixin,
-                  router_az_db.RouterAvailabilityZoneMixin,
-                  l3_gwmode_db.L3_NAT_db_mixin,
-                  portbindings_db.PortBindingMixin,
-                  portsecurity_db.PortSecurityDbMixin,
-                  extradhcpopt_db.ExtraDhcpOptMixin,
-                  dns_db.DNSDbMixin,
-                  vlantransparent_db.Vlantransparent_db_mixin,
-                  mac_db.MacLearningDbMixin,
-                  nsx_com_az.NSXAvailabilityZonesPluginCommon,
-                  l3_attrs_db.ExtraAttributesMixin,
+class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                   hk_ext.Housekeeper):
 
     __native_bulk_support = True
@@ -879,11 +839,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
-    def _get_router_az_obj(self, router):
-        l3_attrs_db.ExtraAttributesMixin._extend_extra_router_dict(
-            router, router)
-        return self.get_router_az(router)
-
     def _get_edge_cluster(self, tier0_uuid, router):
         az = self._get_router_az_obj(router)
         if az and az._edge_cluster_uuid:
@@ -1046,10 +1001,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tenant_id = net_data['tenant_id']
 
         # validate the availability zone, and get the AZ object
-        if az_def.AZ_HINTS in net_data:
-            self._validate_availability_zones_forced(
-                context, 'network', net_data[az_def.AZ_HINTS])
-        az = self.get_obj_az_by_hints(net_data)
+        az = self._validate_obj_az_on_creation(context, net_data, 'network')
 
         self._ensure_default_security_group(context, tenant_id)
 
@@ -1086,15 +1038,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._process_network_port_security_create(
                     context, net_data, created_net)
                 self._process_l3_create(context, created_net, net_data)
-
-                if az_def.AZ_HINTS in net_data:
-                    # Update the AZ hints in the neutron object
-                    az_hints = az_validator.convert_az_list_to_string(
-                        net_data[az_def.AZ_HINTS])
-                    super(NsxV3Plugin, self).update_network(
-                        context,
-                        created_net['id'],
-                        {'network': {az_def.AZ_HINTS: az_hints}})
+                self._add_az_to_net(context, created_net['id'], net_data)
 
                 if is_provider_net:
                     # Save provider network fields, needed by get_network()
@@ -3004,7 +2948,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return
         network = self.get_network(context, network_id)
         if not network.get(pnet.PHYSICAL_NETWORK):
-            az = self.get_network_az_by_net_id(context, network_id)
+            az = self.get_network_az(network)
             return az._default_tier0_router
         else:
             return network.get(pnet.PHYSICAL_NETWORK)
@@ -3221,9 +3165,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self.validate_router_dhcp_relay(context)
 
         # validate the availability zone
-        if az_def.AZ_HINTS in r:
-            self._validate_availability_zones_forced(context, 'router',
-                                                     r[az_def.AZ_HINTS])
+        self._validate_obj_az_on_creation(context, r, 'router')
 
         gw_info = self._extract_external_gw(context, router, is_extract=True)
         r['id'] = (r.get('id') or uuidutils.generate_uuid())
@@ -3231,14 +3173,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             r, resource_type='os-neutron-router-id',
             project_name=context.tenant_name)
         router = super(NsxV3Plugin, self).create_router(context, router)
-        if az_def.AZ_HINTS in r:
-            # Update the AZ hints in the neutron object
-            az_hints = az_validator.convert_az_list_to_string(
-                r[az_def.AZ_HINTS])
-            super(NsxV3Plugin, self).update_router(
-                context,
-                router['id'],
-                {'router': {az_def.AZ_HINTS: az_hints}})
+        self._add_az_to_router(context, router['id'], r)
+
         router_db = self._get_router(context, r['id'])
         with db_api.CONTEXT_WRITER.using(context):
             self._process_extra_attr_router_create(context, router_db, r)
@@ -3318,10 +3254,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         "Neutron database", router_id)
 
         return ret_val
-
-    def get_router_availability_zones(self, router):
-        """Return availability zones which a router belongs to."""
-        return [self._get_router_az_obj(router).name]
 
     def _update_router_wrapper(self, context, router_id, router):
         if cfg.CONF.api_replay_mode:
@@ -4324,57 +4256,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def save_security_group_rule_mappings(self, context, firewall_rules):
         rules = [(rule['display_name'], rule['id']) for rule in firewall_rules]
         nsx_db.save_sg_rule_mappings(context.session, rules)
-
-    def _list_availability_zones(self, context, filters=None):
-        # If no native_dhcp_metadata - use neutron AZs
-        if not cfg.CONF.nsx_v3.native_dhcp_metadata:
-            return super(NsxV3Plugin, self)._list_availability_zones(
-                context, filters=filters)
-
-        result = {}
-        for az in self._availability_zones_data.list_availability_zones():
-            # Add this availability zone as a network & router resource
-            if filters:
-                if 'name' in filters and az not in filters['name']:
-                    continue
-            for res in ['network', 'router']:
-                if 'resource' not in filters or res in filters['resource']:
-                    result[(az, res)] = True
-        return result
-
-    def _validate_availability_zones_forced(self, context, resource_type,
-                                            availability_zones):
-        return self.validate_availability_zones(context, resource_type,
-                                                availability_zones,
-                                                force=True)
-
-    def validate_availability_zones(self, context, resource_type,
-                                    availability_zones, force=False):
-        # This method is called directly from this plugin but also from
-        # registered callbacks
-        if self._is_sub_plugin and not force:
-            # validation should be done together for both plugins
-            return
-        # If no native_dhcp_metadata - use neutron AZs
-        if not cfg.CONF.nsx_v3.native_dhcp_metadata:
-            return super(NsxV3Plugin, self).validate_availability_zones(
-                context, resource_type, availability_zones)
-        # Validate against the configured AZs
-        return self.validate_obj_azs(availability_zones)
-
-    def get_network_availability_zones(self, net_db):
-        if cfg.CONF.nsx_v3.native_dhcp_metadata:
-            hints = az_validator.convert_az_string_to_list(
-                net_db[az_def.AZ_HINTS])
-            # When using the configured AZs, the az will always be the same
-            # as the hint (or default if none)
-            if hints:
-                az_name = hints[0]
-            else:
-                az_name = self.get_default_az().name
-            return [az_name]
-        else:
-            return []
 
     def recalculate_snat_rules_for_router(self, context, router, subnets):
         """Recalculate router snat rules for specific subnets.

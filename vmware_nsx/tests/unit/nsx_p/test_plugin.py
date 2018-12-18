@@ -44,6 +44,7 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 
 from vmware_nsx.common import utils
+from vmware_nsx.plugins.nsx_p import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.common_plugin import common_v3
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
@@ -361,6 +362,17 @@ class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
         res = self.deserialize('json', req.get_response(self.api))
         self.assertEqual('InvalidInput',
                          res['NeutronError']['type'])
+
+    @mock.patch.object(nsx_plugin.NsxPolicyPlugin,
+                       'validate_availability_zones')
+    def test_create_network_with_availability_zone(self, mock_validate_az):
+        name = 'net-with-zone'
+        zone = ['zone1']
+
+        mock_validate_az.return_value = None
+        with self.network(name=name, availability_zone_hints=zone) as net:
+            az_hints = net['network']['availability_zone_hints']
+            self.assertListEqual(az_hints, zone)
 
 
 class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
@@ -1140,3 +1152,13 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
                 body = self._show('routers', r['router']['id'])
                 gw_info = body['router']['external_gateway_info']
                 self.assertIsNone(gw_info)
+
+    @mock.patch.object(nsx_plugin.NsxPolicyPlugin,
+                       'validate_availability_zones')
+    def test_create_router_with_availability_zone(self, mock_validate_az):
+        name = 'rtr-with-zone'
+        zone = ['zone1']
+        mock_validate_az.return_value = None
+        with self.router(name=name, availability_zone_hints=zone) as rtr:
+            az_hints = rtr['router']['availability_zone_hints']
+            self.assertListEqual(zone, az_hints)

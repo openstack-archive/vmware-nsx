@@ -22,22 +22,10 @@ from oslo_utils import excutils
 from oslo_utils import uuidutils
 import webob.exc
 
-from neutron.db import agentschedulers_db
-from neutron.db import allowedaddresspairs_db as addr_pair_db
-from neutron.db import dns_db
-from neutron.db import external_net_db
-from neutron.db import extradhcpopt_db
-from neutron.db import extraroute_db
-from neutron.db import l3_attrs_db
 from neutron.db import l3_db
-from neutron.db import l3_gwmode_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
-from neutron.db import portbindings_db
-from neutron.db import portsecurity_db
-from neutron.db import securitygroups_db
-from neutron.db import vlantransparent_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
@@ -66,8 +54,6 @@ from vmware_nsx.common import locking
 from vmware_nsx.common import managers
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
-from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
-from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
@@ -105,21 +91,7 @@ SEG_SECURITY_PROFILE_UUID = (
 
 
 @resource_extend.has_resource_extenders
-class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
-                      addr_pair_db.AllowedAddressPairsMixin,
-                      nsx_plugin_common.NsxPluginV3Base,
-                      extend_sg_rule.ExtendedSecurityGroupRuleMixin,
-                      securitygroups_db.SecurityGroupDbMixin,
-                      external_net_db.External_net_db_mixin,
-                      extraroute_db.ExtraRoute_db_mixin,
-                      l3_gwmode_db.L3_NAT_db_mixin,
-                      portbindings_db.PortBindingMixin,
-                      portsecurity_db.PortSecurityDbMixin,
-                      extradhcpopt_db.ExtraDhcpOptMixin,
-                      dns_db.DNSDbMixin,
-                      vlantransparent_db.Vlantransparent_db_mixin,
-                      mac_db.MacLearningDbMixin,
-                      l3_attrs_db.ExtraAttributesMixin):
+class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -140,6 +112,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                    "external-net",
                                    "extraroute",
                                    "router",
+                                   "availability_zone",
+                                   "network_availability_zone",
+                                   "router_availability_zone",
                                    "subnet_allocation",
                                    "security-group-logging",
                                    "provider-security-group",
@@ -159,6 +134,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def __init__(self):
         self.fwaas_callbacks = None
         self.init_is_complete = False
+        self._is_sub_plugin = False
         nsxlib_utils.set_is_attr_callback(validators.is_attr_set)
         self._extend_fault_map()
         extension_drivers = cfg.CONF.nsx_extension_drivers
@@ -189,60 +165,11 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                            resources.PROCESS,
                            events.AFTER_INIT)
 
-    # NOTE(annak): we may need to generalize this for API calls
-    # requiring path ids
-    def _init_default_resource(self, resource_api, name_or_id,
-                               filter_list_results=None):
-        if not name_or_id:
-            # If not specified, the system will auto-configure
-            # in case only single resource is present
-            resources = resource_api.list()
-            if filter_list_results:
-                resources = filter_list_results(resources)
-            if len(resources) == 1:
-                return resources[0]['id']
-            else:
-                return None
-
-        try:
-            resource_api.get(name_or_id, silent=True)
-            return name_or_id
-        except nsx_lib_exc.ResourceNotFound:
-            try:
-                resource = resource_api.get_by_name(name_or_id)
-                if resource:
-                    return resource['id']
-            except nsx_lib_exc.ResourceNotFound:
-                return None
-
     def _init_default_config(self):
-        """Validate the configuration & initialize default values"""
-        # Default Tier0 router
-        self.default_tier0_router = self._init_default_resource(
-            self.nsxpolicy.tier0,
-            cfg.CONF.nsx_p.default_tier0_router)
-
-        if not self.default_tier0_router:
-            raise cfg.RequiredOptError("default_tier0_router",
-                                       group=cfg.OptGroup('nsx_p'))
-
-        # Default overlay transport zone
-        self.default_overlay_tz = self._init_default_resource(
-            self.nsxpolicy.transport_zone,
-            cfg.CONF.nsx_p.default_overlay_tz,
-            filter_list_results=lambda tzs: [
-                tz for tz in tzs if tz['tz_type'].startswith('OVERLAY')])
-
-        if not self.default_overlay_tz:
-            raise cfg.RequiredOptError("default_overlay_tz",
-                                       group=cfg.OptGroup('nsx_p'))
-
-        # Default VLAN transport zone (not mandatory)
-        self.default_vlan_tz = self._init_default_resource(
-            self.nsxpolicy.transport_zone,
-            cfg.CONF.nsx_p.default_vlan_tz,
-            filter_list_results=lambda tzs: [
-                tz for tz in tzs if tz['tz_type'].startswith('VLAN')])
+        # Default tier0/transport zones are initialized via the default AZ
+        # Init AZ resources
+        for az in self.get_azs_list():
+            az.translate_configured_names_to_uuids(self.nsxpolicy)
 
     def init_availability_zones(self):
         self._availability_zones_data = nsxp_az.NsxPAvailabilityZones()
@@ -419,6 +346,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         is_external_net = validators.is_attr_set(external) and external
         tenant_id = net_data['tenant_id']
 
+        # validate the availability zone, and get the AZ object
+        az = self._validate_obj_az_on_creation(context, net_data, 'network')
+
         self._ensure_default_security_group(context, tenant_id)
         vlt = vlan_apidef.get_vlan_transparent(net_data)
 
@@ -427,7 +357,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if is_external_net:
             is_provider_net, net_type, physical_net, vlan_id = (
                 self._validate_external_net_create(
-                    net_data, self.default_tier0_router,
+                    net_data, az._default_tier0_router,
                     self._tier0_validator))
             provider_data = {'is_provider_net': is_provider_net,
                              'net_type': net_type,
@@ -437,8 +367,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         else:
             provider_data = self._validate_provider_create(
                 context, net_data,
-                self.default_vlan_tz,
-                self.default_overlay_tz,
+                az._default_vlan_tz_uuid,
+                az._default_overlay_tz_uuid,
                 self.nsxpolicy.transport_zone,
                 self.nsxpolicy.segment,
                 transparent_vlan=vlt)
@@ -464,6 +394,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._process_network_port_security_create(
                 context, net_data, created_net)
             self._process_l3_create(context, created_net, net_data)
+            self._add_az_to_net(context, created_net['id'], net_data)
 
             if provider_data['is_provider_net']:
                 # Save provider network fields, needed by get_network()
@@ -942,7 +873,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return
         network = self.get_network(context, network_id)
         if not network.get(pnet.PHYSICAL_NETWORK):
-            return self.default_tier0_router
+            az = self.get_network_az(network)
+            return az._default_tier0_router
         else:
             return network.get(pnet.PHYSICAL_NETWORK)
 
@@ -1104,6 +1036,11 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def create_router(self, context, router):
         r = router['router']
         gw_info = self._extract_external_gw(context, router, is_extract=True)
+
+        # validate the availability zone, and get the AZ object
+        # TODO(asarfaty): router AZ is not used for anything yet
+        self._validate_obj_az_on_creation(context, r, 'router')
+
         with db_api.CONTEXT_WRITER.using(context):
             router = super(NsxPolicyPlugin, self).create_router(
                 context, router)
@@ -1917,9 +1854,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     tz)
                 return type == nsxlib_consts.TRANSPORT_TYPE_OVERLAY
 
-    def _has_native_dhcp_metadata(self):
-        return True
-
     def _is_ens_tz_net(self, context, net_id):
         #TODO(annak): handle ENS case
         return False
@@ -1927,3 +1861,6 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _is_ens_tz_port(self, context, port_data):
         #TODO(annak): handle ENS case
         return False
+
+    def _has_native_dhcp_metadata(self):
+        return True

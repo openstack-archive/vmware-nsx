@@ -23,14 +23,29 @@ from sqlalchemy import exc as sql_exc
 
 from six import moves
 
+from neutron.db import agentschedulers_db
+from neutron.db import allowedaddresspairs_db as addr_pair_db
+from neutron.db.availability_zone import router as router_az_db
+from neutron.db import dns_db
+from neutron.db import external_net_db
+from neutron.db import extradhcpopt_db
+from neutron.db import extraroute_db
+from neutron.db import l3_attrs_db
 from neutron.db import l3_db
+from neutron.db import l3_gwmode_db
+from neutron.db import portbindings_db
+from neutron.db import portsecurity_db
+from neutron.db import securitygroups_db
+from neutron.db import vlantransparent_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
+from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
+from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib import constants
 from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
@@ -42,11 +57,14 @@ from neutron_lib.services.qos import constants as qos_consts
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net as nl_net_utils
 
+from vmware_nsx.common import availability_zones as nsx_com_az
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.db import extended_security_group as extended_sec
+from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
+from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.db import nsx_portbindings_db as pbin_db
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
@@ -61,9 +79,31 @@ from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
 LOG = logging.getLogger(__name__)
 
 
-class NsxPluginV3Base(plugin.NsxPluginBase,
+# NOTE(asarfaty): the order of inheritance here is important. in order for the
+# QoS notification to work, the AgentScheduler init must be called first
+# NOTE(arosen): same is true with the ExtendedSecurityGroupPropertiesMixin
+# this needs to be above securitygroups_db.SecurityGroupDbMixin.
+# FIXME(arosen): we can solve this inheritance order issue by just mixining in
+# the classes into a new class to handle the order correctly.
+class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
+                      addr_pair_db.AllowedAddressPairsMixin,
+                      plugin.NsxPluginBase,
                       extended_sec.ExtendedSecurityGroupPropertiesMixin,
-                      pbin_db.NsxPortBindingMixin):
+                      pbin_db.NsxPortBindingMixin,
+                      extend_sg_rule.ExtendedSecurityGroupRuleMixin,
+                      securitygroups_db.SecurityGroupDbMixin,
+                      external_net_db.External_net_db_mixin,
+                      extraroute_db.ExtraRoute_db_mixin,
+                      router_az_db.RouterAvailabilityZoneMixin,
+                      l3_gwmode_db.L3_NAT_db_mixin,
+                      portbindings_db.PortBindingMixin,
+                      portsecurity_db.PortSecurityDbMixin,
+                      extradhcpopt_db.ExtraDhcpOptMixin,
+                      dns_db.DNSDbMixin,
+                      vlantransparent_db.Vlantransparent_db_mixin,
+                      mac_db.MacLearningDbMixin,
+                      l3_attrs_db.ExtraAttributesMixin,
+                      nsx_com_az.NSXAvailabilityZonesPluginCommon):
     """Common methods for NSX-V3 plugins (NSX-V3 & Policy)"""
 
     def __init__(self):
@@ -1194,3 +1234,88 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
         elif not port_security:
             return True
         return False
+
+    def _validate_obj_az_on_creation(self, context, obj_data, obj_type):
+        # validate the availability zone, and get the AZ object
+        if az_def.AZ_HINTS in obj_data:
+            self._validate_availability_zones_forced(
+                context, obj_type, obj_data[az_def.AZ_HINTS])
+        return self.get_obj_az_by_hints(obj_data)
+
+    def _add_az_to_net(self, context, net_id, net_data):
+        if az_def.AZ_HINTS in net_data:
+            # Update the AZ hints in the neutron object
+            az_hints = az_validator.convert_az_list_to_string(
+                net_data[az_def.AZ_HINTS])
+            super(NsxPluginV3Base, self).update_network(
+                context, net_id,
+                {'network': {az_def.AZ_HINTS: az_hints}})
+
+    def _add_az_to_router(self, context, router_id, router_data):
+        if az_def.AZ_HINTS in router_data:
+            # Update the AZ hints in the neutron object
+            az_hints = az_validator.convert_az_list_to_string(
+                router_data[az_def.AZ_HINTS])
+            super(NsxPluginV3Base, self).update_router(
+                context, router_id,
+                {'router': {az_def.AZ_HINTS: az_hints}})
+
+    def get_network_availability_zones(self, net_db):
+        if self._has_native_dhcp_metadata():
+            hints = az_validator.convert_az_string_to_list(
+                net_db[az_def.AZ_HINTS])
+            # When using the configured AZs, the az will always be the same
+            # as the hint (or default if none)
+            if hints:
+                az_name = hints[0]
+            else:
+                az_name = self.get_default_az().name
+            return [az_name]
+        else:
+            return []
+
+    def _get_router_az_obj(self, router):
+        l3_attrs_db.ExtraAttributesMixin._extend_extra_router_dict(
+            router, router)
+        return self.get_router_az(router)
+
+    def get_router_availability_zones(self, router):
+        """Return availability zones which a router belongs to."""
+        return [self._get_router_az_obj(router).name]
+
+    def _validate_availability_zones_forced(self, context, resource_type,
+                                            availability_zones):
+        return self.validate_availability_zones(context, resource_type,
+                                                availability_zones,
+                                                force=True)
+
+    def _list_availability_zones(self, context, filters=None):
+        # If no native_dhcp_metadata - use neutron AZs
+        if not self._has_native_dhcp_metadata():
+            return super(NsxPluginV3Base, self)._list_availability_zones(
+                context, filters=filters)
+
+        result = {}
+        for az in self._availability_zones_data.list_availability_zones():
+            # Add this availability zone as a network & router resource
+            if filters:
+                if 'name' in filters and az not in filters['name']:
+                    continue
+            for res in ['network', 'router']:
+                if 'resource' not in filters or res in filters['resource']:
+                    result[(az, res)] = True
+        return result
+
+    def validate_availability_zones(self, context, resource_type,
+                                    availability_zones, force=False):
+        # This method is called directly from this plugin but also from
+        # registered callbacks
+        if self._is_sub_plugin and not force:
+            # validation should be done together for both plugins
+            return
+        # If no native_dhcp_metadata - use neutron AZs
+        if not self._has_native_dhcp_metadata():
+            return super(NsxPluginV3Base, self).validate_availability_zones(
+                context, resource_type, availability_zones)
+        # Validate against the configured AZs
+        return self.validate_obj_azs(availability_zones)

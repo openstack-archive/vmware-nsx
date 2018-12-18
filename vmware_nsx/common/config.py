@@ -881,7 +881,7 @@ nsxv_az_opts = [
 # the list of expected zones is under nsx_v3 group: availability_zones
 # Note: if any of the optional arguments is missing - the global one will be
 # used instead.
-nsxv3_az_opts = [
+nsx_v3_and_p_az_opts = [
     cfg.StrOpt('metadata_proxy',
                help=_("The name or UUID of the NSX Metadata Proxy "
                       "that will be used to enable native metadata service. "
@@ -913,6 +913,13 @@ nsxv3_az_opts = [
                       "transport zone that will be used for bridging between "
                       "Neutron networks, if no physical network has been "
                       "specified")),
+    cfg.StrOpt('default_tier0_router',
+               help=_("Name or UUID of the default tier0 router that will be "
+                      "used for connecting to tier1 logical routers and "
+                      "configuring external networks")),
+]
+
+nsxv3_az_opts = nsx_v3_and_p_az_opts + [
     cfg.ListOpt('switching_profiles',
                 help=_("(Optional) list switching profiles uuids that will be "
                        "attached to all neutron created nsx ports.")),
@@ -929,6 +936,8 @@ nsxv3_az_opts = [
                       "routers to connect other that the one connected to"
                       " the Tier0 router")),
 ]
+
+nsxp_az_opts = nsx_v3_and_p_az_opts
 
 nsx_tvd_opts = [
     cfg.ListOpt('nsx_v_extension_drivers',
@@ -1009,8 +1018,13 @@ def register_nsxv3_azs(conf, availability_zones):
     _register_nsx_azs(conf, availability_zones, nsxv3_az_opts)
 
 
+def register_nsxp_azs(conf, availability_zones):
+    _register_nsx_azs(conf, availability_zones, nsxp_az_opts)
+
+
 register_nsxv_azs(cfg.CONF, cfg.CONF.nsxv.availability_zones)
 register_nsxv3_azs(cfg.CONF, cfg.CONF.nsx_v3.availability_zones)
+register_nsxp_azs(cfg.CONF, cfg.CONF.nsx_p.availability_zones)
 
 
 def _get_nsx_az_opts(az, opts):
@@ -1032,6 +1046,10 @@ def get_nsxv_az_opts(az):
 
 def get_nsxv3_az_opts(az):
     return _get_nsx_az_opts(az, nsxv3_az_opts)
+
+
+def get_nsxp_az_opts(az):
+    return _get_nsx_az_opts(az, nsxp_az_opts)
 
 
 def validate_nsxv_config_options():

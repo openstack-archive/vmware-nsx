@@ -12,12 +12,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_config import cfg
+
 from neutron.db import l3_dvr_db  # noqa
 from neutron_lib import context
 from neutron_lib.plugins import constants as const
 from neutron_lib.plugins import directory
 from oslo_log import log as logging
 
+from vmware_nsx.common import config
 from vmware_nsx.plugins.nsx_p import plugin
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.shell.admin.plugins.common import formatters
@@ -70,6 +73,8 @@ def get_realization_info(resource, *realization_args):
 
 class NsxPolicyPluginWrapper(plugin.NsxPolicyPlugin):
     def __init__(self):
+        # initialize the availability zones
+        config.register_nsxp_azs(cfg.CONF, cfg.CONF.nsx_p.availability_zones)
         super(NsxPolicyPluginWrapper, self).__init__()
         self.context = context.get_admin_context()
 
