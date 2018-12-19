@@ -39,7 +39,6 @@ from sqlalchemy.orm import exc as sa_exc
 import webob.exc
 
 from neutron.api import extensions as neutron_extensions
-from neutron.db import _resource_extend as resource_extend
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import db_base_plugin_v2
@@ -68,6 +67,7 @@ from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.db import api as db_api
 from neutron_lib.db import model_query
+from neutron_lib.db import resource_extend
 from neutron_lib.exceptions import extraroute as xroute_exc
 from neutron_lib.exceptions import multiprovidernet as mpnet_exc
 from neutron_lib.plugins import utils

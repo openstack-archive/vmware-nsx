@@ -21,6 +21,7 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
@@ -29,7 +30,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
-from neutron.db import _resource_extend as resource_extend
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db

@@ -20,7 +20,6 @@ from sqlalchemy import orm
 from sqlalchemy.orm import exc
 from sqlalchemy import sql
 
-from neutron.db import _resource_extend as resource_extend
 from neutron.db.models import securitygroup as securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api.definitions import port as port_def
@@ -31,6 +30,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_constants
 from neutron_lib.db import api as db_api
 from neutron_lib.db import model_base
+from neutron_lib.db import resource_extend
 from neutron_lib.objects import registry as obj_reg
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net as n_utils

@@ -15,7 +15,6 @@
 
 from oslo_log import log as logging
 
-from neutron.db import _resource_extend as resource_extend
 from neutron.db import address_scope_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import l3_attrs_db
@@ -34,6 +33,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import directory
 from neutron_lib.utils import net as nl_net_utils

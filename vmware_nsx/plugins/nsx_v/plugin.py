@@ -41,6 +41,7 @@ from neutron_lib import constants
 from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
 from neutron_lib.db import constants as db_const
+from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
@@ -67,7 +68,6 @@ from sqlalchemy.orm import exc as sa_exc
 from neutron.api import extensions as neutron_extensions
 from neutron.common import ipv6_utils
 from neutron.common import utils as n_utils
-from neutron.db import _resource_extend as resource_extend
 from neutron.db import agents_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db.availability_zone import router as router_az_db

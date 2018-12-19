@@ -24,7 +24,6 @@ from oslo_utils import excutils
 from oslo_utils import uuidutils
 
 from neutron.api import extensions as neutron_extensions
-from neutron.db import _resource_extend as resource_extend
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db import dns_db
@@ -46,6 +45,7 @@ from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib import exceptions as n_exc
 from neutron_lib.plugins import utils
 
