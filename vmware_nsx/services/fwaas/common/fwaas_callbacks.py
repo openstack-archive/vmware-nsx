@@ -75,9 +75,11 @@ class NsxFwaasCallbacks(firewall_l3_agent.L3WithFWaaS):
 
     def _router_dict_to_obj(self, r):
         # The callbacks expect a router-info object
+        agent_conf = cfg.CONF
+        agent_conf.metadata_access_mark = '0x1'
         return router_info.RouterInfo(
             None, r['id'], router=r,
-            agent_conf=None,
+            agent_conf=agent_conf,
             interface_driver=None,
             use_ipv6=False)
 
