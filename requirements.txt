@@ -35,7 +35,7 @@ mock>=2.0.0 # BSD
 neutron<13.0.0 # Apache-2.0
 networking-l2gw<13.0.0 # Apache-2.0
 networking-sfc<7.0.0 # Apache-2.0
-neutron-lbaas>=12.0.0  # Apache-2.0
+neutron-lbaas<13.0.0  # Apache-2.0
 neutron-fwaas<13.0.0 # Apache-2.0
 neutron-vpnaas<13.0.0 # Apache-2.0
 neutron-dynamic-routing<13.0.0 # Apache-2.0
