@@ -212,6 +212,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 return None
 
     def _init_default_config(self):
+        """Validate the configuration & initialize default values"""
         # Default Tier0 router
         self.default_tier0_router = self._init_default_resource(
             self.nsxpolicy.tier0,
@@ -980,7 +981,19 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                         tier0=new_tier0_uuid)
 
             # Set/Unset the router TZ to allow vlan switches traffic
-            #TODO(asarfaty) no api for this yet
+            if cfg.CONF.nsx_p.allow_passthrough:
+                # TODO(asarfaty) need to wait for realization before using
+                # the passthrough api
+                if new_tier0_uuid:
+                    tz_uuid = self.nsxpolicy.tier0.get_overlay_transport_zone(
+                        new_tier0_uuid)
+                else:
+                    tz_uuid = None
+                self.nsxpolicy.tier1.update_transport_zone(
+                    router_id, tz_uuid)
+            else:
+                LOG.debug("Not adding transport-zone to tier1 router %s as "
+                          "passthrough api is disabled", router_id)
 
         if actions['add_snat_rules']:
             # Add SNAT rules for all the subnets which are in different scope
@@ -1002,8 +1015,9 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # TODO(asarfaty): handle enable/disable snat, router adv flags, etc.
 
         if actions['remove_service_router']:
-            # disable edge firewall before removing  the service router
-            #TODO(asarfaty) no api for this yet
+            # Disable edge firewall before removing the service router
+            #TODO(asarfaty) no api for this yet. Use passthrough api when
+            # adding fwaas support
 
             # remove the edge cluster
             self.nsxpolicy.tier1.remove_edge_cluster(router_id)
