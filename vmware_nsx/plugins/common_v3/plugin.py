@@ -35,6 +35,7 @@ from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import utils as plugin_utils
 from neutron_lib.services.qos import constants as qos_consts
+from neutron_lib.utils import helpers
 from neutron_lib.utils import net as nl_net_utils
 
 from vmware_nsx.common import exceptions as nsx_exc
@@ -905,3 +906,67 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
                 orgaddr and not newaddr)) and not (fw_exist or lb_exist)
 
         return actions
+
+    def _is_overlay_network(self):
+        """Should be implemented by each plugin"""
+        pass
+
+    def _validate_update_router_gw(self, context, router_id, gw_info):
+        router_ports = self._get_router_interfaces(context, router_id)
+        for port in router_ports:
+            # if setting this router as no-snat, make sure gw address scope
+            # match those of the subnets
+            if not gw_info.get('enable_snat',
+                               cfg.CONF.enable_snat_by_default):
+                for fip in port['fixed_ips']:
+                    self._validate_address_scope_for_router_interface(
+                        context.elevated(), router_id,
+                        gw_info['network_id'], fip['subnet_id'])
+            # If the network attached to a router is a VLAN backed network
+            # then it must be attached to an edge cluster
+            if (not gw_info and
+                not self._is_overlay_network(context, port['network_id'])):
+                msg = _("A router attached to a VLAN backed network "
+                        "must have an external network assigned")
+                raise n_exc.InvalidInput(error_message=msg)
+
+    def _validate_ext_routes(self, context, router_id, gw_info, new_routes):
+        ext_net_id = (gw_info['network_id']
+                      if validators.is_attr_set(gw_info) and gw_info else None)
+        if not ext_net_id:
+            port_filters = {'device_id': [router_id],
+                            'device_owner': [l3_db.DEVICE_OWNER_ROUTER_GW]}
+            gw_ports = self.get_ports(context, filters=port_filters)
+            if gw_ports:
+                ext_net_id = gw_ports[0]['network_id']
+        if ext_net_id:
+            subnets = self._get_subnets_by_network(context, ext_net_id)
+            ext_cidrs = [subnet['cidr'] for subnet in subnets]
+            for route in new_routes:
+                if netaddr.all_matching_cidrs(
+                    route['nexthop'], ext_cidrs):
+                    error_message = (_("route with destination %(dest)s have "
+                                       "an external nexthop %(nexthop)s which "
+                                       "can't be supported") %
+                                     {'dest': route['destination'],
+                                      'nexthop': route['nexthop']})
+                    LOG.error(error_message)
+                    raise n_exc.InvalidInput(error_message=error_message)
+
+    def _get_static_routes_diff(self, context, router_id, gw_info,
+                                router_data):
+        new_routes = router_data['routes']
+        self._validate_ext_routes(context, router_id, gw_info,
+                                  new_routes)
+        self._validate_routes(context, router_id, new_routes)
+        old_routes = self._get_extra_routes_by_router_id(
+            context, router_id)
+        routes_added, routes_removed = helpers.diff_list_of_dict(
+            old_routes, new_routes)
+        return routes_added, routes_removed
+
+    def _assert_on_router_admin_state(self, router_data):
+        if router_data.get("admin_state_up") is False:
+            err_msg = _("admin_state_up=False routers are not supported")
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
