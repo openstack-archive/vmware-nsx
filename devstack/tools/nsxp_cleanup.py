@@ -24,6 +24,7 @@ from neutron.db import models_v2
 
 from vmware_nsxlib import v3
 from vmware_nsxlib.v3 import config
+from vmware_nsxlib.v3 import exceptions
 
 
 class NeutronNsxDB(object):
@@ -79,7 +80,10 @@ class NSXClient(object):
     def cleanup_domains(self, domains):
         """Delete all OS created NSX Policy segments ports per segment"""
         for domain_id in domains:
-            self.nsxpolicy.domain.delete(domain_id)
+            try:
+                self.nsxpolicy.domain.delete(domain_id)
+            except exceptions.ManagerError as e:
+                print("Failed to delete domain %s: %s" % (domain_id, e))
 
     def get_os_resources(self, resources):
         """
@@ -100,8 +104,13 @@ class NSXClient(object):
 
         if self.neutron_db:
             db_sgs = self.neutron_db.get_security_groups()
-            groups = [g for g in groups if g['id'] in db_sgs]
+            filtered_groups = [g for g in groups if g['id'] in db_sgs]
             maps = [m for m in maps if m['id'] in db_sgs]
+            # Add groups based on SG rules local/remote ips
+            db_rules = self.neutron_db.get_security_groups_rules()
+            filtered_groups.extend([g for g in groups
+                                   if g['id'][:36] in db_rules])
+            groups = filtered_groups
         return groups, maps
 
     def cleanup_security_groups(self, domain_id):
@@ -114,7 +123,10 @@ class NSXClient(object):
         print("Number of OS Groups of domain %s to be deleted: "
               "%s" % (domain_id, len(groups)))
         for grp in groups:
-            self.nsxpolicy.group.delete(domain_id, grp['id'])
+            try:
+                self.nsxpolicy.group.delete(domain_id, grp['id'])
+            except exceptions.ManagerError as e:
+                print("Failed to delete group %s: %s" % (grp['id'], e))
 
     def get_os_nsx_tier1_routers(self):
         """
@@ -130,7 +142,10 @@ class NSXClient(object):
     def cleanup_tier1_nat_rules(self, tier1_uuid):
         rules = self.nsxpolicy.tier1_nat_rule.list(tier1_uuid)
         for rule in rules:
-            self.nsxpolicy.tier1_nat_rule.delete(tier1_uuid, rule['id'])
+            try:
+                self.nsxpolicy.tier1_nat_rule.delete(tier1_uuid, rule['id'])
+            except exceptions.ManagerError as e:
+                print("Failed to delete nat rule %s: %s" % (rule['id'], e))
 
     def cleanup_tier1_routers(self):
         """Delete all OS created NSX Policy routers"""
@@ -139,7 +154,10 @@ class NSXClient(object):
         for rtr in routers:
             # remove all nat rules from this router before deletion
             self.cleanup_tier1_nat_rules(rtr['id'])
-            self.nsxpolicy.tier1.delete(rtr['id'])
+            try:
+                self.nsxpolicy.tier1.delete(rtr['id'])
+            except exceptions.ManagerError as e:
+                print("Failed to delete tier1 %s: %s" % (rtr['id'], e))
 
     def get_os_nsx_segments(self):
         """
@@ -160,8 +178,11 @@ class NSXClient(object):
             # Delete all the ports
             self.cleanup_segment_ports(s['id'])
             # Disassociate from a tier1 router
-            self.nsxpolicy.segment.update(s['id'], tier1_id=None)
-            self.nsxpolicy.segment.delete(s['id'])
+            try:
+                self.nsxpolicy.segment.update(s['id'], tier1_id=None)
+                self.nsxpolicy.segment.delete(s['id'])
+            except exceptions.ManagerError as e:
+                print("Failed to delete segment %s: %s" % (s['id'], e))
 
     def get_os_nsx_segment_ports(self, segment_id):
         """
@@ -179,7 +200,10 @@ class NSXClient(object):
         """Delete all OS created NSX Policy segments ports per segment"""
         segment_ports = self.get_os_nsx_segment_ports(segment_id)
         for p in segment_ports:
-            self.nsxpolicy.segment_port.delete(segment_id, p['id'])
+            try:
+                self.nsxpolicy.segment_port.delete(segment_id, p['id'])
+            except exceptions.ManagerError as e:
+                print("Failed to delete segment port %s: %s" % (p['id'], e))
 
     def get_os_nsx_services(self):
         """
@@ -198,7 +222,10 @@ class NSXClient(object):
         services = self.get_os_nsx_services()
         print("Number of OS rule services to be deleted: %s" % len(services))
         for srv in services:
-            self.nsxpolicy.service.delete(srv['id'])
+            try:
+                self.nsxpolicy.service.delete(srv['id'])
+            except exceptions.ManagerError as e:
+                print("Failed to delete service %s: %s" % (srv['id'], e))
 
     def cleanup_all(self):
         """
@@ -219,7 +246,6 @@ class NSXClient(object):
         self.cleanup_tier1_routers()
         self.cleanup_rules_services()
         self.cleanup_domains(domains)
-        return
 
 
 if __name__ == "__main__":

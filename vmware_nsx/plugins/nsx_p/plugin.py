@@ -1761,10 +1761,8 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         domain_id = example_rule['tenant_id']
         secgroup_logging = self._is_security_group_logged(context, sg_id)
-        for sg_rule in sg_rules:
-            # create the NSX rule
-            rule_data = sg_rule['security_group_rule']
-            rule_data['id'] = rule_data.get('id') or uuidutils.generate_uuid()
+        for rule_data in rules_db:
+            # create the NSX backend rule
             self._create_security_group_backend_rule(
                 context, domain_id, sg_id, rule_data, secgroup_logging)
 
