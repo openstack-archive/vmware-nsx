@@ -211,6 +211,8 @@ class NSXClient(object):
                     segment_id, p['id'])
                 self.nsxpolicy.segment_port_discovery_profiles.delete(
                     segment_id, p['id'])
+                self.nsxpolicy.segment_port_qos_profiles.delete(
+                    segment_id, p['id'])
                 self.nsxpolicy.segment_port.delete(segment_id, p['id'])
             except exceptions.ManagerError as e:
                 print("Failed to delete segment port %s: %s" % (p['id'], e))

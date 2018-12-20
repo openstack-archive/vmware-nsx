@@ -283,6 +283,25 @@ Add octavia repo as an external repository and configure following flags in ``lo
     [oslo_messaging]
     topic=vmwarensxv_edge_lb
 
+
+NSX-P
+-----
+
+QoS Driver
+~~~~~~~~~~
+
+Enable the qos in ``local.conf``::
+
+    [[local|localrc]]
+    ENABLED_SERVICES+=,q-qos
+    Q_SERVICE_PLUGIN_CLASSES+=,neutron.services.qos.qos_plugin.QoSPlugin
+
+Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0)::
+
+    [NSX]
+    qos_peak_bw_multiplier = <i.e 10.0>
+
+
 NSX-TVD
 -------
 

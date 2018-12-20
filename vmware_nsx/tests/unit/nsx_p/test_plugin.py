@@ -43,6 +43,7 @@ from neutron_lib.callbacks import resources
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib import exceptions as n_exc
+from neutron_lib.objects import registry as obj_reg
 from neutron_lib.plugins import directory
 
 from vmware_nsx.common import utils
@@ -86,6 +87,7 @@ class NsxPPluginTestCaseMixin(
         self.setup_conf_overrides()
         super(NsxPPluginTestCaseMixin, self).setUp(plugin=plugin,
                                                    ext_mgr=ext_mgr)
+        self.ctx = context.get_admin_context()
 
     def _mock_nsx_policy_backend_calls(self):
         resource_list_result = {'results': [{'id': 'test',
@@ -180,6 +182,17 @@ class NsxPPluginTestCaseMixin(
             network_req.environ['neutron.context'] = context.Context(
                 '', tenant_id)
         return network_req.get_response(self.api)
+
+    def _create_l3_ext_network(self, physical_network='abc'):
+        name = 'l3_ext_net'
+        net_type = utils.NetworkTypes.L3_EXT
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
+                            pnet.PHYSICAL_NETWORK: physical_network}
+        return self.network(name=name,
+                            router__external=True,
+                            providernet_args=providernet_args,
+                            arg_list=(pnet.NETWORK_TYPE,
+                                      pnet.PHYSICAL_NETWORK))
 
 
 class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
@@ -419,6 +432,47 @@ class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
             az_hints = net['network']['availability_zone_hints']
             self.assertListEqual(az_hints, zone)
 
+    def test_create_net_with_qos(self):
+        policy_id = uuidutils.generate_uuid()
+        data = {'network': {
+                    'tenant_id': self._tenant_id,
+                    'qos_policy_id': policy_id,
+                    'name': 'qos_net',
+                    'admin_state_up': True,
+                    'shared': False}
+                }
+        dummy = mock.Mock()
+        dummy.id = policy_id
+        with mock.patch.object(self.plugin, '_validate_qos_policy_id'),\
+            mock.patch.object(obj_reg.load_class('QosPolicy'),
+                              'get_network_policy',
+                              return_value=dummy):
+            net = self.plugin.create_network(self.ctx, data)
+            self.assertEqual(policy_id, net['qos_policy_id'])
+            net = self.plugin.get_network(self.ctx, net['id'])
+            self.assertEqual(policy_id, net['qos_policy_id'])
+
+    def test_update_net_with_qos(self):
+        data = {'network': {
+                    'tenant_id': self._tenant_id,
+                    'name': 'qos_net',
+                    'admin_state_up': True,
+                    'shared': False}
+                }
+        net = self.plugin.create_network(self.ctx, data)
+        policy_id = uuidutils.generate_uuid()
+        data['network']['qos_policy_id'] = policy_id
+        dummy = mock.Mock()
+        dummy.id = policy_id
+        with mock.patch.object(self.plugin, '_validate_qos_policy_id'),\
+            mock.patch.object(obj_reg.load_class('QosPolicy'),
+                              'get_network_policy',
+                              return_value=dummy):
+            res = self.plugin.update_network(self.ctx, net['id'], data)
+            self.assertEqual(policy_id, res['qos_policy_id'])
+            res = self.plugin.get_network(self.ctx, net['id'])
+            self.assertEqual(policy_id, res['qos_policy_id'])
+
 
 class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
                     NsxPPluginTestCaseMixin):
@@ -557,6 +611,81 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
                 self.assertEqual(res['port']['fixed_ips'],
                                  data['port']['fixed_ips'])
 
+    def test_create_port_with_qos(self):
+        with self.network() as network:
+            policy_id = uuidutils.generate_uuid()
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'qos_policy_id': policy_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            with mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                port = self.plugin.create_port(self.ctx, data)
+                self.assertEqual(policy_id, port['qos_policy_id'])
+                # Get port should also return the qos policy id
+                with mock.patch('vmware_nsx.services.qos.common.utils.'
+                                'get_port_policy_id',
+                                return_value=policy_id):
+                    port = self.plugin.get_port(self.ctx, port['id'])
+                    self.assertEqual(policy_id, port['qos_policy_id'])
+
+    def test_update_port_with_qos(self):
+        with self.network() as network:
+            data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'qos_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [],
+                        'mac_address': '00:00:00:00:00:01'}
+                    }
+            port = self.plugin.create_port(self.ctx, data)
+            policy_id = uuidutils.generate_uuid()
+            data['port']['qos_policy_id'] = policy_id
+            with mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                res = self.plugin.update_port(self.ctx, port['id'], data)
+                self.assertEqual(policy_id, res['qos_policy_id'])
+                # Get port should also return the qos policy id
+                with mock.patch('vmware_nsx.services.qos.common.utils.'
+                                'get_port_policy_id',
+                                return_value=policy_id):
+                    res = self.plugin.get_port(self.ctx, port['id'])
+                    self.assertEqual(policy_id, res['qos_policy_id'])
+
+    def test_create_ext_port_with_qos_fail(self):
+        with self._create_l3_ext_network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24',
+                             enable_dhcp=False),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                policy_id = uuidutils.generate_uuid()
+                data = {'port': {'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'qos_policy_id': policy_id}}
+                # Cannot add qos policy to a router port
+                self.assertRaises(n_exc.InvalidInput,
+                          self.plugin.create_port, self.ctx, data)
+
+    def _test_create_illegal_port_with_qos_fail(self, device_owner):
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'),\
+                mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                policy_id = uuidutils.generate_uuid()
+                data = {'port': {'network_id': network['network']['id'],
+                                 'tenant_id': self._tenant_id,
+                                 'device_owner': device_owner,
+                                 'qos_policy_id': policy_id}}
+                # Cannot add qos policy to this type of port
+                self.assertRaises(n_exc.InvalidInput,
+                          self.plugin.create_port, self.ctx, data)
+
     def test_create_port_with_mac_learning_true(self):
         plugin = directory.get_plugin()
         ctx = context.get_admin_context()
@@ -564,7 +693,7 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
             data = {'port': {
                         'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
-                        'name': 'qos_port',
+                        'name': 'port',
                         'admin_state_up': True,
                         'device_id': 'fake_device',
                         'device_owner': 'fake_owner',
@@ -583,7 +712,7 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
             data = {'port': {
                         'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
-                        'name': 'qos_port',
+                        'name': 'port',
                         'admin_state_up': True,
                         'device_id': 'fake_device',
                         'device_owner': 'fake_owner',
@@ -602,7 +731,7 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
             data = {'port': {
                         'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
-                        'name': 'qos_port',
+                        'name': 'port',
                         'admin_state_up': True,
                         'device_id': 'fake_device',
                         'device_owner': 'fake_owner',
@@ -622,7 +751,7 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
             data = {'port': {
                         'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
-                        'name': 'qos_port',
+                        'name': 'port',
                         'admin_state_up': True,
                         'device_id': 'fake_device',
                         'device_owner': 'fake_owner',
@@ -642,7 +771,7 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
             data = {'port': {
                         'network_id': network['network']['id'],
                         'tenant_id': self._tenant_id,
-                        'name': 'qos_port',
+                        'name': 'port',
                         'admin_state_up': True,
                         'device_id': 'fake_device',
                         'device_owner': constants.DEVICE_OWNER_FLOATINGIP,
@@ -1031,17 +1160,6 @@ class NsxPTestL3NatTest(common_v3.FixExternalNetBaseTest,
                                      providernet_args=providernet_args,
                                      arg_list=(pnet.NETWORK_TYPE,
                                          pnet.PHYSICAL_NETWORK))
-
-    def _create_l3_ext_network(self, physical_network='abc'):
-        name = 'l3_ext_net'
-        net_type = utils.NetworkTypes.L3_EXT
-        providernet_args = {pnet.NETWORK_TYPE: net_type,
-                            pnet.PHYSICAL_NETWORK: physical_network}
-        return self.network(name=name,
-                            router__external=True,
-                            providernet_args=providernet_args,
-                            arg_list=(pnet.NETWORK_TYPE,
-                                      pnet.PHYSICAL_NETWORK))
 
     def test_floatingip_create_different_fixed_ip_same_port(self):
         self.skipTest('Multiple fixed ips on a port are not supported')

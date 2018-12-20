@@ -100,6 +100,7 @@ from vmware_nsx.services.lbaas.octavia import constants as oct_const
 from vmware_nsx.services.lbaas.octavia import octavia_listener
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
+from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
 from vmware_nsx.services.trunk.nsx_v3 import driver as trunk_driver
 from vmware_nsxlib.v3 import core_resources as nsx_resources
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
@@ -231,7 +232,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                     ) % NSX_V3_EXCLUDED_PORT_NSGROUP_NAME
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-        qos_driver.register()
+        qos_driver.register(qos_utils.QosNotificationsHandler())
 
         self.start_rpc_listeners_called = False
 
@@ -1196,17 +1197,12 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         net_data = network['network']
         # Neutron does not support changing provider network values
         providernet._raise_if_updates_provider_attributes(net_data)
-        self._validate_qos_policy_id(
-            context, net_data.get(qos_consts.QOS_POLICY_ID))
         extern_net = self._network_is_external(context, id)
         is_nsx_net = self._network_is_nsx_net(context, id)
         is_ens_net = self._is_ens_tz_net(context, id)
 
         # Validate the updated parameters
         self._validate_update_network(context, id, original_net, net_data)
-        # add some plugin specific validations
-        if is_ens_net:
-            self._assert_on_ens_with_qos(net_data)
 
         updated_net = super(NsxV3Plugin, self).update_network(context, id,
                                                               network)
@@ -1766,13 +1762,8 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                 profiles.append(self._dhcp_profile)
 
         # Add QoS switching profile, if exists
-        qos_policy_id = None
-        if validators.is_attr_set(port_data.get(qos_consts.QOS_POLICY_ID)):
-            qos_policy_id = port_data[qos_consts.QOS_POLICY_ID]
-        elif device_owner.startswith(const.DEVICE_OWNER_COMPUTE_PREFIX):
-            # check if the network of this port has a policy
-            qos_policy_id = qos_com_utils.get_network_policy_id(
-                context, port_data['network_id'])
+        qos_policy_id = self._get_port_qos_policy_id(
+            context, None, port_data)
         if qos_policy_id:
             qos_profile_id = self._get_qos_profile_id(context, qos_policy_id)
             profiles.append(qos_profile_id)
@@ -1844,10 +1835,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _is_ens_tz(self, tz_id):
         mode = self.nsxlib.transport_zone.get_host_switch_mode(tz_id)
         return mode == self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS
-
-    def _is_ens_tz_port(self, context, port_data):
-        # Check the host-switch-mode of the TZ connected to the ports network
-        return self._is_ens_tz_net(context, port_data['network_id'])
 
     def _has_native_dhcp_metadata(self):
         return cfg.CONF.nsx_v3.native_dhcp_metadata
@@ -2222,25 +2209,19 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         self.nsxlib.ns_group.update_lport_nsgroups(
             lport_id, nsx_origial, nsx_updated)
 
-    def base_create_port(self, context, port):
-        neutron_db = super(NsxV3Plugin, self).create_port(context, port)
-        self._extension_manager.process_create_port(
-            context, port['port'], neutron_db)
-        return neutron_db
-
-    def _validate_ens_create_port(self, context, port_data):
-        qos_selected = validators.is_attr_set(port_data.get(
-            qos_consts.QOS_POLICY_ID))
-        if qos_selected:
-            err_msg = _("Cannot configure QOS on ENS networks")
-            raise n_exc.InvalidInput(error_message=err_msg)
-
+    def _disable_ens_portsec(self, port_data):
         if (cfg.CONF.nsx_v3.disable_port_security_for_ens and
             not self._ens_psec_supported()):
             LOG.warning("Disabling port security for network %s",
                         port_data['network_id'])
             port_data[psec.PORTSECURITY] = False
             port_data['security_groups'] = []
+
+    def base_create_port(self, context, port):
+        neutron_db = super(NsxV3Plugin, self).create_port(context, port)
+        self._extension_manager.process_create_port(
+            context, port['port'], neutron_db)
+        return neutron_db
 
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
@@ -2253,7 +2234,14 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         self._assert_on_dhcp_relay_without_router(context, port_data)
         is_ens_tz_port = self._is_ens_tz_port(context, port_data)
         if is_ens_tz_port:
-            self._validate_ens_create_port(context, port_data)
+            self._disable_ens_portsec(port_data)
+
+        if (cfg.CONF.nsx_v3.disable_port_security_for_ens and
+            not self._ens_psec_supported()):
+            LOG.warning("Disabling port security for network %s",
+                        port_data['network_id'])
+            port_data[psec.PORTSECURITY] = False
+            port_data['security_groups'] = []
 
         is_external_net = self._network_is_external(
             context, port_data['network_id'])
@@ -2567,14 +2555,8 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             switch_profile_ids.append(self._dhcp_profile)
 
         # Update QoS switch profile
-        orig_compute = original_device_owner.startswith(
-            const.DEVICE_OWNER_COMPUTE_PREFIX)
-        updated_compute = updated_device_owner.startswith(
-            const.DEVICE_OWNER_COMPUTE_PREFIX)
-        is_new_compute = updated_compute and not orig_compute
-        qos_policy_id, qos_profile_id = self._get_port_qos_ids(context,
-                                                               updated_port,
-                                                               is_new_compute)
+        qos_policy_id, qos_profile_id = self._get_port_qos_ids(
+            context, original_port, updated_port)
         if qos_profile_id is not None:
             switch_profile_ids.append(qos_profile_id)
 
@@ -2619,28 +2601,13 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                                                  updated_port['id'],
                                                  qos_policy_id)
 
-    def _get_port_qos_ids(self, context, updated_port, is_new_compute):
-        # when a port is updated, get the current QoS policy/profile ids
-        policy_id = None
+    def _get_port_qos_ids(self, context, original_port, updated_port):
+        qos_policy_id = self._get_port_qos_policy_id(
+            context, original_port, updated_port)
         profile_id = None
-        if (qos_consts.QOS_POLICY_ID in updated_port):
-            policy_id = updated_port[qos_consts.QOS_POLICY_ID]
-        else:
-            # Look for the previous QoS policy
-            policy_id = qos_com_utils.get_port_policy_id(
-                context, updated_port['id'])
-        # If the port is now a 'compute' port (attached to a vm) and
-        # Qos policy was not configured on the port directly,
-        # try to take it from the ports network
-        if policy_id is None and is_new_compute:
-            # check if the network of this port has a policy
-            policy_id = qos_com_utils.get_network_policy_id(
-                context, updated_port.get('network_id'))
-
-        if policy_id is not None:
-            profile_id = self._get_qos_profile_id(context, policy_id)
-
-        return policy_id, profile_id
+        if qos_policy_id is not None:
+            profile_id = self._get_qos_profile_id(context, qos_policy_id)
+        return qos_policy_id, profile_id
 
     def update_port(self, context, id, port):
         with db_api.CONTEXT_WRITER.using(context):
@@ -2660,11 +2627,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             self._assert_on_dhcp_relay_without_router(context, port_data,
                                                       original_port)
             is_ens_tz_port = self._is_ens_tz_port(context, original_port)
-            qos_selected = validators.is_attr_set(port_data.get
-                                                  (qos_consts.QOS_POLICY_ID))
-            if is_ens_tz_port and qos_selected:
-                err_msg = _("Cannot configure QOS on ENS networks")
-                raise n_exc.InvalidInput(error_message=err_msg)
             dhcp_opts = port_data.get(ext_edo.EXTRADHCPOPTS)
             self._validate_extra_dhcp_options(dhcp_opts)
 
@@ -2780,11 +2742,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _extend_get_port_dict_qos_and_binding(self, context, port):
         # Not using the register api for this because we need the context
         self._extend_nsx_port_dict_binding(context, port)
-
-        # add the qos policy id from the DB
-        if 'id' in port:
-            port[qos_consts.QOS_POLICY_ID] = qos_com_utils.get_port_policy_id(
-                context, port['id'])
+        self._extend_qos_port_dict_binding(context, port)
 
     def get_port(self, context, id, fields=None):
         port = super(NsxV3Plugin, self).get_port(context, id, fields=None)

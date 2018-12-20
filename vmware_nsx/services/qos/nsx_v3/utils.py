@@ -97,12 +97,7 @@ class QosNotificationsHandler(object):
             description=policy.description)
 
     def _validate_bw_values(self, bw_rule):
-        """Validate that the configured values are allowed by the NSX backend.
-
-        Since failing the action from the notification callback
-        is not possible, just log the warning and use the minimal/maximal
-        values.
-        """
+        """Validate that the values are allowed by the NSX backend"""
         # Validate the max bandwidth value minimum value
         # (max value is above what neutron allows so no need to check it)
         if (bw_rule.max_kbps < MAX_KBPS_MIN_VALUE):

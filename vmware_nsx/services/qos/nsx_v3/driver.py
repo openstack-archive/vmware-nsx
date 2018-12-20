@@ -20,8 +20,6 @@ from neutron_lib.services.qos import base
 from neutron_lib.services.qos import constants as qos_consts
 from oslo_log import log as logging
 
-from vmware_nsx.services.qos.nsx_v3 import utils as qos_utils
-
 LOG = logging.getLogger(__name__)
 
 DRIVER = None
@@ -45,16 +43,17 @@ SUPPORTED_RULES = {
 class NSXv3QosDriver(base.DriverBase):
 
     @staticmethod
-    def create():
+    def create(handler):
         return NSXv3QosDriver(
             name='NSXv3QosDriver',
             vif_types=None,
             vnic_types=None,
             supported_rules=SUPPORTED_RULES,
-            requires_rpc_notifications=False)
+            requires_rpc_notifications=False,
+            handler=handler)
 
-    def __init__(self, **kwargs):
-        self.handler = qos_utils.QosNotificationsHandler()
+    def __init__(self, handler=None, **kwargs):
+        self.handler = handler
         super(NSXv3QosDriver, self).__init__(**kwargs)
 
     def is_vif_type_compatible(self, vif_type):
@@ -67,11 +66,12 @@ class NSXv3QosDriver(base.DriverBase):
         self.handler.create_policy(context, policy)
 
     def update_policy(self, context, policy):
+        # Update the rules
         if (hasattr(policy, "rules")):
             self.handler.update_policy_rules(
                 context, policy.id, policy["rules"])
 
-        # May also need to update name / description
+        # Update the entire policy
         self.handler.update_policy(context, policy.id, policy)
 
     def delete_policy(self, context, policy):
@@ -84,9 +84,9 @@ class NSXv3QosDriver(base.DriverBase):
                 self.handler.validate_policy_rule(context, policy.id, rule)
 
 
-def register():
+def register(handler):
     """Register the NSX-V3 QoS driver."""
     global DRIVER
     if not DRIVER:
-        DRIVER = NSXv3QosDriver.create()
+        DRIVER = NSXv3QosDriver.create(handler)
     LOG.debug('NSXv3QosDriver QoS driver registered')

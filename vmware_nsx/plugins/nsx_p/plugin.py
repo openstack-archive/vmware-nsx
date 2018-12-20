@@ -43,6 +43,9 @@ from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
+from neutron_lib.plugins import constants as plugin_const
+from neutron_lib.plugins import directory
+from neutron_lib.services.qos import constants as qos_consts
 
 from vmware_nsx._i18n import _
 from vmware_nsx.common import config  # noqa
@@ -60,6 +63,9 @@ from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.common_v3 import plugin as nsx_plugin_common
 from vmware_nsx.plugins.nsx_p import availability_zones as nsxp_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
+from vmware_nsx.services.qos.common import utils as qos_com_utils
+from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
+from vmware_nsx.services.qos.nsx_v3 import pol_utils as qos_utils
 
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
@@ -171,6 +177,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             az.translate_configured_names_to_uuids(self.nsxpolicy)
 
         self._init_native_dhcp()
+
+        # Init QoS
+        qos_driver.register(qos_utils.PolicyQosNotificationsHandler())
 
         # subscribe the init complete method last, so it will be called only
         # if init was successful
@@ -288,9 +297,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # update the network name to indicate the neutron id too.
         net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
                                            net_data['id'])
-        tags = self.nsxpolicy.build_v3_tags_payload(
-            net_data, resource_type='os-neutron-net-id',
-            project_name=context.tenant_name)
+        tags = self.nsxpolicy.build_v3_api_version_project_tag(
+            context.tenant_name)
 
         # TODO(annak): admin state config is missing on policy
         # should we not create networks that are down?
@@ -418,6 +426,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # latest db model for the extension functions
         net_model = self._get_network(context, created_net['id'])
         resource_extend.apply_funcs('networks', created_net, net_model)
+
+        # Update the QoS policy (will affect only future compute ports)
+        qos_com_utils.set_qos_policy_on_new_net(
+            context, net_data, created_net)
+        if net_data.get(qos_consts.QOS_POLICY_ID):
+            LOG.info("QoS Policy %(qos)s will be applied to future compute "
+                     "ports of network %(net)s",
+                     {'qos': net_data[qos_consts.QOS_POLICY_ID],
+                      'net': created_net['id']})
+
         return created_net
 
     def delete_network(self, context, network_id):
@@ -438,6 +456,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             context, network_id)
         net_data = network['network']
 
+        # Validate the updated parameters
+        self._validate_update_network(context, network_id, original_net,
+                                      net_data)
+
         # Neutron does not support changing provider network values
         providernet._raise_if_updates_provider_attributes(net_data)
         extern_net = self._network_is_external(context, network_id)
@@ -456,6 +478,19 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                                        updated_net)
         self._process_l3_update(context, updated_net, network['network'])
         self._extend_network_dict_provider(context, updated_net)
+
+        if qos_consts.QOS_POLICY_ID in net_data:
+            # attach the policy to the network in neutron DB
+            #(will affect only future compute ports)
+            qos_com_utils.update_network_policy_binding(
+                context, network_id, net_data[qos_consts.QOS_POLICY_ID])
+            updated_net[qos_consts.QOS_POLICY_ID] = net_data[
+                qos_consts.QOS_POLICY_ID]
+            if net_data[qos_consts.QOS_POLICY_ID]:
+                LOG.info("QoS Policy %(qos)s will be applied to future "
+                         "compute ports of network %(net)s",
+                         {'qos': net_data[qos_consts.QOS_POLICY_ID],
+                          'net': network_id})
 
         # Update the backend segment
         if (not extern_net and not is_nsx_net and
@@ -562,7 +597,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         return tags
 
-    def _create_port_on_backend(self, context, port_data, is_psec_on):
+    def _create_port_on_backend(self, context, port_data, is_psec_on,
+                                qos_policy_id):
         # TODO(annak): admin_state not supported by policy
         name = self._build_port_name(context, port_data)
         address_bindings = self._build_port_address_bindings(
@@ -620,6 +656,12 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             name, segment_id, port_data['id'],
             mac_discovery_profile_id=mac_discovery_profile)
 
+        # Add QoS segment profile (only if QoS is enabled)
+        if directory.get_plugin(plugin_const.QOS):
+            self.nsxpolicy.segment_port_qos_profiles.create_or_overwrite(
+                name, segment_id, port_data['id'],
+                qos_profile_id=qos_policy_id)
+
     def base_create_port(self, context, port):
         neutron_db = super(NsxPolicyPlugin, self).create_port(context, port)
         self._extension_manager.process_create_port(
@@ -628,8 +670,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
-        self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
-                                        port_data.get('device_owner'))
+        # validate the new port parameters
+        self._validate_create_port(context, port_data)
 
         # Validate the vnic type (the same types as for the NSX-T plugin)
         direct_vnic_type = self._validate_port_vnic_type(
@@ -673,9 +715,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 # ATTR_NOT_SPECIFIED
                 port_data.pop(mac_ext.MAC_LEARNING)
 
+        qos_policy_id = self._get_port_qos_policy_id(
+            context, None, port_data)
+
         if not is_external_net:
             try:
-                self._create_port_on_backend(context, port_data, is_psec_on)
+                self._create_port_on_backend(context, port_data, is_psec_on,
+                                             qos_policy_id)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error('Failed to create port %(id)s on NSX '
@@ -684,6 +730,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     super(NsxPolicyPlugin, self).delete_port(
                         context, neutron_db['id'])
 
+        # Attach the policy to the port in the neutron DB
+        if qos_policy_id:
+            qos_com_utils.update_port_policy_binding(context,
+                                                     neutron_db['id'],
+                                                     qos_policy_id)
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
         port_model = self._get_port(context, port_data['id'])
@@ -716,6 +767,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     segment_id, port_id)
                 self.nsxpolicy.segment_port_discovery_profiles.delete(
                     segment_id, port_id)
+                if directory.get_plugin(plugin_const.QOS):
+                    self.nsxpolicy.segment_port_qos_profiles.delete(
+                        segment_id, port_id)
                 self.nsxpolicy.segment_port.delete(segment_id, port_id)
             except Exception as ex:
                 LOG.error("Failed to delete port %(id)s on NSX backend "
@@ -724,10 +778,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def _update_port_on_backend(self, context, lport_id,
                                 original_port, updated_port,
-                                is_psec_on):
+                                is_psec_on, qos_policy_id):
         # For now port create and update are the same
         # Update might evolve with more features
-        return self._create_port_on_backend(context, updated_port, is_psec_on)
+        return self._create_port_on_backend(context, updated_port, is_psec_on,
+                                            qos_policy_id)
 
     def update_port(self, context, port_id, port):
         with db_api.CONTEXT_WRITER.using(context):
@@ -792,13 +847,19 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 self._update_mac_learning_state(context, port_id,
                                                 mac_learning_state)
 
+        # Update the QoS policy
+        qos_policy_id = self._get_port_qos_policy_id(
+            context, original_port, updated_port)
+        qos_com_utils.update_port_policy_binding(context, port_id,
+                                                 qos_policy_id)
+
         # update the port in the backend, only if it exists in the DB
         # (i.e not external net)
         if not is_external_net:
             try:
                 self._update_port_on_backend(context, port_id,
                                              original_port, updated_port,
-                                             port_security)
+                                             port_security, qos_policy_id)
             except Exception as e:
                 LOG.error('Failed to update port %(id)s on NSX '
                           'backend. Exception: %(e)s',
@@ -833,6 +894,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             port_model = self._get_port(context, port['id'])
             resource_extend.apply_funcs('ports', port, port_model)
         self._extend_nsx_port_dict_binding(context, port)
+        self._extend_qos_port_dict_binding(context, port)
         self._remove_provider_security_groups_from_list(port)
         return db_utils.resource_fields(port, fields)
 
@@ -859,6 +921,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                         ports.remove(port)
                         continue
                 self._extend_nsx_port_dict_binding(context, port)
+                self._extend_qos_port_dict_binding(context, port)
                 self._remove_provider_security_groups_from_list(port)
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
@@ -1842,10 +1905,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 return type == nsxlib_consts.TRANSPORT_TYPE_OVERLAY
 
     def _is_ens_tz_net(self, context, net_id):
-        #TODO(annak): handle ENS case
-        return False
-
-    def _is_ens_tz_port(self, context, port_data):
         #TODO(annak): handle ENS case
         return False
 

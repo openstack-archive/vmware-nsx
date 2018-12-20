@@ -93,7 +93,7 @@ def set_qos_policy_on_new_net(context, net_data, created_net):
         # attach the policy to the network in the neutron DB
         update_network_policy_binding(
             context,
-            net_data['id'],
+            created_net['id'],
             qos_policy_id)
     created_net[qos_consts.QOS_POLICY_ID] = qos_policy_id
     return qos_policy_id
