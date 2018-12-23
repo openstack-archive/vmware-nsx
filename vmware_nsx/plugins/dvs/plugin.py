@@ -254,6 +254,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _validate_network(self, context, net_data):
         network_type = net_data.get(pnet.NETWORK_TYPE)
+        network_type_set = validators.is_attr_set(network_type)
         segmentation_id = net_data.get(pnet.SEGMENTATION_ID)
         segmentation_id_set = validators.is_attr_set(segmentation_id)
         if not context.is_admin:
@@ -261,6 +262,10 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                         "network")
             raise n_exc.InvalidInput(error_message=err_msg)
         err_msg = None
+        if not network_type_set:
+            err_msg = _("Network provider information must be "
+                        "specified")
+            raise n_exc.InvalidInput(error_message=err_msg)
         if (network_type == c_utils.NetworkTypes.FLAT or
             network_type == c_utils.NetworkTypes.PORTGROUP):
             if segmentation_id_set:
