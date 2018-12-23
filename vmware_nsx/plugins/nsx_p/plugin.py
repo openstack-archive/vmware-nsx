@@ -624,7 +624,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         attachment_type = vif_id = None
         if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
             vif_id = port_data['id']
-            attachment_type = nsxlib_consts.ATTACHMENT_VIF
+            attachment_type = policy_constants.ATTACHMENT_INDEPENDENT
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name)
 
