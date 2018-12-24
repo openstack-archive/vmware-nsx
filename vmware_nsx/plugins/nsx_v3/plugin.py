@@ -1750,10 +1750,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             return
         # Check if subnet overlaps with shared address space.
         # This is checked on the backend when attaching subnet to a router.
-        if netaddr.IPSet([cidr]) & netaddr.IPSet(['100.64.0.0/10']):
-            msg = _("Subnet overlaps with shared address space 100.64.0.0/10")
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
+        subnet_networks = [netaddr.IPNetwork(subnet['cidr'])]
+        shared_ips_cidrs = cfg.CONF.nsx_v3.transit_networks
+        for subnet_net in subnet_networks:
+            for shared_ips in shared_ips_cidrs:
+                if netaddr.IPSet(subnet_net) & netaddr.IPSet([shared_ips]):
+                    msg = _("Subnet overlaps with shared address space "
+                            "%s") % shared_ips
+                    LOG.error(msg)
+                    raise n_exc.InvalidInput(error_message=msg)
+
         # Ensure that the NSX uplink does not lie on the same subnet as
         # the external subnet
         filters = {'id': [subnet['network_id']],

@@ -444,6 +444,11 @@ nsx_v3_opts = [
                        "specifying Transport Zone UUID usable for VLAN "
                        "provider networks, as well as ranges of VLAN "
                        "tags on each available for allocation to networks.")),
+    cfg.ListOpt('transit_networks',
+                default=['100.64.0.0/16'],
+                help=_("List of transit networks used by NSX tier0 routers. "
+                       "Neutron subnets will not be allowed to use those "
+                       "cidrs")),
 ]
 
 DEFAULT_STATUS_CHECK_INTERVAL = 2000
