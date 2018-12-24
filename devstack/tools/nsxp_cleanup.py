@@ -155,6 +155,11 @@ class NSXClient(object):
             # remove all nat rules from this router before deletion
             self.cleanup_tier1_nat_rules(rtr['id'])
             try:
+                self.nsxpolicy.tier1.remove_edge_cluster(rtr['id'])
+            except exceptions.ManagerError as e:
+                # Not always exists
+                pass
+            try:
                 self.nsxpolicy.tier1.delete(rtr['id'])
             except exceptions.ManagerError as e:
                 print("Failed to delete tier1 %s: %s" % (rtr['id'], e))
