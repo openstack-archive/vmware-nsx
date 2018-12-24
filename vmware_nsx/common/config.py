@@ -479,7 +479,11 @@ nsx_v3_opts = nsx_v3_and_p + [
     cfg.BoolOpt('housekeeping_readonly',
                 default=True,
                 help=_("Housekeeping will only warn about breakage.")),
-
+    cfg.ListOpt('transit_networks',
+                default=['100.64.0.0/16'],
+                help=_("List of transit networks used by NSX tier0 routers. "
+                       "Neutron subnets will not be allowed to use those "
+                       "cidrs")),
 ]
 
 nsx_p_opts = nsx_v3_and_p + [
