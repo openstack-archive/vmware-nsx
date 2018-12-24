@@ -48,7 +48,10 @@ class LoadbalancerBaseManager(object):
         if not self._core_plugin:
             self._core_plugin = (
                 self._get_plugin(plugin_const.CORE))
-
+            if self._core_plugin.is_tvd_plugin():
+                # get the plugin that match this driver
+                self._core_plugin = self._core_plugin.get_plugin_by_type(
+                    self._plugin_id)
         return self._core_plugin
 
     @property
@@ -64,36 +67,23 @@ class EdgeLoadbalancerBaseManager(LoadbalancerBaseManager):
 
     def __init__(self, vcns_driver):
         super(EdgeLoadbalancerBaseManager, self).__init__()
+        self._plugin_id = projectpluginmap.NsxPlugins.NSX_V
         self.vcns_driver = vcns_driver
 
     @property
     def vcns(self):
         return self.vcns_driver.vcns
 
-    @property
-    def core_plugin(self):
-        if not self._core_plugin:
-            self._core_plugin = (
-                self._get_plugin(plugin_const.CORE))
-            if self._core_plugin.is_tvd_plugin():
-                # get the plugin that match this driver
-                self._core_plugin = self._core_plugin.get_plugin_by_type(
-                    projectpluginmap.NsxPlugins.NSX_V)
-        return self._core_plugin
-
 
 class Nsxv3LoadbalancerBaseManager(LoadbalancerBaseManager):
 
     def __init__(self):
         super(Nsxv3LoadbalancerBaseManager, self).__init__()
+        self._plugin_id = projectpluginmap.NsxPlugins.NSX_T
 
-    @property
-    def core_plugin(self):
-        if not self._core_plugin:
-            self._core_plugin = (
-                self._get_plugin(plugin_const.CORE))
-            if self._core_plugin.is_tvd_plugin():
-                # get the plugin that match this driver
-                self._core_plugin = self._core_plugin.get_plugin_by_type(
-                    projectpluginmap.NsxPlugins.NSX_T)
-        return self._core_plugin
+
+class NsxpLoadbalancerBaseManager(LoadbalancerBaseManager):
+
+    def __init__(self):
+        super(NsxpLoadbalancerBaseManager, self).__init__()
+        self._plugin_id = projectpluginmap.NsxPlugins.NSX_P

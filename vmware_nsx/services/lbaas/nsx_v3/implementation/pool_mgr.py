@@ -24,6 +24,7 @@ from vmware_nsx._i18n import _
 from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
+from vmware_nsx.services.lbaas import lb_common
 from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
@@ -66,44 +67,6 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             'scope': 'os-lbaas-listener-id',
             'tag': listener['id']})
         return tags
-
-    @log_helpers.log_method_call
-    def _validate_session_persistence(self, pool, listener, completor,
-                                      old_pool=None):
-        sp = pool.get('session_persistence')
-        if not listener or not sp:
-            # safety first!
-            return
-        # L4 listeners only allow source IP persistence
-        if (listener['protocol'] == lb_const.LB_PROTOCOL_TCP and
-            sp['type'] != lb_const.LB_SESSION_PERSISTENCE_SOURCE_IP):
-            completor(success=False)
-            msg = (_("Invalid session persistence type %(sp_type)s for "
-                     "pool on listener %(lst_id)s with %(proto)s protocol") %
-                   {'sp_type': sp['type'],
-                    'lst_id': listener['id'],
-                    'proto': listener['protocol']})
-            raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
-        # Cannot switch (yet) on update from source IP to cookie based, and
-        # vice versa
-        cookie_pers_types = (lb_const.LB_SESSION_PERSISTENCE_HTTP_COOKIE,
-                             lb_const.LB_SESSION_PERSISTENCE_APP_COOKIE)
-        if old_pool:
-            oldsp = old_pool.get('session_persistence')
-            if not oldsp:
-                return
-            if ((sp['type'] == lb_const.LB_SESSION_PERSISTENCE_SOURCE_IP and
-                 oldsp['type'] in cookie_pers_types) or
-                (sp['type'] in cookie_pers_types and
-                 oldsp['type'] == lb_const.LB_SESSION_PERSISTENCE_SOURCE_IP)):
-                completor(success=False)
-                msg = (_("Cannot update session persistence type to "
-                         "%(sp_type)s for pool on listener %(lst_id)s "
-                         "from %(old_sp_type)s") %
-                       {'sp_type': sp['type'],
-                        'lst_id': listener['id'],
-                        'old_sp_type': oldsp['type']})
-                raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
 
     @log_helpers.log_method_call
     def _setup_session_persistence(self, pool, pool_tags,
@@ -244,7 +207,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             listener = None
         # Perform additional validation for session persistence before
         # creating resources in the backend
-        self._validate_session_persistence(pool, listener, completor)
+        lb_common.validate_session_persistence(pool, listener, completor)
         try:
             kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm,
                                            description)
@@ -317,8 +280,8 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         # Perform additional validation for session persistence before
         # operating on resources in the backend
-        self._validate_session_persistence(new_pool, listener, completor,
-                                           old_pool=old_pool)
+        lb_common.validate_session_persistence(new_pool, listener, completor,
+                                               old_pool=old_pool)
 
         try:
             lb_pool_id = binding['lb_pool_id']
