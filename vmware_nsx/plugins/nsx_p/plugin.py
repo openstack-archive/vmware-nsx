@@ -1692,11 +1692,13 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 secgroup_res['name'] or 'securitygroup', sg_id)
             domain_id = secgroup_res['tenant_id']
             try:
-                self.nsxpolicy.group.create_or_overwrite(
-                    nsx_name, domain_id, sg_id,
+                self.nsxpolicy.group.update(
+                    domain_id, sg_id,
+                    name=nsx_name,
                     description=secgroup_res.get('description'))
-                self.nsxpolicy.comm_map.create_or_overwrite_map_only(
-                    nsx_name, domain_id, sg_id,
+                self.nsxpolicy.comm_map.update(
+                    domain_id, sg_id,
+                    name=nsx_name,
                     description=secgroup_res.get('description'))
             except Exception as e:
                 LOG.warning("Failed to update SG %s NSX resources: %s",
