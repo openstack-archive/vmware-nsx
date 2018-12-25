@@ -80,13 +80,15 @@ class RouterBaseDriver(RouterAbstractDriver):
         self._availability_zones = nsx_az.NsxVAvailabilityZones()
 
     def _notify_after_router_edge_association(self, context, router):
-        registry.notify(nsxv_constants.SERVICE_EDGE, events.AFTER_CREATE,
-                        self, context=context, router=router)
+        registry.publish(nsxv_constants.SERVICE_EDGE, events.AFTER_CREATE,
+                         self, payload=events.DBEventPayload(
+                             context, states=(router,)))
 
     def _notify_before_router_edge_association(self, context, router,
                                                edge_id=None):
-        registry.notify(nsxv_constants.SERVICE_EDGE, events.BEFORE_DELETE,
-                        self, context=context, router=router, edge_id=edge_id)
+        registry.publish(nsxv_constants.SERVICE_EDGE, events.BEFORE_DELETE,
+                         self, payload=events.DBEventPayload(
+                             context, states=(router,), resource_id=edge_id))
 
     def _get_external_network_id_by_router(self, context, router_id):
         """Get router's external network id if it has."""

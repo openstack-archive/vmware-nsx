@@ -328,12 +328,12 @@ class NSXBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
                         context, speaker, router, updated_port)
 
     def _before_service_edge_delete_callback(self, resource, event,
-                                             trigger, **kwargs):
-        context = kwargs['context'].elevated()
-        router = kwargs['router']
+                                             trigger, payload=None):
+        context = payload.context.elevated()
+        router = payload.latest_state
         ext_net_id = router.gw_port and router.gw_port['network_id']
         gw_ip = router.gw_port and router.gw_port['fixed_ips'][0]['ip_address']
-        edge_id = kwargs.get('edge_id')
+        edge_id = payload.resource_id
         speakers = self._bgp_speakers_for_gateway_network(context, ext_net_id)
         for speaker in speakers:
             driver = self._get_driver_by_project(
@@ -347,9 +347,9 @@ class NSXBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
                                              gw_ip, edge_id)
 
     def _after_service_edge_create_callback(self, resource, event,
-                                            trigger, **kwargs):
-        context = kwargs['context'].elevated()
-        router = kwargs['router']
+                                            trigger, payload=None):
+        context = payload.context.elevated()
+        router = payload.latest_state
         ext_net_id = router.gw_port and router.gw_port['network_id']
         speakers = self._bgp_speakers_for_gateway_network(context, ext_net_id)
         for speaker in speakers:
