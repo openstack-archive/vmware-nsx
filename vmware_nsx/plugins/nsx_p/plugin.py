@@ -625,12 +625,10 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
             vif_id = port_data['id']
             attachment_type = policy_constants.ATTACHMENT_INDEPENDENT
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
 
         tags = self._build_port_tags(port_data)
         tags.extend(self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name))
+            context.tenant_name, project_id=port_data.get('tenant_id')))
 
         segment_id = self._get_network_nsx_segment_id(
             context, port_data['network_id'])
@@ -1032,7 +1030,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router_name = utils.get_name_and_uuid(router['name'] or 'router',
                                               router['id'])
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
+            context.tenant_name, project_id=r.get('tenant_id'))
         try:
             self.nsxpolicy.tier1.create_or_overwrite(
                 router_name, router['id'],
@@ -1452,7 +1450,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """
         sg_id = secgroup['id']
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
+            context.tenant_name, project_id=secgroup.get('tenant_id'))
         nsx_name = utils.get_name_and_uuid(secgroup['name'] or 'securitygroup',
                                            sg_id)
         # Create the groups membership criteria for ports by scope & tag
@@ -1493,7 +1491,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         l4_protocol = nsxlib_utils.get_l4_protocol_name(sg_rule['protocol'])
         srv_name = 'Service for OS rule %s' % sg_rule['id']
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
+            context.tenant_name, project_id=sg_rule.get('tenant_id'))
 
         if l4_protocol in [nsxlib_consts.TCP, nsxlib_consts.UDP]:
             # If port_range_min is not specified then we assume all ports are
@@ -1555,7 +1553,7 @@ class NsxPolicyPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         source = None
         destination = this_group_id
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
+            context.tenant_name, project_id=sg_rule.get('tenant_id'))
         if sg_rule.get('remote_group_id'):
             # This is the ID of a security group that already exists,
             # so it should be known to the policy manager
