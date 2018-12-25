@@ -16,7 +16,11 @@
 
 import netaddr
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_log import log as logging
+from oslo_utils import excutils
+from sqlalchemy import exc as sql_exc
+
 from six import moves
 
 from neutron.db import l3_db
@@ -64,9 +68,12 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
 
     def __init__(self):
         super(NsxPluginV3Base, self).__init__()
-        plugin_cfg = getattr(cfg.CONF, self.cfg_group)
         self._network_vlans = plugin_utils.parse_network_vlan_ranges(
-            plugin_cfg.network_vlan_ranges)
+            self._get_conf_attr('network_vlan_ranges'))
+
+    def _get_conf_attr(self, attr):
+        plugin_cfg = getattr(cfg.CONF, self.cfg_group)
+        return getattr(plugin_cfg, attr)
 
     def _get_interface_network(self, context, interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)
@@ -529,7 +536,15 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
         """Should be implemented by each plugin"""
         pass
 
+    def _has_native_dhcp_metadata(self):
+        """Should be implemented by each plugin"""
+        pass
+
     def _get_nsx_net_tz_id(self, nsx_net):
+        """Should be implemented by each plugin"""
+        pass
+
+    def _get_network_nsx_id(self, context, neutron_id):
         """Should be implemented by each plugin"""
         pass
 
@@ -537,6 +552,14 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
         """Validate/Update the port security of the new network for ENS TZ
         Should be implemented by the plugin if necessary
         """
+        pass
+
+    def _is_ens_tz_net(self, context, net_id):
+        """Should be implemented by each plugin"""
+        pass
+
+    def _is_ens_tz_port(self, context, port_data):
+        """Should be implemented by each plugin"""
         pass
 
     def _generate_segment_id(self, context, physical_network, net_data):
@@ -970,3 +993,184 @@ class NsxPluginV3Base(plugin.NsxPluginBase,
             err_msg = _("admin_state_up=False routers are not supported")
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
+
+    def _build_dhcp_server_config(self, context, network, subnet, port, az):
+
+        name = self.nsxlib.native_dhcp.build_server_name(
+            network['name'], network['id'])
+
+        net_tags = self.nsxlib.build_v3_tags_payload(
+            network, resource_type='os-neutron-net-id',
+            project_name=context.tenant_name)
+
+        dns_domain = network.get('dns_domain')
+        if not dns_domain or not validators.is_attr_set(dns_domain):
+            dns_domain = az.dns_domain
+
+        dns_nameservers = subnet['dns_nameservers']
+        if not dns_nameservers or not validators.is_attr_set(dns_nameservers):
+            dns_nameservers = az.nameservers
+
+        return self.nsxlib.native_dhcp.build_server(
+            name,
+            ip_address=port['fixed_ips'][0]['ip_address'],
+            cidr=subnet['cidr'],
+            gateway_ip=subnet['gateway_ip'],
+            host_routes=subnet['host_routes'],
+            dns_domain=dns_domain,
+            dns_nameservers=dns_nameservers,
+            dhcp_profile_id=az._native_dhcp_profile_uuid,
+            tags=net_tags)
+
+    def _enable_native_dhcp(self, context, network, subnet):
+        # Enable native DHCP service on the backend for this network.
+        # First create a Neutron DHCP port and use its assigned IP
+        # address as the DHCP server address in an API call to create a
+        # LogicalDhcpServer on the backend. Then create the corresponding
+        # logical port for the Neutron port with DHCP attachment as the
+        # LogicalDhcpServer UUID.
+
+        # TODO(annak):
+        # This function temporarily serves both nsx_v3 and nsx_p plugins.
+        # In future, when platform supports native dhcp in policy for infra
+        # segments, this function should move back to nsx_v3 plugin
+
+        # Delete obsolete settings if exist. This could happen when a
+        # previous failed transaction was rolled back. But the backend
+        # entries are still there.
+        self._disable_native_dhcp(context, network['id'])
+
+        # Get existing ports on subnet.
+        existing_ports = super(NsxPluginV3Base, self).get_ports(
+            context, filters={'network_id': [network['id']],
+                              'fixed_ips': {'subnet_id': [subnet['id']]}})
+        az = self.get_network_az_by_net_id(context, network['id'])
+        port_data = {
+            "name": "",
+            "admin_state_up": True,
+            "device_id": az._native_dhcp_profile_uuid,
+            "device_owner": constants.DEVICE_OWNER_DHCP,
+            "network_id": network['id'],
+            "tenant_id": network["tenant_id"],
+            "mac_address": constants.ATTR_NOT_SPECIFIED,
+            "fixed_ips": [{"subnet_id": subnet['id']}],
+            psec.PORTSECURITY: False
+        }
+        # Create the DHCP port (on neutron only) and update its port security
+        port = {'port': port_data}
+        neutron_port = super(NsxPluginV3Base, self).create_port(context, port)
+        is_ens_tz_port = self._is_ens_tz_port(context, port_data)
+        self._create_port_preprocess_security(context, port, port_data,
+                                              neutron_port, is_ens_tz_port)
+
+        server_data = self._build_dhcp_server_config(
+            context, network, subnet, neutron_port, az)
+        nsx_net_id = self._get_network_nsx_id(context, network['id'])
+        port_tags = self.nsxlib.build_v3_tags_payload(
+            neutron_port, resource_type='os-neutron-dport-id',
+            project_name=context.tenant_name)
+        dhcp_server = None
+        dhcp_port_profiles = []
+        if (not self._is_ens_tz_net(context, network['id']) and
+            not self._has_native_dhcp_metadata()):
+            dhcp_port_profiles.append(self._dhcp_profile)
+        try:
+            dhcp_server = self.nsxlib.dhcp_server.create(**server_data)
+            LOG.debug("Created logical DHCP server %(server)s for network "
+                      "%(network)s",
+                      {'server': dhcp_server['id'], 'network': network['id']})
+            name = self._build_port_name(context, port_data)
+            nsx_port = self.nsxlib.logical_port.create(
+                nsx_net_id, dhcp_server['id'], tags=port_tags, name=name,
+                attachment_type=nsxlib_consts.ATTACHMENT_DHCP,
+                switch_profile_ids=dhcp_port_profiles)
+            LOG.debug("Created DHCP logical port %(port)s for "
+                      "network %(network)s",
+                      {'port': nsx_port['id'], 'network': network['id']})
+        except nsx_lib_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error("Unable to create logical DHCP server for "
+                          "network %s", network['id'])
+                if dhcp_server:
+                    self.nsxlib.dhcp_server.delete(dhcp_server['id'])
+                super(NsxPluginV3Base, self).delete_port(
+                    context, neutron_port['id'])
+
+        try:
+            # Add neutron_port_id -> nsx_port_id mapping to the DB.
+            nsx_db.add_neutron_nsx_port_mapping(
+                context.session, neutron_port['id'], nsx_net_id,
+                nsx_port['id'])
+            # Add neutron_net_id -> dhcp_service_id mapping to the DB.
+            nsx_db.add_neutron_nsx_service_binding(
+                context.session, network['id'], neutron_port['id'],
+                nsxlib_consts.SERVICE_DHCP, dhcp_server['id'])
+        except (db_exc.DBError, sql_exc.TimeoutError):
+            with excutils.save_and_reraise_exception():
+                LOG.error("Failed to create mapping for DHCP port %s,"
+                          "deleting port and logical DHCP server",
+                          neutron_port['id'])
+                self.nsxlib.dhcp_server.delete(dhcp_server['id'])
+                self._cleanup_port(context, neutron_port['id'], nsx_port['id'])
+
+        # Configure existing ports to work with the new DHCP server
+        try:
+            for port_data in existing_ports:
+                self._add_dhcp_binding(context, port_data)
+        except Exception:
+            LOG.error('Unable to create DHCP bindings for existing ports '
+                      'on subnet %s', subnet['id'])
+
+    def _disable_native_dhcp(self, context, network_id):
+        # Disable native DHCP service on the backend for this network.
+        # First delete the DHCP port in this network. Then delete the
+        # corresponding LogicalDhcpServer for this network.
+        dhcp_service = nsx_db.get_nsx_service_binding(
+            context.session, network_id, nsxlib_consts.SERVICE_DHCP)
+        if not dhcp_service:
+            return
+
+        if dhcp_service['port_id']:
+            try:
+                self.delete_port(context, dhcp_service['port_id'],
+                                 force_delete_dhcp=True)
+            except nsx_lib_exc.ResourceNotFound:
+                # This could happen when the port has been manually deleted.
+                LOG.error("Failed to delete DHCP port %(port)s for "
+                          "network %(network)s",
+                          {'port': dhcp_service['port_id'],
+                           'network': network_id})
+        else:
+            LOG.error("DHCP port is not configured for network %s",
+                      network_id)
+
+        try:
+            self.nsxlib.dhcp_server.delete(dhcp_service['nsx_service_id'])
+            LOG.debug("Deleted logical DHCP server %(server)s for network "
+                      "%(network)s",
+                      {'server': dhcp_service['nsx_service_id'],
+                       'network': network_id})
+        except nsx_lib_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error("Unable to delete logical DHCP server %(server)s "
+                          "for network %(network)s",
+                          {'server': dhcp_service['nsx_service_id'],
+                           'network': network_id})
+        try:
+            # Delete neutron_id -> dhcp_service_id mapping from the DB.
+            nsx_db.delete_neutron_nsx_service_binding(
+                context.session, network_id, nsxlib_consts.SERVICE_DHCP)
+            # Delete all DHCP bindings under this DHCP server from the DB.
+            nsx_db.delete_neutron_nsx_dhcp_bindings_by_service_id(
+                context.session, dhcp_service['nsx_service_id'])
+        except db_exc.DBError:
+            with excutils.save_and_reraise_exception():
+                LOG.error("Unable to delete DHCP server mapping for "
+                          "network %s", network_id)
+
+    def _cleanup_port(self, context, port_id, nsx_port_id=None):
+        # Clean up neutron port and nsx manager port if provided
+        # Does not handle cleanup of policy port
+        super(NsxPluginV3Base, self).delete_port(context, port_id)
+        if nsx_port_id:
+            self.nsxlib.logical_port.delete(nsx_port_id)
