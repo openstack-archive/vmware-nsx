@@ -15,9 +15,8 @@
 
 from sqlalchemy.orm import exc
 
-from neutron.db import _resource_extend as resource_extend
-
 from neutron_lib.api.definitions import port as port_def
+from neutron_lib.db import resource_extend
 
 from oslo_db import exception as db_exc
 from oslo_log import log as logging

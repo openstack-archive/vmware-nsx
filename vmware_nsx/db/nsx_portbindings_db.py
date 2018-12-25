@@ -22,11 +22,11 @@ from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib import exceptions
 from neutron_lib.plugins import directory
 from neutron_lib.plugins import utils as p_utils
 
-from neutron.db import _resource_extend as resource_extend
 from neutron.db import portbindings_db as pbin_db
 from neutron.plugins.ml2 import models as pbin_model
 from vmware_nsx._i18n import _

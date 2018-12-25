@@ -13,9 +13,8 @@
 #    under the License.
 #
 
+from neutron_lib.db import resource_extend
 from oslo_log import log as logging
-
-from neutron.db import _resource_extend as resource_extend
 
 from vmware_nsx.db import nsxv_models
 

@@ -18,11 +18,11 @@ import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.orm import exc
 
-from neutron.db import _resource_extend as resource_extend
 from neutron.db.models import securitygroup
 from neutron.extensions import securitygroup as ext_sg
 from neutron_lib.api import validators
 from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib import exceptions as nexception
 from vmware_nsx._i18n import _
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as ext_local_ip
