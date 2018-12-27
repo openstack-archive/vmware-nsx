@@ -126,10 +126,6 @@ class NoRouterAvailable(n_exc.ResourceExhausted):
                 "No tenant router is available for allocation.")
 
 
-class NsxL2GWConnectionMappingNotFound(n_exc.NotFound):
-    message = _('Unable to find mapping for L2 gateway connection: %(conn)s')
-
-
 class NsxL2GWDeviceNotFound(n_exc.NotFound):
     message = _('Unable to find logical L2 gateway device.')
 
