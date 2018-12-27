@@ -188,7 +188,7 @@ class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
 class DummyLoadbalancerDriverV2(object):
     @log_helpers.log_method_call
     def __init__(self):
-        self.load_balancer = NotImplementedManager()
+        self.loadbalancer = NotImplementedManager()
         self.listener = NotImplementedManager()
         self.pool = NotImplementedManager()
         self.member = NotImplementedManager()
