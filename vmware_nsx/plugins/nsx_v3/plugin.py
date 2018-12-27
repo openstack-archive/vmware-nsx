@@ -1842,16 +1842,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         LOG.error(err_msg)
         raise n_exc.InvalidInput(error_message=err_msg)
 
-    def _is_excluded_port(self, device_owner, port_security):
-        if device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
-            return False
-        if device_owner == const.DEVICE_OWNER_DHCP:
-            if not cfg.CONF.nsx_v3.native_dhcp_metadata:
-                return True
-        elif not port_security:
-            return True
-        return False
-
     def _create_port_at_the_backend(self, context, port_data,
                                     l2gw_port_check, psec_is_on,
                                     is_ens_tz_port):
@@ -2076,16 +2066,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         "connected to the subnet")
             LOG.warning(err_msg)
             raise n_exc.InvalidInput(error_message=err_msg)
-
-    def _assert_on_port_admin_state(self, port_data, device_owner):
-        """Do not allow changing the admin state of some ports"""
-        if (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF or
-            device_owner == l3_db.DEVICE_OWNER_ROUTER_GW):
-            if port_data.get("admin_state_up") is False:
-                err_msg = _("admin_state_up=False router ports are not "
-                            "supported")
-                LOG.warning(err_msg)
-                raise n_exc.InvalidInput(error_message=err_msg)
 
     def _filter_ipv4_dhcp_fixed_ips(self, context, fixed_ips):
         ips = []
