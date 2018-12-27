@@ -109,3 +109,13 @@ elif [[ $Q_PLUGIN == 'vmware_nsx_tvd' ]]; then
 elif [[ $Q_PLUGIN == 'vmware_dvs' ]]; then
     source $dir/lib/vmware_dvs
 fi
+
+if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
+    if is_service_enabled q-fwaas-v2; then
+        # make sure ml2 config exists for FWaaS-v2
+        if [ ! -f "/etc/neutron/plugins/ml2/ml2_conf.ini" ]; then
+            mkdir /etc/neutron/plugins/ml2
+            cp $DEST/neutron/etc/neutron/plugins/ml2/ml2_conf.ini.sample /etc/neutron/plugins/ml2/ml2_conf.ini
+        fi
+    fi
+fi
