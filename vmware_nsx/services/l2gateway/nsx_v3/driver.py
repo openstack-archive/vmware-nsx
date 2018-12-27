@@ -23,6 +23,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import uuidutils
 
+from neutron.db import api as db_api
 from neutron.plugins.common import utils as n_utils
 from neutron_lib.api.definitions import provider_net as providernet
 from neutron_lib.callbacks import events
@@ -211,26 +212,70 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         network_id = gw_connection.get(l2gw_const.NETWORK_ID)
         self._validate_network(context, network_id)
 
+    def _get_bridge_cluster(self, context, l2gw_id):
+        # In NSXv3, there will be only one device configured per L2 gateway.
+        # The name of the device shall carry the backend bridge cluster's UUID.
+        devices = self._get_l2_gateway_devices(context, l2gw_id)
+        return devices[0].get('device_name')
+
+    def _get_conn_seg_id(self, context, gw_connection):
+        if not gw_connection:
+            return
+        seg_id = gw_connection.get(l2gw_const.SEG_ID)
+        if not seg_id:
+            # Seg-id was not passed as part of connection-create. Retrieve
+            # seg-id from L2 gateway's interface.
+            l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
+            devices = self._get_l2_gateway_devices(context, l2gw_id)
+            interface = self._get_l2_gw_interfaces(context, devices[0]['id'])
+            seg_id = interface[0].get(l2gw_const.SEG_ID)
+        return seg_id
+
     def create_l2_gateway_connection_precommit(self, context, gw_connection):
-        pass
+        """Validate the L2 gateway connection
+        Do not allow another connection with the same bride cluster and seg_id
+        """
+        admin_ctx = context.elevated()
+        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
+        seg_id = self._get_conn_seg_id(admin_ctx, gw_connection)
+        bridge_cluster = self._get_bridge_cluster(admin_ctx, l2gw_id)
+
+        # get all bridge endpoint ports
+        with db_api.context_manager.writer.using(admin_ctx):
+            port_filters = {'device_owner': [nsx_constants.BRIDGE_ENDPOINT]}
+            ports = self._core_plugin.get_ports(
+                admin_ctx, filters=port_filters)
+            for port in ports:
+                # get the nsx mapping by bridge endpoint
+                if port.get('device_id'):
+                    mappings = nsx_db.get_l2gw_connection_mappings_by_bridge(
+                        admin_ctx.session, port['device_id'])
+                    for mapping in mappings:
+                        conn_id = mapping.connection_id
+                        # get the matching GW connection
+                        conn = self._get_l2_gateway_connection(
+                            admin_ctx, conn_id)
+                        con_seg_id = self._get_conn_seg_id(admin_ctx, conn)
+                        if (conn and con_seg_id and
+                            int(con_seg_id) == int(seg_id)):
+                            # compare the bridge cluster
+                            conn_bridge_cluster = self._get_bridge_cluster(
+                                admin_ctx, conn.l2_gateway_id)
+                            if conn_bridge_cluster == bridge_cluster:
+                                msg = (_("Cannot create multiple connections "
+                                         "with the same segmentation id "
+                                         "%(seg_id)s for bridge cluster "
+                                         "%(bridge)s") % {
+                                    'seg_id': seg_id,
+                                    'bridge': bridge_cluster})
+                                raise n_exc.InvalidInput(error_message=msg)
 
     def create_l2_gateway_connection_postcommit(self, context, gw_connection):
         """Create a L2 gateway connection."""
         l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
         network_id = gw_connection.get(l2gw_const.NETWORK_ID)
-        devices = self._get_l2_gateway_devices(context, l2gw_id)
-        # In NSXv3, there will be only one device configured per L2 gateway.
-        # The name of the device shall carry the backend bridge cluster's UUID.
-        device_name = devices[0].get('device_name')
-        # The seg-id will be provided either during gateway create or gateway
-        # connection create. l2gateway_db_mixin makes sure that it is
-        # configured one way or the other.
-        seg_id = gw_connection.get(l2gw_const.SEG_ID)
-        if not seg_id:
-            # Seg-id was not passed as part of connection-create. Retrieve
-            # seg-id from L2 gateway's interface.
-            interface = self._get_l2_gw_interfaces(context, devices[0]['id'])
-            seg_id = interface[0].get(l2gw_const.SEG_ID)
+        device_name = self._get_bridge_cluster(context, l2gw_id)
+        seg_id = self._get_conn_seg_id(context, gw_connection)
         self._validate_segment_id(seg_id)
         tenant_id = gw_connection['tenant_id']
         if context.is_admin and not tenant_id:
@@ -272,9 +317,9 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
                                                         fixed_ip['ip_address'])
             LOG.debug("IP addresses deallocated on port %s", port['id'])
         except (nsxlib_exc.ManagerError,
-                n_exc.NeutronException):
+                n_exc.NeutronException) as e:
             LOG.exception("Unable to create L2 gateway port, "
-                          "rolling back changes on neutron")
+                          "rolling back changes on neutron: %s", e)
             self._core_plugin.nsxlib.bridge_endpoint.delete(
                 bridge_endpoint['id'])
             raise l2gw_exc.L2GatewayServiceDriverError(
@@ -309,6 +354,11 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         conn_mapping = nsx_db.get_l2gw_connection_mapping(
             session=context.session,
             connection_id=gw_connection)
+        if not conn_mapping:
+            LOG.error("Unable to delete gateway connection %(id)s: mapping "
+                      "not found", {'id': gw_connection})
+            # Do not block the deletion
+            return
         bridge_endpoint_id = conn_mapping.get('bridge_endpoint_id')
         # Delete the logical port from the bridge endpoint.
         self._core_plugin.delete_port(context=context,
