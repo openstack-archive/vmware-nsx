@@ -879,7 +879,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
-    def _get_edge_cluster(self, tier0_uuid):
+    def _get_router_az_obj(self, router):
+        l3_attrs_db.ExtraAttributesMixin._extend_extra_router_dict(
+            router, router)
+        return self.get_router_az(router)
+
+    def _get_edge_cluster(self, tier0_uuid, router):
+        az = self._get_router_az_obj(router)
+        if az and az._edge_cluster_uuid:
+            return az._edge_cluster_uuid
         if (not self.tier0_groups_dict.get(tier0_uuid) or not self.
                 tier0_groups_dict[tier0_uuid].get('edge_cluster_uuid')):
             self.nsxlib.router.validate_tier0(self.tier0_groups_dict,
@@ -3048,7 +3056,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def create_service_router(self, context, router_id):
         router = self._get_router(context, router_id)
         tier0_uuid = self._get_tier0_uuid_by_router(context, router)
-        edge_cluster_uuid = self._get_edge_cluster(tier0_uuid)
+        edge_cluster_uuid = self._get_edge_cluster(tier0_uuid, router)
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,
                                                  router_id)
         self.nsxlib.router.update_router_edge_cluster(nsx_router_id,
@@ -3073,7 +3081,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         router_subnets = self._find_router_subnets(
             context.elevated(), router_id)
-
         if info and info.get('network_id'):
             new_tier0_uuid = self._get_tier0_uuid_by_net_id(context.elevated(),
                                                             info['network_id'])
@@ -3314,11 +3321,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def get_router_availability_zones(self, router):
         """Return availability zones which a router belongs to."""
-        # add the hints to the structure first
-        l3_attrs_db.ExtraAttributesMixin._extend_extra_router_dict(
-            router, router)
-        # get the availability zones from the hints
-        return [self.get_router_az(router).name]
+        return [self._get_router_az_obj(router).name]
 
     def _update_router_wrapper(self, context, router_id, router):
         if cfg.CONF.api_replay_mode:
