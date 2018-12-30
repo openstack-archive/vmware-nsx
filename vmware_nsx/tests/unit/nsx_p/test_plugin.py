@@ -122,6 +122,10 @@ class NsxPPluginTestCaseMixin(
                    "NsxPolicySegmentApi.get_realized_id",
                    return_value=LOGICAL_SWITCH_ID
                    ).start()
+        mock.patch("vmware_nsxlib.v3.policy.core_resources."
+                   "NsxPolicySegmentApi.set_admin_state").start()
+        mock.patch("vmware_nsxlib.v3.policy.core_resources."
+                   "NsxPolicySegmentPortApi.set_admin_state").start()
 
     def _mock_nsxlib_backend_calls(self):
         """Mock nsxlib backend calls used as passthrough

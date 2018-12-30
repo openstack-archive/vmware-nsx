@@ -329,9 +329,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         tags = self.nsxpolicy.build_v3_api_version_project_tag(
             context.tenant_name)
 
-        # TODO(annak): admin state config is missing on policy
-        # should we not create networks that are down?
-        # alternative - configure status on manager for time being
         admin_state = net_data.get('admin_state_up', True)
         LOG.debug('create_network: %(net_name)s, %(physical_net)s, '
                   '%(tags)s, %(admin_state)s, %(vlan_id)s',
@@ -356,6 +353,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             transport_zone_id=provider_data['physical_net'],
             tags=tags)
 
+        if not admin_state and cfg.CONF.nsx_p.allow_passthrough:
+            # This api uses the passthrough api
+            self.nsxpolicy.segment.set_admin_state(
+                net_data['id'], admin_state)
+
     def _tier0_validator(self, tier0_uuid):
         # Fail of the tier0 uuid was not found on the BSX
         self.nsxpolicy.tier0.get(tier0_uuid)
@@ -379,6 +381,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         """
         pass
 
+    def _assert_on_resource_admin_state_down(self, resource_data):
+        """Network & port admin state is only supported with passthrough api"""
+        if (not cfg.CONF.nsx_p.allow_passthrough and
+            resource_data.get("admin_state_up") is False):
+            err_msg = (_("admin_state_up=False is not supported when "
+                         "passthrough is disabled"))
+            LOG.warning(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+
     def create_network(self, context, network):
         net_data = network['network']
         external = net_data.get(external_net.EXTERNAL)
@@ -392,6 +403,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         vlt = vlan_apidef.get_vlan_transparent(net_data)
 
         self._validate_create_network(context, net_data)
+        self._assert_on_resource_admin_state_down(net_data)
 
         if is_external_net:
             is_provider_net, net_type, physical_net, vlan_id = (
@@ -511,17 +523,12 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # Validate the updated parameters
         self._validate_update_network(context, network_id, original_net,
                                       net_data)
+        self._assert_on_resource_admin_state_down(net_data)
 
         # Neutron does not support changing provider network values
         providernet._raise_if_updates_provider_attributes(net_data)
         extern_net = self._network_is_external(context, network_id)
         is_nsx_net = self._network_is_nsx_net(context, network_id)
-
-        # Do not support changing external/non-external networks
-        if (external_net.EXTERNAL in net_data and
-            net_data[external_net.EXTERNAL] != extern_net):
-            err_msg = _("Cannot change the router:external flag of a network")
-            raise n_exc.InvalidInput(error_message=err_msg)
 
         # Update the neutron network
         updated_net = super(NsxPolicyPlugin, self).update_network(
@@ -547,7 +554,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # Update the backend segment
         if (not extern_net and not is_nsx_net and
             ('name' in net_data or 'description' in net_data)):
-            # TODO(asarfaty): handle admin state changes as well
             net_name = utils.get_name_and_uuid(
                 updated_net['name'] or 'network', network_id)
             try:
@@ -561,6 +567,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 with excutils.save_and_reraise_exception():
                     super(NsxPolicyPlugin, self).update_network(
                         context, network_id, {'network': original_net})
+
+        if (not extern_net and not is_nsx_net and
+            'admin_state_up' in net_data and
+            cfg.CONF.nsx_p.allow_passthrough):
+            # Update admin state using the passthrough api
+            self.nsxpolicy.segment.set_admin_state(
+                network_id, net_data['admin_state_up'])
 
         return updated_net
 
@@ -640,7 +653,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def _create_port_on_backend(self, context, port_data, is_psec_on,
                                 qos_policy_id):
-        # TODO(annak): admin_state not supported by policy
         name = self._build_port_name(context, port_data)
         address_bindings = self._build_port_address_bindings(
             context, port_data)
@@ -703,6 +715,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 name, segment_id, port_data['id'],
                 qos_profile_id=qos_policy_id)
 
+        if cfg.CONF.nsx_p.allow_passthrough and 'admin_state_up' in port_data:
+            # This api uses the passthrough api
+            self.nsxpolicy.segment_port.set_admin_state(
+                segment_id, port_data['id'], port_data['admin_state_up'])
+
     def base_create_port(self, context, port):
         neutron_db = super(NsxPolicyPlugin, self).create_port(context, port)
         self._extension_manager.process_create_port(
@@ -713,6 +730,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         port_data = port['port']
         # validate the new port parameters
         self._validate_create_port(context, port_data)
+        self._assert_on_resource_admin_state_down(port_data)
 
         # Validate the vnic type (the same types as for the NSX-T plugin)
         direct_vnic_type = self._validate_port_vnic_type(
@@ -861,6 +879,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             port_data = port['port']
             self._validate_update_port(context, port_id, original_port,
                                        port_data)
+            self._assert_on_resource_admin_state_down(port_data)
             validate_port_sec = self._should_validate_port_sec_on_update_port(
                 port_data)
             is_external_net = self._network_is_external(
