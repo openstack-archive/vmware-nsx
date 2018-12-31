@@ -283,6 +283,10 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             with ctx.session.begin(subtransactions=True):
                 ctx.session.add(models_v2.Network(id=network_id))
 
+    def _initialize_azs(self):
+        self.plugin.init_availability_zones()
+        self.plugin._translate_configured_names_to_uuids()
+
     def _enable_dhcp_relay(self):
         # Add the relay service to the config and availability zones
         cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
@@ -291,9 +295,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         mock_nsx_version = mock.patch.object(
             self.plugin.nsxlib, 'feature_supported', return_value=True)
         mock_nsx_version.start()
-        self.plugin.init_availability_zones()
-        for az in self.plugin.get_azs_list():
-            az.translate_configured_names_to_uuids(self.plugin.nsxlib)
+        self._initialize_azs()
 
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
@@ -3012,6 +3014,7 @@ class TestL3NatTestCase(L3NatTest,
             "get_id_by_name_or_id",
             return_value=edge_cluster).start()
         cfg.CONF.set_override('edge_cluster', edge_cluster, 'nsx_v3')
+        self._initialize_azs()
         with self.address_scope(name='as1') as addr_scope, \
                 self._create_l3_ext_network() as ext_net:
             ext_subnet = self._prepare_external_subnet_on_address_scope(
@@ -3021,9 +3024,6 @@ class TestL3NatTestCase(L3NatTest,
             with self.router() as r, \
                     self._mock_add_remove_service_router() as change_sr:
                 router_id = r['router']['id']
-                self.plugin.init_availability_zones()
-                for az in self.plugin.get_azs_list():
-                    az.translate_configured_names_to_uuids(self.plugin.nsxlib)
                 self._add_external_gateway_to_router(
                     router_id, ext_subnet['network_id'])
                 change_sr.assert_called_once_with(mock.ANY, edge_cluster)
