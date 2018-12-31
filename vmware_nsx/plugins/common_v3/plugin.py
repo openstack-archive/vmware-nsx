@@ -20,6 +20,7 @@ from oslo_db import exception as db_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 from sqlalchemy import exc as sql_exc
+import webob.exc
 
 from six import moves
 
@@ -44,6 +45,7 @@ from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api import faults
 from neutron_lib.api import validators
 from neutron_lib.api.validators import availability_zone as az_validator
 from neutron_lib import constants
@@ -126,6 +128,26 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Unable to retrieve DHCP Profile %s, "
                           "native DHCP service is not supported",
                           az._native_dhcp_profile_uuid)
+
+    def _extend_fault_map(self):
+        """Extends the Neutron Fault Map.
+
+        Exceptions specific to the NSX Plugin are mapped to standard
+        HTTP Exceptions.
+        """
+        faults.FAULT_MAP.update({nsx_lib_exc.ManagerError:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_lib_exc.ServiceClusterUnavailable:
+                                 webob.exc.HTTPServiceUnavailable,
+                                 nsx_lib_exc.ClientCertificateNotTrusted:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_exc.SecurityGroupMaximumCapacityReached:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_lib_exc.NsxLibInvalidInput:
+                                 webob.exc.HTTPBadRequest,
+                                 nsx_exc.NsxENSPortSecurity:
+                                 webob.exc.HTTPBadRequest,
+                                 })
 
     def _get_conf_attr(self, attr):
         plugin_cfg = getattr(cfg.CONF, self.cfg_group)
@@ -1529,3 +1551,20 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                 "router address %s") % ip_address
                         LOG.error(msg)
                         raise n_exc.InvalidInput(error_message=msg)
+
+    def _need_router_snat_rules(self, context, router_id, subnet,
+                                gw_address_scope):
+        # if the subnets address scope is the same as the gateways:
+        # no need for SNAT
+        if gw_address_scope:
+            subnet_address_scope = self._get_subnetpool_address_scope(
+                context, subnet['subnetpool_id'])
+            if (gw_address_scope == subnet_address_scope):
+                LOG.info("No need for SNAT rule for router %(router)s "
+                         "and subnet %(subnet)s because they use the "
+                         "same address scope %(addr_scope)s.",
+                         {'router': router_id,
+                          'subnet': subnet['id'],
+                          'addr_scope': gw_address_scope})
+                return False
+        return True
