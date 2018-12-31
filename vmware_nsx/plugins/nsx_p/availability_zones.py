@@ -129,8 +129,6 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
             auto_config=True, is_mandatory=True,
             search_scope=search_scope)
 
-        self.dhcp_relay_service = cfg.CONF.nsx_p.dhcp_relay_service
-
         # If passthrough api is supported, also initialize those NSX objects
         if nsxlib:
             self._translate_dhcp_profile(nsxlib, search_scope=search_scope)

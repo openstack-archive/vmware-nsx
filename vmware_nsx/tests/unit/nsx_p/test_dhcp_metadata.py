@@ -114,8 +114,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
 
     def _verify_dhcp_binding(self, subnet, port_data, update_data,
                              assert_data):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Verify if DHCP binding is updated.
         with mock.patch(
             'vmware_nsxlib.v3.resources.LogicalDhcpServer.update_binding'
@@ -308,8 +306,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                           False)
 
     def test_dhcp_service_with_update_dhcp_subnet(self):
-        # TODO(asarfaty) : Enable this test after update subnet is supported
-        return
         # Test if DHCP service is enabled on a network when a DHCP-disabled
         # subnet is updated to DHCP-enabled.
         with self.network() as network:
@@ -325,8 +321,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                           True)
 
     def test_dhcp_service_with_update_multiple_dhcp_subnets(self):
-        # TODO(asarfaty) : Enable this test after update subnet is supported
-        return
         # Test if a DHCP-disabled subnet cannot be updated to DHCP-enabled
         # if a DHCP-enabled subnet already exists in the same network.
         with self.network() as network:
@@ -344,8 +338,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                         data)
 
     def test_dhcp_service_with_update_dhcp_port(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP server IP is updated when the corresponding DHCP port
         # IP is changed.
         with mock.patch.object(nsx_resources.LogicalDhcpServer,
@@ -367,8 +359,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                     dhcp_service['nsx_service_id'], server_ip=new_ip)
 
     def test_dhcp_binding_with_create_port(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is added when a compute port is created.
         with mock.patch.object(nsx_resources.LogicalDhcpServer,
                                'create_binding',
@@ -403,8 +393,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                         subnet['subnet']['gateway_ip'])
 
     def test_dhcp_binding_with_create_port_with_opts(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is added when a compute port is created
         # with extra options.
         opt_name = 'interface-mtu'
@@ -448,8 +436,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                         subnet['subnet']['gateway_ip'])
 
     def test_dhcp_binding_with_create_port_with_opts121(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is added when a compute port is created
         # with extra option121.
         with mock.patch.object(nsx_resources.LogicalDhcpServer,
@@ -491,8 +477,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                         subnet['subnet']['gateway_ip'])
 
     def test_dhcp_binding_with_create_port_with_bad_opts(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         with self.subnet(enable_dhcp=True) as subnet:
             device_owner = constants.DEVICE_OWNER_COMPUTE_PREFIX + 'None'
             device_id = uuidutils.generate_uuid()
@@ -523,8 +507,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                 self.plugin.create_port, ctx, data)
 
     def test_dhcp_binding_with_disable_enable_dhcp(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is preserved after DHCP is disabled and
         # re-enabled on a subnet.
         with self.subnet(enable_dhcp=True) as subnet:
@@ -559,8 +541,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                     dhcp_bindings[0]['nsx_service_id'])
 
     def test_dhcp_binding_with_delete_port(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is removed when the associated compute port
         # is deleted.
         with mock.patch.object(nsx_resources.LogicalDhcpServer,
@@ -580,8 +560,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                         dhcp_binding['nsx_binding_id'])
 
     def test_dhcp_binding_with_update_port_delete_ip(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is deleted when the IP of the associated
         # compute port is deleted.
         with mock.patch.object(nsx_resources.LogicalDhcpServer,
@@ -604,8 +582,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                         dhcp_binding['nsx_binding_id'])
 
     def test_dhcp_binding_with_update_port_ip(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is updated when the IP of the associated
         # compute port is changed.
         with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
@@ -631,8 +607,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                       assert_data)
 
     def test_dhcp_binding_with_update_port_mac(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is updated when the Mac of the associated
         # compute port is changed.
         with self.subnet(enable_dhcp=True) as subnet:
@@ -683,8 +657,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                       assert_data)
 
     def test_update_port_with_update_dhcp_opt(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test updating extra-dhcp-opts via port update.
         with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
             mac_address = '11:22:33:44:55:66'
@@ -717,8 +689,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                       assert_data)
 
     def test_update_port_with_adding_dhcp_opt(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test adding extra-dhcp-opts via port update.
         with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
             mac_address = '11:22:33:44:55:66'
@@ -752,8 +722,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                       assert_data)
 
     def test_update_port_with_deleting_dhcp_opt(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test adding extra-dhcp-opts via port update.
         with self.subnet(cidr='10.0.0.0/24', enable_dhcp=True) as subnet:
             mac_address = '11:22:33:44:55:66'
@@ -864,8 +832,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                       network['network']['tenant_id'], False)
 
     def test_dhcp_binding_with_create_az_port(self):
-        # TODO(asarfaty)- Enabled this once port dhcp binding is supported
-        return
         # Test if DHCP binding is added when a compute port is created.
         with mock.patch.object(nsx_resources.LogicalDhcpServer,
                                'create_binding',

@@ -287,15 +287,20 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         self.plugin.init_availability_zones()
         self.plugin._translate_configured_names_to_uuids()
 
+    def _enable_native_dhcp_md(self):
+        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        cfg.CONF.set_override('dhcp_agent_notification', False)
+        self.plugin._init_dhcp_metadata()
+
     def _enable_dhcp_relay(self):
         # Add the relay service to the config and availability zones
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
         cfg.CONF.set_override('dhcp_relay_service', NSX_DHCP_RELAY_SRV,
                               'nsx_v3')
         mock_nsx_version = mock.patch.object(
             self.plugin.nsxlib, 'feature_supported', return_value=True)
         mock_nsx_version.start()
         self._initialize_azs()
+        self._enable_native_dhcp_md()
 
 
 class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
@@ -322,7 +327,7 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
             self.assertListEqual(az_hints, zone)
 
     def test_network_failure_rollback(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         self.plugin = directory.get_plugin()
         with mock.patch.object(self.plugin.nsxlib.logical_port, 'create',
                                side_effect=api_exc.NsxApiException):
@@ -854,7 +859,7 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
     def test_subnet_native_dhcp_subnet_enabled(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         with self.network() as network:
             with mock.patch.object(self.plugin,
                                    '_enable_native_dhcp') as enable_dhcp,\
@@ -863,7 +868,7 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                 self.assertTrue(enable_dhcp.called)
 
     def test_subnet_native_dhcp_subnet_disabled(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         with self.network() as network:
             with mock.patch.object(self.plugin,
                                    '_enable_native_dhcp') as enable_dhcp,\
@@ -882,7 +887,7 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                 self.assertFalse(enable_dhcp.called)
 
     def test_subnet_native_dhcp_flat_subnet_disabled(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         providernet_args = {pnet.NETWORK_TYPE: 'flat'}
         with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
                         'get_transport_type', return_value='VLAN'):
@@ -902,7 +907,7 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                     context.get_admin_context(), data)
 
     def test_subnet_native_dhcp_flat_subnet_enabled(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         providernet_args = {pnet.NETWORK_TYPE: 'flat'}
         with mock.patch('vmware_nsxlib.v3.core_resources.NsxLibTransportZone.'
                         'get_transport_type', return_value='VLAN'):
@@ -994,7 +999,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                                  data['port']['fixed_ips'])
 
     def test_delete_dhcp_port(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         with self.subnet():
             pl = directory.get_plugin()
             ctx = context.Context(user_id=None, tenant_id=self._tenant_id,
@@ -1485,7 +1490,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             self.assertEqual(port2['port']['id'], ports_data['ports'][0]['id'])
 
     def test_port_failure_rollback_dhcp_exception(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         self.plugin = directory.get_plugin()
         with mock.patch.object(self.plugin, '_add_dhcp_binding',
                                side_effect=nsxlib_exc.ManagerError):
@@ -1495,7 +1500,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             self.assertListEqual([], networks)
 
     def test_port_DB_failure_rollback_dhcp_exception(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         self.plugin = directory.get_plugin()
         with mock.patch('vmware_nsx.db.db.add_neutron_nsx_dhcp_binding',
                         side_effect=db_exc.DBError),\
@@ -1671,7 +1676,7 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             self.assertTrue(res['port'][psec.PORTSECURITY])
 
     def test_update_dhcp_port_device_owner(self):
-        cfg.CONF.set_override('native_dhcp_metadata', True, 'nsx_v3')
+        self._enable_native_dhcp_md()
         with self.subnet():
             pl = directory.get_plugin()
             ctx = context.Context(user_id=None, tenant_id=self._tenant_id,

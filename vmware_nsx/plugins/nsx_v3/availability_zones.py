@@ -45,6 +45,10 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
         if edge_cluster:
             self.edge_cluster = edge_cluster
 
+        dhcp_relay_service = az_info.get('dhcp_relay_service')
+        if dhcp_relay_service:
+            self.dhcp_relay_service = dhcp_relay_service
+
     def init_defaults(self):
         # use the default configuration
         self.metadata_proxy = cfg.CONF.nsx_v3.metadata_proxy

@@ -30,6 +30,7 @@ from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net
+from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
@@ -483,12 +484,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return created_net
 
     def delete_network(self, context, network_id):
+        if cfg.CONF.nsx_p.allow_passthrough:
+            self._delete_network_disable_dhcp(context, network_id)
+
         is_nsx_net = self._network_is_nsx_net(context, network_id)
         is_external_net = self._network_is_external(context, network_id)
-        with db_api.CONTEXT_WRITER.using(context):
-            self._process_l3_delete(context, network_id)
-            super(NsxPolicyPlugin, self).delete_network(
-                context, network_id)
+
+        # First call DB operation for delete network as it will perform
+        # checks on active ports
+        self._retry_delete_network(context, network_id)
 
         # MD Proxy is currently supported by the passthrough api only.
         # Use it to delete mdproxy ports
@@ -568,18 +572,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         super(NsxPolicyPlugin, self).delete_subnet(context, subnet_id)
 
     def update_subnet(self, context, subnet_id, subnet):
-        updated_subnet = None
-        orig = self._get_subnet(context, subnet_id)
-        self._validate_host_routes_input(subnet,
-                                         orig_enable_dhcp=orig['enable_dhcp'],
-                                         orig_host_routes=orig['routes'])
-        # TODO(asarfaty): Handle dhcp updates on the policy manager
-        updated_subnet = super(NsxPolicyPlugin, self).update_subnet(
-            context, subnet_id, subnet)
-        self._extension_manager.process_update_subnet(
-            context, subnet['subnet'], updated_subnet)
-
-        return updated_subnet
+        return self._update_subnet(context, subnet_id, subnet)
 
     def _build_port_address_bindings(self, context, port_data):
         psec_on, has_ip = self._determine_port_security_and_has_ip(context,
@@ -743,7 +736,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self._process_portbindings_create_and_update(
                 context, port['port'], port_data,
                 vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
-
+            self._process_port_create_extra_dhcp_opts(
+                context, port_data,
+                port_data.get(ext_edo.EXTRADHCPOPTS))
             self._process_port_create_security_group(context, port_data, sgids)
             self._process_port_create_provider_security_group(
                 context, port_data, psgids)
@@ -790,6 +785,18 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._extend_nsx_port_dict_binding(context, port_data)
         self._remove_provider_security_groups_from_list(port_data)
 
+        # Add Mac/IP binding to native DHCP server and neutron DB.
+        if cfg.CONF.nsx_p.allow_passthrough:
+            try:
+                self._add_dhcp_binding(context, port_data)
+            except nsx_lib_exc.ManagerError:
+                # Rollback create port
+                self.delete_port(context, port_data['id'],
+                                 force_delete_dhcp=True)
+                msg = _('Unable to create port. Please contact admin')
+                LOG.exception(msg)
+                raise nsx_exc.NsxPluginException(err_msg=msg)
+
         kwargs = {'context': context, 'port': neutron_db}
         registry.notify(resources.PORT, events.AFTER_CREATE, self, **kwargs)
         return port_data
@@ -805,8 +812,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # a l3 router.  If so, we should prevent deletion here
         if l3_port_check:
             self.prevent_l3_port_deletion(context, port_id)
-        self.disassociate_floatingips(context, port_id)
-        super(NsxPolicyPlugin, self).delete_port(context, port_id)
+        port = self.get_port(context, port_id)
+        # Prevent DHCP port deletion if native support is enabled
+        if (cfg.CONF.nsx_p.allow_passthrough and
+            not force_delete_dhcp and
+            port['device_owner'] in [const.DEVICE_OWNER_DHCP]):
+            msg = (_('Can not delete DHCP port %s') % port_id)
+            raise n_exc.BadRequest(resource='port', msg=msg)
 
         if not self._network_is_external(context, net_id):
             try:
@@ -823,6 +835,14 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 LOG.error("Failed to delete port %(id)s on NSX backend "
                           "due to %(e)s", {'id': port_id, 'e': ex})
                 # Do not fail the neutron action
+
+        self.disassociate_floatingips(context, port_id)
+
+        # Remove Mac/IP binding from native DHCP server and neutron DB.
+        if cfg.CONF.nsx_p.allow_passthrough:
+            self._delete_dhcp_binding(context, port)
+
+        super(NsxPolicyPlugin, self).delete_port(context, port_id)
 
     def _update_port_on_backend(self, context, lport_id,
                                 original_port, updated_port,
@@ -871,6 +891,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 validate_port_sec=validate_port_sec,
                 direct_vnic_type=direct_vnic_type)
 
+            self._update_extra_dhcp_opts_on_port(context, port_id, port,
+                                                 updated_port)
+
             sec_grp_updated = self.update_security_group_on_port(
                 context, port_id, port, original_port, updated_port)
 
@@ -918,6 +941,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                         self._revert_neutron_port_update(
                             context, port_id, original_port, updated_port,
                             port_security, sec_grp_updated)
+
+        # Update DHCP bindings.
+        if cfg.CONF.nsx_p.allow_passthrough:
+            self._update_dhcp_binding(context, original_port, updated_port)
 
         # Make sure the port revision is updated
         if 'revision_number' in updated_port:
@@ -2004,3 +2031,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     'tz': tz_uuid,
                     'net': sub['network_id']})
                 raise n_exc.InvalidInput(error_message=msg)
+
+    def _get_net_dhcp_relay(self, context, net_id):
+        # No dhcp relay support yet
+        return None

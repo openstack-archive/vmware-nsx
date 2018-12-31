@@ -370,10 +370,6 @@ nsx_v3_and_p = [
                default="169.254.169.254/31",
                help=_("The metadata route used for native metadata proxy "
                       "service.")),
-    cfg.StrOpt('dhcp_relay_service',
-               help=_("(Optional) This is the name or UUID of the NSX dhcp "
-                      "relay service that will be used to enable DHCP relay "
-                      "on router ports.")),
     cfg.StrOpt('dns_domain',
                default='openstacklocal',
                help=_("Domain to use for building the hostnames.")),
@@ -402,6 +398,9 @@ nsx_v3_and_p = [
                help=_("This is the scope of the tag that will be used for "
                       "finding the objects uuids on the NSX during plugin "
                       "init.")),
+    cfg.IntOpt('dhcp_lease_time',
+               default=86400,
+               help=_("DHCP default lease time.")),
 ]
 
 nsx_v3_opts = nsx_v3_and_p + [
@@ -459,9 +458,6 @@ nsx_v3_opts = nsx_v3_and_p + [
                 default=True,
                 help=_("If true, DHCP and metadata proxy services will be "
                        "provided by NSX backend.")),
-    cfg.IntOpt('dhcp_lease_time',
-               default=86400,
-               help=_("DHCP default lease time.")),
     cfg.ListOpt('switching_profiles',
                 default=[],
                 help=_("Optional parameter defining a list switching profiles "
@@ -476,6 +472,10 @@ nsx_v3_opts = nsx_v3_and_p + [
                 help=_("When True, port security will be set to False for "
                        "newly created ENS networks and ports, overriding "
                        "user settings")),
+    cfg.StrOpt('dhcp_relay_service',
+               help=_("(Optional) This is the name or UUID of the NSX dhcp "
+                      "relay service that will be used to enable DHCP relay "
+                      "on router ports.")),
     cfg.ListOpt('housekeeping_jobs',
                 default=['orphaned_dhcp_server', 'orphaned_logical_switch',
                          'orphaned_logical_router', 'mismatch_logical_port',
