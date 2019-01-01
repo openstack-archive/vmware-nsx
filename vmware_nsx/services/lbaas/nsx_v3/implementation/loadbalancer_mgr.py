@@ -255,7 +255,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                         vs_stats = vs.get('statistics', {})
                         for stat in lb_const.LB_STATS_MAP:
                             lb_stat = lb_const.LB_STATS_MAP[stat]
-                            stats[stat] += vs_stats[lb_stat]
+                            stats[stat] += vs_stats.get(lb_stat, 0)
 
             except nsxlib_exc.ManagerError:
                 msg = _('Failed to retrieve stats from LB service '
