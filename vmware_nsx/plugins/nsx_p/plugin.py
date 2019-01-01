@@ -173,10 +173,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._prepare_default_rules()
         self._init_segment_profiles()
 
-        for az in self.get_azs_list():
-            az.translate_configured_names_to_uuids(self.nsxpolicy)
-
-        self._init_native_dhcp()
+        self._init_dhcp_metadata()
 
         # Init QoS
         qos_driver.register(qos_utils.PolicyQosNotificationsHandler())
@@ -189,9 +186,30 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def _init_default_config(self):
         # Default tier0/transport zones are initialized via the default AZ
+
+        # Validate other mandatory configuration
+        if cfg.CONF.nsx_p.allow_passthrough:
+            if not cfg.CONF.nsx_p.dhcp_profile:
+                raise cfg.RequiredOptError("dhcp_profile",
+                                           group=cfg.OptGroup('nsx_p'))
+
+            if not cfg.CONF.nsx_p.metadata_proxy:
+                raise cfg.RequiredOptError("metadata_proxy",
+                                           group=cfg.OptGroup('nsx_p'))
+
         # Init AZ resources
         for az in self.get_azs_list():
-            az.translate_configured_names_to_uuids(self.nsxpolicy)
+            az.translate_configured_names_to_uuids(
+                self.nsxpolicy, nsxlib=self.nsxlib)
+
+    def _init_dhcp_metadata(self):
+        if (cfg.CONF.dhcp_agent_notification and
+            cfg.CONF.nsx_p.allow_passthrough):
+            msg = _("Need to disable dhcp_agent_notification when "
+                    "native DHCP & Metadata is enabled")
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+        self._init_native_dhcp()
+        self._init_native_metadata()
 
     def init_availability_zones(self):
         self._availability_zones_data = nsxp_az.NsxPAvailabilityZones()
@@ -389,8 +407,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # Create network in Neutron
             created_net = super(NsxPolicyPlugin, self).create_network(
                 context, network)
-            super(NsxPolicyPlugin, self).update_network(context,
-                created_net['id'],
+            net_id = created_net['id']
+            super(NsxPolicyPlugin, self).update_network(
+                context, net_id,
                 {'network': {'vlan_transparent': vlt}})
             self._extension_manager.process_create_network(
                 context, net_data, created_net)
@@ -399,12 +418,12 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self._process_network_port_security_create(
                 context, net_data, created_net)
             self._process_l3_create(context, created_net, net_data)
-            self._add_az_to_net(context, created_net['id'], net_data)
+            self._add_az_to_net(context, net_id, net_data)
 
             if provider_data['is_provider_net']:
                 # Save provider network fields, needed by get_network()
                 net_bindings = [nsx_db.add_network_binding(
-                    context.session, created_net['id'],
+                    context.session, net_id,
                     provider_data['net_type'],
                     provider_data['physical_net'],
                     provider_data['vlan_id'])]
@@ -420,11 +439,21 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 LOG.exception("Failed to create NSX network network: %s", e)
                 with excutils.save_and_reraise_exception():
                     super(NsxPolicyPlugin, self).delete_network(
-                        context, created_net['id'])
+                        context, net_id)
+
+        # MD Proxy is currently supported by the passthrough api only
+        if is_backend_network and cfg.CONF.nsx_p.allow_passthrough:
+            try:
+                nsx_net_id = self._get_network_nsx_id(context, net_id)
+                self._create_net_mdproxy_port(
+                    context, created_net, az, nsx_net_id)
+            except Exception as e:
+                LOG.error("Failed to create mdproxy port for network %s: %s",
+                          net_id, e)
 
         # this extra lookup is necessary to get the
         # latest db model for the extension functions
-        net_model = self._get_network(context, created_net['id'])
+        net_model = self._get_network(context, net_id)
         resource_extend.apply_funcs('networks', created_net, net_model)
 
         # Update the QoS policy (will affect only future compute ports)
@@ -445,11 +474,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self._process_l3_delete(context, network_id)
             super(NsxPolicyPlugin, self).delete_network(
                 context, network_id)
+
+        # MD Proxy is currently supported by the passthrough api only.
+        # Use it to delete mdproxy ports
+        if not is_external_net and cfg.CONF.nsx_p.allow_passthrough:
+            self._delete_nsx_port_by_network(network_id)
+
+        # Delete the network segment from the backend
         if not is_external_net and not is_nsx_net:
             self.nsxpolicy.segment.delete(network_id)
-        else:
-            # TODO(asarfaty): for NSX network we may need to delete DHCP conf
-            pass
 
     def update_network(self, context, network_id, network):
         original_net = super(NsxPolicyPlugin, self).get_network(
@@ -1917,3 +1950,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def _is_vlan_router_interface_supported(self):
         return True
+
+    def _get_neutron_net_ids_by_nsx_id(self, context, lswitch_id):
+        return [lswitch_id]

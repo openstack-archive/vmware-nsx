@@ -69,6 +69,7 @@ from vmware_nsx.db import extended_security_group as extended_sec
 from vmware_nsx.db import extended_security_group_rule as extend_sg_rule
 from vmware_nsx.db import maclearning as mac_db
 from vmware_nsx.db import nsx_portbindings_db as pbin_db
+from vmware_nsx.extensions import advancedserviceproviders as as_providers
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix as sg_prefix
@@ -148,6 +149,19 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  nsx_exc.NsxENSPortSecurity:
                                  webob.exc.HTTPBadRequest,
                                  })
+
+    def _init_native_metadata(self):
+        if not self.nsxlib:
+            return
+
+        try:
+            for az in self.get_azs_list():
+                self.nsxlib.native_md_proxy.get(az._native_md_proxy_uuid)
+        except nsx_lib_exc.ManagerError:
+            with excutils.save_and_reraise_exception():
+                LOG.error("Unable to retrieve Metadata Proxy %s, "
+                          "native metadata service is not supported",
+                          az._native_md_proxy_uuid)
 
     def _get_conf_attr(self, attr):
         plugin_cfg = getattr(cfg.CONF, self.cfg_group)
@@ -1515,6 +1529,26 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         context, created_subnet['id'])
         return created_subnet
 
+    def _get_neutron_net_ids_by_nsx_id(self, context, nsx_id):
+        """Should be implemented by each plugin"""
+        pass
+
+    def get_subnets(self, context, filters=None, fields=None, sorts=None,
+                    limit=None, marker=None, page_reverse=False):
+        filters = filters or {}
+        lswitch_ids = filters.pop(as_providers.ADV_SERVICE_PROVIDERS, [])
+        if lswitch_ids:
+            # This is a request from Nova for metadata processing.
+            # Find the corresponding neutron network for each logical switch.
+            network_ids = filters.pop('network_id', [])
+            context = context.elevated()
+            for lswitch_id in lswitch_ids:
+                network_ids += self._get_neutron_net_ids_by_nsx_id(
+                    context, lswitch_id)
+            filters['network_id'] = network_ids
+        return super(NsxPluginV3Base, self).get_subnets(
+            context, filters, fields, sorts, limit, marker, page_reverse)
+
     def delete_subnet(self, context, subnet_id):
         # TODO(berlin): cancel public external subnet announcement
         if self._has_native_dhcp_metadata():
@@ -1541,6 +1575,11 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def _is_vlan_router_interface_supported(self):
         """Should be implemented by each plugin"""
+
+    def _is_ddi_supported_on_network(self, context, network_id):
+        result, _ = self._is_ddi_supported_on_net_with_type(
+            context, network_id)
+        return result
 
     def _is_ddi_supported_on_net_with_type(self, context, network_id):
         net = self.get_network(context, network_id)
@@ -1641,3 +1680,39 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                           'addr_scope': gw_address_scope})
                 return False
         return True
+
+    def _get_mdproxy_port_name(self, net_name, net_id):
+        return utils.get_name_and_uuid('%s-%s' % ('mdproxy',
+                                                  net_name or 'network'),
+                                       net_id)
+
+    def _create_net_mdproxy_port(self, context, network, az, nsx_net_id):
+        if (not self.nsxlib or
+            not self._has_native_dhcp_metadata()):
+            return
+        is_ddi_network = self._is_ddi_supported_on_network(
+            context, network['id'])
+        if is_ddi_network:
+            # Enable native metadata proxy for this network.
+            tags = self.nsxlib.build_v3_tags_payload(
+                network, resource_type='os-neutron-net-id',
+                project_name=context.tenant_name)
+            name = self._get_mdproxy_port_name(network['name'],
+                                               network['id'])
+            md_port = self.nsxlib.logical_port.create(
+                nsx_net_id, az._native_md_proxy_uuid,
+                tags=tags, name=name,
+                attachment_type=nsxlib_consts.ATTACHMENT_MDPROXY)
+            LOG.debug("Created MD-Proxy logical port %(port)s "
+                      "for network %(network)s",
+                      {'port': md_port['id'],
+                       'network': network['id']})
+
+    def _delete_nsx_port_by_network(self, network_id):
+        if not self.nsxlib:
+            return
+        port_id = self.nsxlib.get_id_by_resource_and_tag(
+            self.nsxlib.logical_port.resource_type,
+            'os-neutron-net-id', network_id)
+        if port_id:
+            self.nsxlib.logical_port.delete(port_id)

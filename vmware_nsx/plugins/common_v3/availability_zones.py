@@ -93,13 +93,45 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         # Should be implemented by children
         pass
 
+    def _translate_dhcp_profile(self, nsxlib, search_scope=None):
+        if self.dhcp_profile:
+            dhcp_id = None
+            if search_scope:
+                # Find the TZ by its tag
+                dhcp_id = nsxlib.get_id_by_resource_and_tag(
+                    nsxlib.native_dhcp_profile.resource_type,
+                    search_scope,
+                    self.dhcp_profile)
+            if not dhcp_id:
+                dhcp_id = nsxlib.native_dhcp_profile.get_id_by_name_or_id(
+                    self.dhcp_profile)
+            self._native_dhcp_profile_uuid = dhcp_id
+        else:
+            self._native_dhcp_profile_uuid = None
+
+    def _translate_metadata_proxy(self, nsxlib, search_scope=None):
+        if self.metadata_proxy:
+            proxy_id = None
+            if search_scope:
+                # Find the TZ by its tag
+                proxy_id = nsxlib.get_id_by_resource_and_tag(
+                    nsxlib.native_md_proxy.resource_type,
+                    search_scope,
+                    self.metadata_proxy)
+            if not proxy_id:
+                proxy_id = nsxlib.native_md_proxy.get_id_by_name_or_id(
+                    self.metadata_proxy)
+            self._native_md_proxy_uuid = proxy_id
+        else:
+            self._native_md_proxy_uuid = None
+
     def translate_configured_names_to_uuids(self, nsxlib):
         # May be overriden by children
         # Default implementation assumes UUID is provided in config
         # TODO(annak): refine this when we have a better picture
         # what az config is relevant for policy
-        self._native_dhcp_profile_uuid = self.dhcp_profile
-        self._native_md_proxy_uuid = self.metadata_proxy
         self._default_overlay_tz_uuid = self.default_overlay_tz
         self._default_vlan_tz_uuid = self.default_vlan_tz
         self._default_tier0_router = self.default_tier0_router
+        self._native_dhcp_profile_uuid = self.dhcp_profile
+        self._native_md_proxy_uuid = self.metadata_proxy
