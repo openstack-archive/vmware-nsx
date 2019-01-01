@@ -388,7 +388,12 @@ def get_l2gw_connection_mapping(session, connection_id):
         return (session.query(nsx_models.NsxL2GWConnectionMapping).
                 filter_by(connection_id=connection_id).one())
     except exc.NoResultFound:
-        raise nsx_exc.NsxL2GWConnectionMappingNotFound(conn=connection_id)
+        pass
+
+
+def get_l2gw_connection_mappings_by_bridge(session, bridge_endpoint_id):
+    return (session.query(nsx_models.NsxL2GWConnectionMapping).
+            filter_by(bridge_endpoint_id=bridge_endpoint_id).all())
 
 
 # NSXv3 QoS policy id <-> switch Id mapping
