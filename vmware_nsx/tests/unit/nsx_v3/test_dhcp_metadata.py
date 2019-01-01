@@ -75,8 +75,7 @@ class NsxNativeDhcpTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         self._patcher.start()
         # Need to run some plugin init methods manually because plugin was
         # started before setUp() overrides CONF.nsx_v3.native_dhcp_metadata.
-        self.plugin.init_availability_zones()
-        self.plugin._translate_configured_names_to_uuids()
+        self._initialize_azs()
         self.plugin._init_dhcp_metadata()
 
     def tearDown(self):
@@ -925,8 +924,7 @@ class NsxNativeMetadataTestCase(test_plugin.NsxV3PluginTestCaseMixin):
         self._patcher = mock.patch.object(core_resources.NsxLibMetadataProxy,
                                           'get')
         self._patcher.start()
-        self.plugin.init_availability_zones()
-        self.plugin._translate_configured_names_to_uuids()
+        self._initialize_azs()
         self.plugin._init_dhcp_metadata()
 
     def tearDown(self):
