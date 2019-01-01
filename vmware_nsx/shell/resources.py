@@ -51,6 +51,7 @@ class Operations(enum.Enum):
     NSX_UPDATE_SECRET = 'nsx-update-secret'
     NSX_UPDATE_RULES = 'nsx-update-rules'
     NSX_UPDATE_DHCP_RELAY = 'nsx-update-dhcp-relay'
+    NSX_ENABLE_STANDBY_RELOCATION = 'nsx-enable-standby-relocation'
     NSX_UPDATE_IP = 'nsx-update-ip'
     NSX_RECREATE = 'nsx-recreate'
     NSX_REDISTRIBURE = 'nsx-redistribute'
@@ -106,7 +107,9 @@ nsxv3_resources = {
     constants.ROUTERS: Resource(constants.ROUTERS,
                                 [Operations.LIST_MISMATCHES.value,
                                  Operations.NSX_UPDATE_RULES.value,
-                                 Operations.NSX_UPDATE_DHCP_RELAY.value]),
+                                 Operations.NSX_UPDATE_DHCP_RELAY.value,
+                                 Operations.NSX_ENABLE_STANDBY_RELOCATION.value
+                                 ]),
     constants.DHCP_BINDING: Resource(constants.DHCP_BINDING,
                                      [Operations.LIST.value,
                                       Operations.NSX_UPDATE.value,

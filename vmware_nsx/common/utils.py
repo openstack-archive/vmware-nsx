@@ -87,6 +87,11 @@ def is_nsx_version_2_1_0(nsx_version):
             version.LooseVersion(v3_const.NSX_VERSION_2_1_0))
 
 
+def is_nsx_version_2_4_0(nsx_version):
+    return (version.LooseVersion(nsx_version) >=
+            version.LooseVersion(v3_const.NSX_VERSION_2_4_0))
+
+
 def is_nsxv_version_6_2(nsx_version):
     return (version.LooseVersion(nsx_version) >=
             version.LooseVersion('6.2'))
