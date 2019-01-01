@@ -22,10 +22,12 @@ from neutron.db.models import securitygroup
 from neutron.db.models import segment  # noqa
 from neutron.db import models_v2
 
-from vmware_nsxlib.policy import policy
-
+from vmware_nsx.db import nsx_models
+from vmware_nsxlib import v3
 from vmware_nsxlib.v3 import config
 from vmware_nsxlib.v3 import exceptions
+from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import policy
 
 
 class NeutronNsxDB(object):
@@ -52,13 +54,25 @@ class NeutronNsxDB(object):
     def get_ports(self):
         return self.query_all('id', models_v2.Port)
 
+    def get_logical_dhcp_servers(self):
+        """The policy plugin still has mapping for the dhcp servers
+        because it uses the passthrough api
+        """
+        return self.query_all('nsx_service_id',
+                              nsx_models.NeutronNsxServiceBinding)
+
+    def get_logical_ports(self):
+        return self.query_all('nsx_port_id',
+                              nsx_models.NeutronNsxPortMapping)
+
 
 class NSXClient(object):
     """Base NSX REST client"""
     API_VERSION = "v1"
     NULL_CURSOR_PREFIX = '0000'
 
-    def __init__(self, host, username, password, db_connection):
+    def __init__(self, host, username, password, db_connection,
+                 allow_passthrough=True):
         self.host = host
         self.username = username
         self.password = password
@@ -73,6 +87,10 @@ class NSXClient(object):
             # under openstack principal identity
             allow_overwrite_header=True)
         self.nsxpolicy = policy.NsxPolicyLib(nsxlib_config)
+        if allow_passthrough:
+            self.nsxlib = v3.NsxLib(nsxlib_config)
+        else:
+            self.NsxLib = None
 
     def get_nsx_os_domains(self):
         domains = self.get_os_resources(self.nsxpolicy.domain.list())
@@ -176,6 +194,16 @@ class NSXClient(object):
             segments = [s for s in segments if s['id'] in db_networks]
         return segments
 
+    def delete_network_nsx_dhcp_port(self, network_id):
+        if not self.nsxlib:
+            # no passthrough api
+            return
+        port_id = self.nsxlib.get_id_by_resource_and_tag(
+            self.nsxlib.logical_port.resource_type,
+            'os-neutron-net-id', network_id)
+        if port_id:
+            self.nsxlib.logical_port.delete(port_id)
+
     def cleanup_segments(self):
         """Delete all OS created NSX Policy segments & ports"""
         segments = self.get_os_nsx_segments()
@@ -183,9 +211,12 @@ class NSXClient(object):
         for s in segments:
             # Delete all the ports
             self.cleanup_segment_ports(s['id'])
-            # Disassociate from a tier1 router
+            # Delete the nsx mdproxy port
+            self.delete_network_nsx_dhcp_port(s['id'])
             try:
-                self.nsxpolicy.segment.update(s['id'], tier1_id=None)
+                # Disassociate from a tier1 router
+                self.nsxpolicy.segment.remove_connectivity_and_subnets(s['id'])
+                # Delete the segment
                 self.nsxpolicy.segment.delete(s['id'])
             except exceptions.ManagerError as e:
                 print("Failed to delete segment %s: %s" % (s['id'], e))
@@ -209,13 +240,108 @@ class NSXClient(object):
             try:
                 self.nsxpolicy.segment_port_security_profiles.delete(
                     segment_id, p['id'])
+            except Exception:
+                pass
+            try:
                 self.nsxpolicy.segment_port_discovery_profiles.delete(
                     segment_id, p['id'])
+            except Exception:
+                pass
+            try:
                 self.nsxpolicy.segment_port_qos_profiles.delete(
                     segment_id, p['id'])
+            except Exception:
+                pass
+            try:
                 self.nsxpolicy.segment_port.delete(segment_id, p['id'])
             except exceptions.ManagerError as e:
                 print("Failed to delete segment port %s: %s" % (p['id'], e))
+
+    def get_logical_dhcp_servers(self):
+        """
+        Retrieve all logical DHCP servers on NSX backend
+        The policy plugin still uses nsxlib for this because it uses the
+        passthrough api.
+        """
+        return self.nsxlib.dhcp_server.list()['results']
+
+    def get_logical_ports(self):
+        """
+        Retrieve all logical ports on NSX backend
+        """
+        return self.nsxlib.logical_port.list()['results']
+
+    def get_os_dhcp_logical_ports(self):
+        """
+        Retrieve all DHCP logical ports created from OpenStack
+        """
+        # Get all NSX openstack ports, and filter the DHCP ones
+        lports = self.get_os_resources(
+            self.get_logical_ports())
+        lports = [lp for lp in lports if lp.get('attachment') and
+                  lp['attachment'].get(
+                        'attachment_type') == nsx_constants.ATTACHMENT_DHCP]
+        if self.neutron_db:
+            db_lports = self.neutron_db.get_logical_ports()
+            lports = [lp for lp in lports if lp['id'] in db_lports]
+        return lports
+
+    def cleanup_os_dhcp_logical_ports(self):
+        """Delete all DHCP logical ports created by OpenStack
+
+        DHCP ports are the only ones the policy plugin creates directly on
+        the NSX
+        """
+        os_lports = self.get_os_dhcp_logical_ports()
+        print("Number of OS Logical Ports to be deleted: %s" % len(os_lports))
+        for p in os_lports:
+            try:
+                self.nsxlib.logical_port.update(
+                    p['id'], None, attachment_type=None)
+                self.nsxlib.logical_port.delete(p['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete logical port %s, error %s" %
+                      (p['id'], e))
+            else:
+                print("Successfully deleted logical port %s" % p['id'])
+
+    def get_os_logical_dhcp_servers(self):
+        """
+        Retrieve all logical DHCP servers created from OpenStack
+        """
+        dhcp_servers = self.get_os_resources(
+            self.get_logical_dhcp_servers())
+
+        if self.neutron_db:
+            db_dhcp_servers = self.neutron_db.get_logical_dhcp_servers()
+            dhcp_servers = [srv for srv in dhcp_servers
+                            if srv['id'] in db_dhcp_servers]
+        return dhcp_servers
+
+    def cleanup_nsx_logical_dhcp_servers(self):
+        """
+        Cleanup all logical DHCP servers created from OpenStack plugin
+        The policy plugin still uses nsxlib for this because it uses the
+        passthrough api.
+        """
+        if not self.nsxlib:
+            # No passthrough api
+            return
+        # First delete the DHCP ports (from the NSX)
+        self.cleanup_os_dhcp_logical_ports()
+
+        dhcp_servers = self.get_os_logical_dhcp_servers()
+        print("Number of OS Logical DHCP Servers to be deleted: %s" %
+              len(dhcp_servers))
+        for server in dhcp_servers:
+            try:
+                self.nsxlib.dhcp_server.delete(server['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete logical DHCP server %s, "
+                      "error %s" % (server['display_name'], e))
+            else:
+                print("Successfully deleted logical DHCP server %s" %
+                      server['display_name'])
 
     def get_os_nsx_services(self):
         """
@@ -255,6 +381,7 @@ class NSXClient(object):
 
         print("Cleaning up openstack global resources")
         self.cleanup_segments()
+        self.cleanup_nsx_logical_dhcp_servers()
         self.cleanup_tier1_routers()
         self.cleanup_rules_services()
         self.cleanup_domains(domains)
@@ -272,10 +399,15 @@ if __name__ == "__main__":
     parser.add_option("--db-connection", default="", dest="db_connection",
                       help=("When set, cleaning only backend resources that "
                             "have db record."))
+    parser.add_option("--allow-passthrough", default="true",
+                      dest="allow_passthrough",
+                      help=("When True, passthrough api will be used to "
+                           "cleanup some NSX objects."))
     (options, args) = parser.parse_args()
 
     # Get NSX REST client
     nsx_client = NSXClient(options.policy_ip, options.username,
-                           options.password, options.db_connection)
+                           options.password, options.db_connection,
+                           options.allow_passthrough)
     # Clean all objects created by OpenStack
     nsx_client.cleanup_all()
