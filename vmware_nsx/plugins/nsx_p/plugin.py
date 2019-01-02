@@ -543,16 +543,18 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def _get_network_nsx_id(self, context, network_id):
         """Return the id of this logical switch in the nsx manager
 
-        (Not the segment in the policy manager)
-        The nova api will use this to attach to the instance
+        This api waits for the segment to really be realized, and return the ID
+        of the NSX logical switch.
+        If it was not realized or timed out retrying, it will return None
+        The nova api will use this to attach to the instance.
         """
-        #TODO(asarfaty): This is a backend call that will be called for
-        # each get_port/s. We should consider caching the results or adding
-        # to DB
         if not self._network_is_external(context, network_id):
             segment_id = self._get_network_nsx_segment_id(context, network_id)
-            return self.nsxpolicy.segment.get_realized_logical_switch_id(
-                segment_id)
+            try:
+                return self.nsxpolicy.segment.get_realized_logical_switch_id(
+                    segment_id)
+            except nsx_lib_exc.ManagerError:
+                LOG.error("Network %s was not realized", network_id)
 
     def _get_network_nsx_segment_id(self, context, network_id):
         """Return the NSX segment ID matching the neutron network id
