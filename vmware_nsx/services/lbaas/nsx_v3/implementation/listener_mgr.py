@@ -308,7 +308,7 @@ def stats_getter(context, core_plugin, ignore_list=None):
                     # look up the virtual server in the DB
                     vs_bind = nsx_db.get_nsx_lbaas_listener_binding_by_vs_id(
                         context.session, vs['virtual_server_id'])
-                    if vs_bind:
+                    if vs_bind and 'statistics' in vs:
                         vs_stats = vs['statistics']
                         stats = copy.copy(lb_const.LB_EMPTY_STATS)
                         stats['id'] = vs_bind.listener_id
