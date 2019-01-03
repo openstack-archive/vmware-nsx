@@ -23,7 +23,6 @@ from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api import extensions
-from neutron_lib.api import faults
 from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
@@ -63,7 +62,6 @@ from oslo_utils import excutils
 from oslo_utils import importutils
 from oslo_utils import uuidutils
 from sqlalchemy import exc as sql_exc
-import webob.exc
 
 from vmware_nsx._i18n import _
 from vmware_nsx.api_replay import utils as api_replay_utils
@@ -458,26 +456,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
 
     def _get_octavia_stats_getter(self):
         return listener_mgr.stats_getter
-
-    def _extend_fault_map(self):
-        """Extends the Neutron Fault Map.
-
-        Exceptions specific to the NSX Plugin are mapped to standard
-        HTTP Exceptions.
-        """
-        faults.FAULT_MAP.update({nsx_lib_exc.ManagerError:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_lib_exc.ServiceClusterUnavailable:
-                                 webob.exc.HTTPServiceUnavailable,
-                                 nsx_lib_exc.ClientCertificateNotTrusted:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_exc.SecurityGroupMaximumCapacityReached:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_lib_exc.NsxLibInvalidInput:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_exc.NsxENSPortSecurity:
-                                 webob.exc.HTTPBadRequest,
-                                 })
 
     def _init_fwaas(self):
         if fwaas_utils.is_fwaas_v1_plugin_enabled():
@@ -3015,19 +2993,9 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
 
     def _add_subnet_snat_rule(self, context, router_id, nsx_router_id, subnet,
                               gw_address_scope, gw_ip):
-        # if the subnets address scope is the same as the gateways:
-        # no need for SNAT
-        if gw_address_scope:
-            subnet_address_scope = self._get_subnetpool_address_scope(
-                context, subnet['subnetpool_id'])
-            if (gw_address_scope == subnet_address_scope):
-                LOG.info("No need for SNAT rule for router %(router)s "
-                         "and subnet %(subnet)s because they use the "
-                         "same address scope %(addr_scope)s.",
-                         {'router': router_id,
-                          'subnet': subnet['id'],
-                          'addr_scope': gw_address_scope})
-                return
+        if not self._need_router_snat_rules(context, router_id, subnet,
+                                            gw_address_scope):
+            return
 
         self.nsxlib.router.add_gw_snat_rule(nsx_router_id, gw_ip,
                                             source_net=subnet['cidr'],

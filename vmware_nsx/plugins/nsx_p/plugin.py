@@ -20,7 +20,6 @@ from oslo_db import exception as db_exc
 from oslo_log import log
 from oslo_utils import excutils
 from oslo_utils import uuidutils
-import webob.exc
 
 from neutron.db import l3_db
 from neutron.db.models import l3 as l3_db_models
@@ -35,7 +34,6 @@ from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
-from neutron_lib.api import faults
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -280,25 +278,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 self.nsxlib.reinitialize_cluster(resource, event, trigger,
                                                  payload=payload)
             self.init_is_complete = True
-
-    def _extend_fault_map(self):
-        """Extends the Neutron Fault Map.
-
-        Exceptions specific to the NSX Plugin are mapped to standard
-        HTTP Exceptions.
-        """
-        #TODO(asarfaty): consider reusing the nsx-t code here
-        faults.FAULT_MAP.update({nsx_lib_exc.ManagerError:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_lib_exc.ServiceClusterUnavailable:
-                                 webob.exc.HTTPServiceUnavailable,
-                                 nsx_lib_exc.ClientCertificateNotTrusted:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_exc.SecurityGroupMaximumCapacityReached:
-                                 webob.exc.HTTPBadRequest,
-                                 nsx_lib_exc.NsxLibInvalidInput:
-                                 webob.exc.HTTPBadRequest,
-                                 })
 
     def _create_network_on_backend(self, context, net_data,
                                    transparent_vlan,
@@ -582,7 +561,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def _create_port_on_backend(self, context, port_data, is_psec_on):
         # TODO(annak): admin_state not supported by policy
-        # TODO(annak): handle exclude list
         name = self._build_port_name(context, port_data)
         address_bindings = self._build_port_address_bindings(
             context, port_data)
@@ -898,20 +876,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
     def _add_subnet_snat_rule(self, context, router_id, subnet,
                               gw_address_scope, gw_ip):
-        # if the subnets address scope is the same as the gateways:
-        # no need for SNAT
-        #TODO(asarfaty): move to common code
-        if gw_address_scope:
-            subnet_address_scope = self._get_subnetpool_address_scope(
-                context, subnet['subnetpool_id'])
-            if (gw_address_scope == subnet_address_scope):
-                LOG.info("No need for SNAT rule for router %(router)s "
-                         "and subnet %(subnet)s because they use the "
-                         "same address scope %(addr_scope)s.",
-                         {'router': router_id,
-                          'subnet': subnet['id'],
-                          'addr_scope': gw_address_scope})
-                return
+        if not self._need_router_snat_rules(context, router_id, subnet,
+                                            gw_address_scope):
+            return
 
         self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
             'snat for subnet %s' % subnet['id'],
@@ -953,6 +920,27 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             router_id,
             nat_rule_id=self._get_snat_rule_id(subnet))
 
+    def _get_edge_cluster_path(self, tier0_uuid, router):
+        # TODO(asarfaty): Add support for edge cluster from the AZ config
+        return self.nsxpolicy.tier0.get_edge_cluster_path(
+            tier0_uuid)
+
+    def create_service_router(self, context, router_id):
+        router = self._get_router(context, router_id)
+        tier0_uuid = self._get_tier0_uuid_by_router(context, router)
+        edge_cluster_path = self._get_edge_cluster_path(
+            tier0_uuid, router)
+        if edge_cluster_path:
+            self.nsxpolicy.tier1.set_edge_cluster_path(
+                router_id, edge_cluster_path)
+        else:
+            LOG.error("Tier0 %s does not have an edge cluster",
+                      tier0_uuid)
+
+    def delete_service_router(self, router_id):
+        # remove the edge cluster from the tier1 router
+        self.nsxpolicy.tier1.remove_edge_cluster(router_id)
+
     def _update_router_gw_info(self, context, router_id, info):
         # Get the original data of the router GW
         router = self._get_router(context, router_id)
@@ -982,14 +970,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             lb_exist=False)
 
         if actions['add_service_router']:
-            edge_cluster = self.nsxpolicy.tier0.get_edge_cluster_path(
-                new_tier0_uuid)
-            if edge_cluster:
-                self.nsxpolicy.tier1.set_edge_cluster_path(
-                    router_id, edge_cluster)
-            else:
-                LOG.error("Tier0 %s does not have an edge cluster",
-                          new_tier0_uuid)
+            self.create_service_router(context, router_id)
 
         if actions['remove_snat_rules']:
             for subnet in router_subnets:
@@ -1009,8 +990,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
             # Set/Unset the router TZ to allow vlan switches traffic
             if cfg.CONF.nsx_p.allow_passthrough:
-                # TODO(asarfaty) need to wait for realization before using
-                # the passthrough api
                 if new_tier0_uuid:
                     tz_uuid = self.nsxpolicy.tier0.get_overlay_transport_zone(
                         new_tier0_uuid)
@@ -1040,19 +1019,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             subnets=actions['advertise_route_connected_flag'])
 
         if actions['remove_service_router']:
-            # Disable edge firewall before removing the service router
-            #TODO(asarfaty) no api for this yet. Use passthrough api when
-            # adding fwaas support
-
-            # remove the edge cluster
-            self.nsxpolicy.tier1.remove_edge_cluster(router_id)
+            self.delete_service_router(router_id)
 
     def create_router(self, context, router):
         r = router['router']
         gw_info = self._extract_external_gw(context, router, is_extract=True)
 
         # validate the availability zone, and get the AZ object
-        # TODO(asarfaty): router AZ is not used for anything yet
         self._validate_obj_az_on_creation(context, r, 'router')
 
         with db_api.CONTEXT_WRITER.using(context):
@@ -1472,9 +1445,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 msg = (_("Failed to create NSX default communication map: "
                          "%(e)s") % {'e': e})
                 raise nsx_exc.NsxPluginException(err_msg=msg)
-
-            # create exclude port group
-            # TODO(asarfaty): add this while handling port security disabled
 
     def _create_security_group_backend_resources(self, context, secgroup,
                                                  domain_id):
