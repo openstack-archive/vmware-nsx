@@ -30,6 +30,7 @@ from vmware_nsx.plugins.nsx_v.vshield.common import (
     constants as vcns_const)
 from vmware_nsx.plugins.nsx_v.vshield.common import exceptions as nsxv_exc
 from vmware_nsx.services.lbaas import base_mgr
+from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_v import lbaas_common as lb_common
 from vmware_nsx.services.lbaas.octavia import constants as oct_const
 
@@ -174,8 +175,45 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
     def get_operating_status(self, context, id, with_members=False):
         """Return a map of the operating status of all connected LB objects """
-        #TODO(asarfaty) implement
-        return {}
+        lb_binding = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
+            context.session, id)
+        if not lb_binding or not lb_binding['edge_id']:
+            return {}
+        edge_id = lb_binding['edge_id']
+
+        lb_stats = self.vcns.get_loadbalancer_statistics(edge_id)
+        lb_status = (lb_const.ONLINE if lb_stats is not None
+                     else lb_const.OFFLINE)
+
+        statuses = {lb_const.LOADBALANCERS: [{'id': id, 'status': lb_status}],
+                    lb_const.LISTENERS: [],
+                    lb_const.POOLS: [],
+                    lb_const.MEMBERS: []}
+
+        for vs in lb_stats[1].get('virtualServer', []):
+            vs_id = vs['name'][4:]
+            vs_status = (lb_const.ONLINE if vs['status'] == 'OPEN'
+                         else lb_const.OFFLINE)
+            statuses[lb_const.LISTENERS].append(
+                {'id': vs_id, 'status': vs_status})
+
+        for pool in lb_stats[1].get('pool', []):
+            pool_id = pool['name'][5:]
+            pool_status = (lb_const.ONLINE if pool['status'] == 'UP'
+                           else lb_const.OFFLINE)
+            statuses[lb_const.POOLS].append(
+                {'id': pool_id, 'status': pool_status})
+            if with_members:
+                for member in pool.get('member', []):
+                    member_id = member['name'][7:]
+                    member_status = (lb_const.ONLINE
+                                     if member['status'] == 'UP'
+                                     else lb_const.OFFLINE)
+
+                    statuses[lb_const.MEMBERS].append(
+                        {'id': member_id, 'status': member_status})
+
+        return statuses
 
     def _handle_subnet_gw_change(self, *args, **kwargs):
         # As the Edge appliance doesn't use DHCP, we should change the
