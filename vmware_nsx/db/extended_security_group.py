@@ -307,7 +307,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                                  n_constants.ATTR_NOT_SPECIFIED)
         provider_sg_changed = (
             provider_sg_specified and not helpers.compare_elements(
-                original_port[provider_sg.PROVIDER_SECURITYGROUPS],
+                original_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []),
                 p[provider_sg.PROVIDER_SECURITYGROUPS]))
         sg_changed = (
             set(original_port[ext_sg.SECURITYGROUPS]) !=
@@ -322,7 +322,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
                 self._get_provider_security_groups_on_port(context, port))
         else:
             updated_port[provider_sg.PROVIDER_SECURITYGROUPS] = (
-                original_port[provider_sg.PROVIDER_SECURITYGROUPS])
+                original_port.get(provider_sg.PROVIDER_SECURITYGROUPS, []))
 
         if provider_sg_changed or sg_changed:
             if not sg_changed:
