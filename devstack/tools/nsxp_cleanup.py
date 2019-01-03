@@ -22,7 +22,8 @@ from neutron.db.models import securitygroup
 from neutron.db.models import segment  # noqa
 from neutron.db import models_v2
 
-from vmware_nsxlib import v3
+from vmware_nsxlib.policy import policy
+
 from vmware_nsxlib.v3 import config
 from vmware_nsxlib.v3 import exceptions
 
@@ -71,7 +72,7 @@ class NSXClient(object):
             # allow admin user to delete entities created
             # under openstack principal identity
             allow_overwrite_header=True)
-        self.nsxpolicy = v3.NsxPolicyLib(nsxlib_config)
+        self.nsxpolicy = policy.NsxPolicyLib(nsxlib_config)
 
     def get_nsx_os_domains(self):
         domains = self.get_os_resources(self.nsxpolicy.domain.list())
