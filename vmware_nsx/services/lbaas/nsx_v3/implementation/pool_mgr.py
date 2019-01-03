@@ -158,12 +158,13 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         elif pers_type:
             # Create persistence profile
             pp_data = pp_client.create(**pp_kwargs)
-            LOG.debug("Creaed persistence profile %(profile_id)s for "
+            LOG.debug("Created persistence profile %(profile_id)s for "
                       "listener %(listener_id)s with pool %(pool_id)s",
                       {'profile_id': pp_data['id'],
                        'listener_id': listener['id'],
                        'pool_id': pool['id']})
             return pp_data['id'], None
+        return None, None
 
     def _remove_persistence(self, vs_data):
         pp_client = self.core_plugin.nsxlib.load_balancer.persistence_profile
