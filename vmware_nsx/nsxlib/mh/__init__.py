@@ -79,7 +79,7 @@ def format_exception(etype, e, exception_locals):
 
     :param etype: a string describing the exception type.
     :param e: the exception.
-    :param execption_locals: calling context local variable dict.
+    :param exception_locals: calling context local variable dict.
     :returns: a formatted string.
     """
     msg = [_("Error. %(type)s exception: %(exc)s.") %
