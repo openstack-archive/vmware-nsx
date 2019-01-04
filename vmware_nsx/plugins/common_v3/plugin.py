@@ -1409,8 +1409,14 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             subnet['subnet']['network_id']).dhcp_relay_service
                         if not dhcp_relay:
                             if self.nsxlib:
-                                self._enable_native_dhcp(context, network,
-                                                         created_subnet)
+                                try:
+                                    self._enable_native_dhcp(context, network,
+                                                             created_subnet)
+                                except nsx_lib_exc.ManagerError:
+                                    with excutils.save_and_reraise_exception():
+                                        super(NsxPluginV3Base,
+                                              self).delete_subnet(
+                                            context, created_subnet['id'])
                             else:
                                 msg = (_("Native DHCP is not supported since "
                                          "passthough API is disabled"))
