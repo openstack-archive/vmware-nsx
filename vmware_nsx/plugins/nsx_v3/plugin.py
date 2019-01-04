@@ -1950,8 +1950,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                             context,
                             subnet['subnet']['network_id']).dhcp_relay_service
                         if not dhcp_relay:
-                            self._enable_native_dhcp(context, network,
-                                                     created_subnet)
+                            try:
+                                self._enable_native_dhcp(context, network,
+                                                         created_subnet)
+                            except nsx_lib_exc.ManagerError:
+                                with excutils.save_and_reraise_exception():
+                                    super(NsxV3Plugin, self).delete_subnet(
+                                        context, created_subnet['id'])
+
                         msg = None
                     else:
                         msg = (_("Can not create more than one DHCP-enabled "
