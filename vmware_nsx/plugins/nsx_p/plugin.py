@@ -63,10 +63,11 @@ from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
-from vmware_nsxlib.v3 import policy_constants
-from vmware_nsxlib.v3 import policy_defs
 from vmware_nsxlib.v3 import security
 from vmware_nsxlib.v3 import utils as nsxlib_utils
+
+from vmware_nsxlib.v3.policy import constants as policy_constants
+from vmware_nsxlib.v3.policy import core_defs as policy_defs
 
 LOG = log.getLogger(__name__)
 NSX_P_SECURITY_GROUP_TAG = 'os-security-group'

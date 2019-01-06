@@ -38,6 +38,7 @@ from vmware_nsxlib.v3 import config
 from vmware_nsxlib.v3 import core_resources
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import policy
 
 NSX_NEUTRON_PLUGIN = 'NSX Neutron plugin'
 OS_NEUTRON_ID_SCOPE = 'os-neutron-id'
@@ -196,7 +197,7 @@ def get_nsxpolicy_wrapper(nsx_username=None, nsx_password=None,
         plugin_tag=NSX_NEUTRON_PLUGIN,
         plugin_ver=n_version.version_info.release_string(),
         allow_passthrough=cfg.CONF.nsx_p.allow_passthrough)
-    return v3.NsxPolicyLib(nsxlib_config)
+    return policy.NsxPolicyLib(nsxlib_config)
 
 
 def get_orphaned_dhcp_servers(context, plugin, nsxlib, dhcp_profile_uuid=None):
