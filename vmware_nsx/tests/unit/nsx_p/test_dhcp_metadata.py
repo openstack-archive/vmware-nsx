@@ -206,8 +206,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
                                           True)
 
     def test_dhcp_service_with_create_dhcp_subnet_bulk(self):
-        # TODO(asarfaty) Enable this test once create_subnet_bulk is supported
-        return
         # Test if DHCP service is enabled on all networks after a
         # create_subnet_bulk operation.
         with self.network() as network1, self.network() as network2:
@@ -239,8 +237,6 @@ class NsxNativeDhcpTestCase(test_plugin.NsxPPluginTestCaseMixin):
             self.assertTrue(dhcp_service)
 
     def test_dhcp_service_with_create_dhcp_subnet_bulk_failure(self):
-        # TODO(asarfaty) Enable this test once create_subnet_bulk is supported
-        return
         # Test if user-provided rollback function is invoked when
         # exception occurred during a create_subnet_bulk operation.
         with self.network() as network1, self.network() as network2:
