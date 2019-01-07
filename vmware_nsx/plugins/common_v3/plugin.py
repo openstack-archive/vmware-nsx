@@ -449,15 +449,15 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if is_external_net:
                 raise nsx_exc.QoSOnExternalNet()
 
+            is_ens_tz_port = self._is_ens_tz_port(context, port_data)
+            if is_ens_tz_port:
+                self._validate_ens_create_port(context, port_data)
+
         # External network validations:
         if is_external_net:
             self._assert_on_external_net_with_compute(port_data)
 
         self._assert_on_port_admin_state(port_data, device_owner)
-
-        is_ens_tz_port = self._is_ens_tz_port(context, port_data)
-        if is_ens_tz_port:
-            self._validate_ens_create_port(context, port_data)
 
     def _assert_on_vpn_port_change(self, port_data):
         if port_data['device_owner'] == ipsec_utils.VPN_PORT_OWNER:
@@ -529,8 +529,6 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         device_owner = (port_data['device_owner']
                         if 'device_owner' in port_data
                         else original_port.get('device_owner'))
-        is_ens_tz_port = self._is_ens_tz_port(context, original_port)
-
         # QoS validations
         if qos_selected:
             self._validate_qos_policy_id(
@@ -538,6 +536,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if is_external_net:
                 raise nsx_exc.QoSOnExternalNet()
             self._assert_on_illegal_port_with_qos(device_owner)
+            is_ens_tz_port = self._is_ens_tz_port(context, original_port)
             if is_ens_tz_port:
                 err_msg = _("Cannot configure QOS on ENS networks")
                 raise n_exc.InvalidInput(error_message=err_msg)
@@ -721,9 +720,13 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """
         pass
 
-    def _is_ens_tz_net(self, context, network_id):
-        """Should be implemented by each plugin"""
-        pass
+    def _is_ens_tz_net(self, context, net_id):
+        """Return True if the network is based on an END transport zone"""
+        tz_id = self._get_net_tz(context, net_id)
+        if tz_id:
+            # Check the mode of this TZ
+            return self._is_ens_tz(tz_id)
+        return False
 
     def _is_ens_tz_port(self, context, port_data):
         # Check the host-switch-mode of the TZ connected to the ports network
@@ -1017,7 +1020,25 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return (ipaddress, netmask, nexthop)
 
-    def _validate_router_gw(self, context, router_id, info, org_enable_snat):
+    def _get_tier0_uuid_by_net_id(self, context, network_id):
+        if not network_id:
+            return
+        network = self.get_network(context, network_id)
+        if not network.get(pnet.PHYSICAL_NETWORK):
+            az = self.get_network_az(network)
+            return az._default_tier0_router
+        else:
+            return network.get(pnet.PHYSICAL_NETWORK)
+
+    def _validate_router_tz(self, context, tier0_uuid, subnets):
+        """Ensure the related GW (Tier0 router) belongs to the same TZ
+        as the subnets attached to the Tier1 router
+        Should be implemented by each plugin.
+        """
+        pass
+
+    def _validate_router_gw_and_tz(self, context, router_id, info,
+                                   org_enable_snat, router_subnets):
         # Ensure that a router cannot have SNAT disabled if there are
         # floating IP's assigned
         if (info and 'enable_snat' in info and
@@ -1026,6 +1047,15 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self.router_gw_port_has_floating_ips(context, router_id)):
             msg = _("Unable to set SNAT disabled. Floating IPs assigned")
             raise n_exc.InvalidInput(error_message=msg)
+
+        # Ensure that the router GW tier0 belongs to the same TZ as the
+        # subnets of its interfaces
+        if info and info.get('network_id'):
+            new_tier0_uuid = self._get_tier0_uuid_by_net_id(context.elevated(),
+                                                            info['network_id'])
+            if new_tier0_uuid:
+                self._validate_router_tz(context, new_tier0_uuid,
+                                         router_subnets)
 
     def _get_update_router_gw_actions(
         self,
@@ -1250,8 +1280,8 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             project_name=context.tenant_name)
         dhcp_server = None
         dhcp_port_profiles = []
-        if (not self._is_ens_tz_net(context, network['id']) and
-            not self._has_native_dhcp_metadata()):
+        if (not self._has_native_dhcp_metadata() and
+            not self._is_ens_tz_net(context, network['id'])):
             dhcp_port_profiles.append(self._dhcp_profile)
         try:
             dhcp_server = self.nsxlib.dhcp_server.create(**server_data)

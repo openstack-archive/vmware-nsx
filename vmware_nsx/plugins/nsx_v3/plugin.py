@@ -1030,7 +1030,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             if cfg.CONF.nsx_v3.disable_port_security_for_ens:
                 # Override the port-security to False
                 if net_data[psec.PORTSECURITY]:
-                    LOG.warning("Disabling port security for bew network")
+                    LOG.warning("Disabling port security for new network")
                     # Set the port security to False
                     net_data[psec.PORTSECURITY] = False
 
@@ -1658,18 +1658,10 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _get_net_tz(self, context, net_id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, net_id)
         if mappings:
-            nsx_net_id = nsx_net_id = mappings[0]
+            nsx_net_id = mappings[0]
             if nsx_net_id:
                 nsx_net = self.nsxlib.logical_switch.get(nsx_net_id)
                 return nsx_net.get('transport_zone_id')
-
-    def _is_ens_tz_net(self, context, net_id):
-        #Check the host-switch-mode of the TZ connected to network
-        tz_id = self._get_net_tz(context, net_id)
-        if tz_id:
-            # Check the mode of this TZ
-            return self._is_ens_tz(tz_id)
-        return False
 
     def _is_ens_tz(self, tz_id):
         mode = self.nsxlib.transport_zone.get_host_switch_mode(tz_id)
@@ -2622,16 +2614,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
-    def _get_tier0_uuid_by_net_id(self, context, network_id):
-        if not network_id:
-            return
-        network = self.get_network(context, network_id)
-        if not network.get(pnet.PHYSICAL_NETWORK):
-            az = self.get_network_az(network)
-            return az._default_tier0_router
-        else:
-            return network.get(pnet.PHYSICAL_NETWORK)
-
     def _get_tier0_uuid_by_router(self, context, router):
         network_id = router.gw_port_id and router.gw_port.network_id
         return self._get_tier0_uuid_by_net_id(context, network_id)
@@ -2700,16 +2682,10 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             self._get_external_attachment_info(
                 context, router))
 
-        self._validate_router_gw(context, router_id, info, org_enable_snat)
-
         router_subnets = self._find_router_subnets(
             context.elevated(), router_id)
-        if info and info.get('network_id'):
-            new_tier0_uuid = self._get_tier0_uuid_by_net_id(context.elevated(),
-                                                            info['network_id'])
-            if new_tier0_uuid:
-                self._validate_router_tz(context, new_tier0_uuid,
-                                         router_subnets)
+        self._validate_router_gw_and_tz(context, router_id, info,
+                                        org_enable_snat, router_subnets)
 
         # TODO(berlin): For nonat use case, we actually don't need a gw port
         # which consumes one external ip. But after looking at the DB logic
@@ -3312,7 +3288,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             resource_type = (None if overlay_net else
                              nsxlib_consts.LROUTERPORT_CENTRALIZED)
 
-            # IF this is an ENS case - check GW & subnets
+            # Check GW & subnets TZ
             subnets = self._find_router_subnets(context.elevated(),
                                                 router_id)
             tier0_uuid = self._get_tier0_uuid_by_router(context.elevated(),

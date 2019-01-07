@@ -32,7 +32,6 @@ from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
-from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
@@ -372,10 +371,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         """
         return True
 
+    def _validate_ens_net_portsecurity(self, net_data):
+        """ENS security features are always enabled on NSX versions which
+        the policy plugin supports.
+        So no validation is needed
+        """
+        pass
+
     def create_network(self, context, network):
         net_data = network['network']
-
-        #TODO(asarfaty): add ENS support
         external = net_data.get(external_net.EXTERNAL)
         is_external_net = validators.is_attr_set(external) and external
         tenant_id = net_data['tenant_id']
@@ -970,16 +974,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return (ports if not fields else
                 [db_utils.resource_fields(port, fields) for port in ports])
 
-    def _get_tier0_uuid_by_net_id(self, context, network_id):
-        if not network_id:
-            return
-        network = self.get_network(context, network_id)
-        if not network.get(pnet.PHYSICAL_NETWORK):
-            az = self.get_network_az(network)
-            return az._default_tier0_router
-        else:
-            return network.get(pnet.PHYSICAL_NETWORK)
-
     def _get_tier0_uuid_by_router(self, context, router):
         network_id = router.gw_port_id and router.gw_port.network_id
         return self._get_tier0_uuid_by_net_id(context, network_id)
@@ -1059,7 +1053,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         orgaddr, orgmask, _orgnexthop = (
             self._get_external_attachment_info(
                 context, router))
-        self._validate_router_gw(context, router_id, info, org_enable_snat)
+        router_subnets = self._find_router_subnets(
+            context.elevated(), router_id)
+        self._validate_router_gw_and_tz(context, router_id, info,
+                                        org_enable_snat, router_subnets)
 
         # First update the neutron DB
         super(NsxPolicyPlugin, self)._update_router_gw_info(
@@ -1268,7 +1265,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return updated_router
 
     def add_router_interface(self, context, router_id, interface_info):
-        LOG.info("Adding router %s interface %s", router_id, interface_info)
         network_id = self._get_interface_network(context, interface_info)
         extern_net = self._network_is_external(context, network_id)
         router_db = self._get_router(context, router_id)
@@ -1287,8 +1283,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         self._validate_interface_address_scope(context, router_db, info)
 
-        # TODO(annak): Validate TZ
         try:
+            # Check GW & subnets TZ
+            subnets = self._find_router_subnets(context.elevated(), router_id)
+            tier0_uuid = self._get_tier0_uuid_by_router(
+                context.elevated(), router_db)
+            #TODO(asarfaty): it is enough to validate only the new subnet,
+            # and not all
+            self._validate_router_tz(context.elevated(), tier0_uuid, subnets)
+
             #TODO(asarfaty): adding the segment name even though it was not
             # changed because otherwise the NSX will set it to default.
             # This code should be removed once NSX supports it.
@@ -1943,26 +1946,61 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             return True
         if binding.binding_type == utils.NsxV3NetworkTypes.NSX_NETWORK:
             # check the backend network
-            segment = self.nsxpolicy.segments.get(binding.phy_uuid)
+            segment = self.nsxpolicy.segment.get(binding.phy_uuid)
             tz = self._get_nsx_net_tz_id(segment)
             if tz:
                 type = self.nsxpolicy.transport_zone.get_transport_type(
                     tz)
                 return type == nsxlib_consts.TRANSPORT_TYPE_OVERLAY
 
-    def _is_ens_tz_net(self, context, net_id):
-        #TODO(annak): handle ENS case
-        return False
+    def _is_ens_tz(self, tz_id):
+        mode = self.nsxpolicy.transport_zone.get_host_switch_mode(tz_id)
+        return mode == nsxlib_consts.HOST_SWITCH_MODE_ENS
 
     def _has_native_dhcp_metadata(self):
         return True
 
     def _get_tier0_uplink_ips(self, tier0_id):
-        #TODO(annak): implement
-        return []
+        return self.nsxpolicy.tier0.get_uplink_ips(tier0_id)
 
     def _is_vlan_router_interface_supported(self):
         return True
 
     def _get_neutron_net_ids_by_nsx_id(self, context, lswitch_id):
         return [lswitch_id]
+
+    def _get_net_tz(self, context, net_id):
+        bindings = nsx_db.get_network_bindings(context.session, net_id)
+        if bindings:
+            bind_type = bindings[0].binding_type
+            if bind_type == utils.NsxV3NetworkTypes.NSX_NETWORK:
+                # If it is an NSX network, return the TZ of the backend segment
+                segment_id = bindings[0].phy_uuid
+                return self.nsxpolicy.segment.get_transport_zone_id(segment_id)
+            elif bind_type == utils.NetworkTypes.L3_EXT:
+                # External network has tier0 as phy_uuid
+                return
+            else:
+                return bindings[0].phy_uuid
+        else:
+            # Get the default one for the network AZ
+            az = self.get_network_az_by_net_id(context, net_id)
+            return az._default_overlay_tz_uuid
+
+    def _validate_router_tz(self, context, tier0_uuid, subnets):
+        # make sure the related GW (Tier0 router) belongs to the same TZ
+        # as the subnets attached to the Tier1 router
+        if not subnets or not tier0_uuid:
+            return
+        tier0_tzs = self.nsxpolicy.tier0.get_transport_zones(tier0_uuid)
+        if not tier0_tzs:
+            return
+        for sub in subnets:
+            tz_uuid = self._get_net_tz(context, sub['network_id'])
+            if tz_uuid not in tier0_tzs:
+                msg = (_("Tier0 router %(rtr)s transport zone should match "
+                         "transport zone %(tz)s of the network %(net)s") % {
+                    'rtr': tier0_uuid,
+                    'tz': tz_uuid,
+                    'net': sub['network_id']})
+                raise n_exc.InvalidInput(error_message=msg)

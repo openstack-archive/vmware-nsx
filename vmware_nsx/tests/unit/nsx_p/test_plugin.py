@@ -483,6 +483,67 @@ class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
             res = self.plugin.get_network(self.ctx, net['id'])
             self.assertEqual(policy_id, res['qos_policy_id'])
 
+    def test_create_ens_network_with_qos(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
+        mock_ens = mock.patch('vmware_nsxlib.v3.policy'
+                              '.core_resources.NsxPolicyTransportZoneApi'
+                              '.get_host_switch_mode', return_value='ENS')
+        mock_tz = mock.patch('vmware_nsxlib.v3'
+                             '.core_resources.NsxLibLogicalSwitch.get',
+                             return_value={'transport_zone_id': 'xxx'})
+        mock_tt = mock.patch('vmware_nsxlib.v3.policy'
+                             '.core_resources.NsxPolicyTransportZoneApi'
+                             '.get_transport_type', return_value='VLAN')
+        policy_id = uuidutils.generate_uuid()
+        data = {'network': {
+                'name': 'qos_net',
+                'tenant_id': 'some_tenant',
+                'provider:network_type': 'flat',
+                'provider:physical_network': 'xxx',
+                'qos_policy_id': policy_id,
+                'port_security_enabled': False}}
+        with mock_ens, mock_tz, mock_tt,\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin.create_network,
+                                  context.get_admin_context(), data)
+
+    def test_update_ens_network_with_qos(self):
+        cfg.CONF.set_override('ens_support', True, 'nsx_v3')
+        mock_ens = mock.patch('vmware_nsxlib.v3.policy'
+                              '.core_resources.NsxPolicyTransportZoneApi'
+                              '.get_host_switch_mode', return_value='ENS')
+        mock_tz = mock.patch('vmware_nsxlib.v3'
+                             '.core_resources.NsxLibLogicalSwitch.get',
+                             return_value={'transport_zone_id': 'xxx'})
+        mock_tt = mock.patch('vmware_nsxlib.v3.policy'
+                             '.core_resources.NsxPolicyTransportZoneApi'
+                             '.get_transport_type', return_value='VLAN')
+        data = {'network': {
+                'name': 'qos_net',
+                'tenant_id': 'some_tenant',
+                'provider:network_type': 'flat',
+                'provider:physical_network': 'xxx',
+                'admin_state_up': True,
+                'shared': False,
+                'port_security_enabled': False}}
+        with mock_ens, mock_tz, mock_tt,\
+            mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+            network = self.plugin.create_network(context.get_admin_context(),
+                                                 data)
+            policy_id = uuidutils.generate_uuid()
+            data = {'network': {
+                    'id': network['id'],
+                    'admin_state_up': True,
+                    'shared': False,
+                    'port_security_enabled': False,
+                    'tenant_id': 'some_tenant',
+                    'qos_policy_id': policy_id}}
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.update_network,
+                              context.get_admin_context(),
+                              network['id'], data)
+
 
 class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
                     NsxPPluginTestCaseMixin):
@@ -695,6 +756,39 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
                 # Cannot add qos policy to this type of port
                 self.assertRaises(n_exc.InvalidInput,
                           self.plugin.create_port, self.ctx, data)
+
+    def test_create_port_ens_with_qos_fail(self):
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24'):
+                policy_id = uuidutils.generate_uuid()
+                mock_ens = mock.patch(
+                    'vmware_nsxlib.v3.policy.core_resources.'
+                    'NsxPolicyTransportZoneApi.get_host_switch_mode',
+                    return_value='ENS')
+                mock_tz = mock.patch(
+                    'vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get',
+                    return_value={'transport_zone_id': 'xxx'})
+                mock_tt = mock.patch(
+                    'vmware_nsxlib.v3.policy.core_resources.'
+                    'NsxPolicyTransportZoneApi.get_transport_type',
+                    return_value='VLAN')
+                data = {'port': {
+                    'network_id': network['network']['id'],
+                    'tenant_id': self._tenant_id,
+                    'name': 'qos_port',
+                    'admin_state_up': True,
+                    'device_id': 'fake_device',
+                    'device_owner': 'fake_owner',
+                    'fixed_ips': [],
+                    'port_security_enabled': False,
+                    'mac_address': '00:00:00:00:00:01',
+                    'qos_policy_id': policy_id}
+                }
+                # Cannot add qos policy to this type of port
+                with mock_ens, mock_tz, mock_tt, \
+                    mock.patch.object(self.plugin, '_validate_qos_policy_id'):
+                    self.assertRaises(n_exc.InvalidInput,
+                                      self.plugin.create_port, self.ctx, data)
 
     def test_create_port_with_mac_learning_true(self):
         plugin = directory.get_plugin()
@@ -948,6 +1042,41 @@ class NsxPTestSubnets(test_db_base_plugin_v2.TestSubnetsV2,
 
     def test_subnet_update_ipv4_and_ipv6_pd_slaac_subnets(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
+
+    def test_create_external_subnet_with_conflicting_t0_address(self):
+        with self._create_l3_ext_network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'cidr': '172.20.1.0/24',
+                               'name': 'sub1',
+                               'enable_dhcp': False,
+                               'dns_nameservers': None,
+                               'allocation_pools': None,
+                               'tenant_id': 'tenant_one',
+                               'host_routes': None,
+                               'ip_version': 4}}
+            with mock.patch.object(self.plugin.nsxpolicy.tier0,
+                                   'get_uplink_ips',
+                                   return_value=['172.20.1.60']):
+                self.assertRaises(n_exc.InvalidInput,
+                                  self.plugin.create_subnet,
+                                  context.get_admin_context(), data)
+
+    def test_create_external_subnet_with_non_conflicting_t0_address(self):
+        with self._create_l3_ext_network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'cidr': '172.20.1.0/24',
+                               'name': 'sub1',
+                               'enable_dhcp': False,
+                               'dns_nameservers': None,
+                               'allocation_pools': None,
+                               'tenant_id': 'tenant_one',
+                               'host_routes': None,
+                               'ip_version': 4}}
+            with mock.patch.object(self.plugin.nsxpolicy.tier0,
+                                   'get_uplink_ips',
+                                   return_value=['172.20.2.60']):
+                self.plugin.create_subnet(
+                    context.get_admin_context(), data)
 
 
 class NsxPTestSecurityGroup(common_v3.FixExternalNetBaseTest,
