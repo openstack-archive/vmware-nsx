@@ -176,7 +176,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._init_default_config()
         self._prepare_default_rules()
         self._init_segment_profiles()
-
         self._init_dhcp_metadata()
 
         # Init QoS
@@ -201,10 +200,18 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 raise cfg.RequiredOptError("metadata_proxy",
                                            group=cfg.OptGroup('nsx_p'))
 
+        # If using tags to find the objects, make sure tag scope is configured
+        if (cfg.CONF.nsx_p.init_objects_by_tags and
+            not cfg.CONF.nsx_p.search_objects_scope):
+            raise cfg.RequiredOptError("search_objects_scope",
+                                       group=cfg.OptGroup('nsx_p'))
+
         # Init AZ resources
+        search_scope = (cfg.CONF.nsx_p.search_objects_scope
+                        if cfg.CONF.nsx_p.init_objects_by_tags else None)
         for az in self.get_azs_list():
             az.translate_configured_names_to_uuids(
-                self.nsxpolicy, nsxlib=self.nsxlib)
+                self.nsxpolicy, nsxlib=self.nsxlib, search_scope=search_scope)
 
     def _init_dhcp_metadata(self):
         if (cfg.CONF.dhcp_agent_notification and

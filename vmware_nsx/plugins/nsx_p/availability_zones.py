@@ -43,10 +43,11 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
         self.dns_domain = cfg.CONF.nsx_p.dns_domain
         self.nameservers = cfg.CONF.nsx_p.nameservers
 
-    def _init_default_resource(self, resource_api, config_name,
+    def _init_default_resource(self, nsxpolicy, resource_api, config_name,
                                filter_list_results=None,
                                auto_config=False,
-                               is_mandatory=True):
+                               is_mandatory=True,
+                               search_scope=None):
         # NOTE(annak): we may need to generalize this for API calls
         # requiring path ids
         name_or_id = getattr(self, config_name)
@@ -77,49 +78,63 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
             resource_api.get(name_or_id, silent=True)
             return name_or_id
         except nsx_lib_exc.ResourceNotFound:
+            # Search by tags
+            if search_scope:
+                resource_type = resource_api.entry_def.resource_type()
+                resource_id = nsxpolicy.get_id_by_resource_and_tag(
+                    resource_type,
+                    search_scope,
+                    name_or_id)
+                if resource_id:
+                    return resource_id
+
             # Check if the configured value is the name
             resource = resource_api.get_by_name(name_or_id)
             if resource:
                 return resource['id']
-            else:
-                if self.is_default():
-                    raise cfg.RequiredOptError(config_name,
-                                               group=cfg.OptGroup('nsx_p'))
-                else:
-                    msg = (_("Could not find %(res)s %(id)s for availability "
-                             "zone %(az)s") % {
-                        'res': config_name,
-                        'id': name_or_id,
-                        'az': self.name})
-                    raise nsx_exc.NsxPluginException(err_msg=msg)
 
-    def translate_configured_names_to_uuids(self, nsxpolicy, nsxlib=None):
+            # Resource not found
+            if self.is_default():
+                raise cfg.RequiredOptError(config_name,
+                                           group=cfg.OptGroup('nsx_p'))
+            else:
+                msg = (_("Could not find %(res)s %(id)s for availability "
+                         "zone %(az)s") % {
+                    'res': config_name,
+                    'id': name_or_id,
+                    'az': self.name})
+                raise nsx_exc.NsxPluginException(err_msg=msg)
+
+    def translate_configured_names_to_uuids(self, nsxpolicy, nsxlib=None,
+                                            search_scope=None):
         super(NsxPAvailabilityZone, self).translate_configured_names_to_uuids(
             nsxpolicy)
 
-        # TODO(asarfaty): add support for init_objects_by_tags
         self._default_overlay_tz_uuid = self._init_default_resource(
-            nsxpolicy.transport_zone, 'default_overlay_tz',
+            nsxpolicy, nsxpolicy.transport_zone, 'default_overlay_tz',
             auto_config=True, is_mandatory=True,
             filter_list_results=lambda tzs: [
-                tz for tz in tzs if tz['tz_type'].startswith('OVERLAY')])
+                tz for tz in tzs if tz['tz_type'].startswith('OVERLAY')],
+            search_scope=search_scope)
 
         self._default_vlan_tz_uuid = self._init_default_resource(
-            nsxpolicy.transport_zone, 'default_vlan_tz',
+            nsxpolicy, nsxpolicy.transport_zone, 'default_vlan_tz',
             auto_config=True, is_mandatory=False,
             filter_list_results=lambda tzs: [
-                tz for tz in tzs if tz['tz_type'].startswith('VLAN')])
+                tz for tz in tzs if tz['tz_type'].startswith('VLAN')],
+            search_scope=search_scope)
 
         self._default_tier0_router = self._init_default_resource(
-            nsxpolicy.tier0, 'default_tier0_router',
-            auto_config=True, is_mandatory=True)
+            nsxpolicy, nsxpolicy.tier0, 'default_tier0_router',
+            auto_config=True, is_mandatory=True,
+            search_scope=search_scope)
 
         self.dhcp_relay_service = cfg.CONF.nsx_p.dhcp_relay_service
 
         # If passthrough api is supported, also initialize those NSX objects
         if nsxlib:
-            self._translate_dhcp_profile(nsxlib)
-            self._translate_metadata_proxy(nsxlib)
+            self._translate_dhcp_profile(nsxlib, search_scope=search_scope)
+            self._translate_metadata_proxy(nsxlib, search_scope=search_scope)
         else:
             self._native_dhcp_profile_uuid = None
             self._native_md_proxy_uuid = None

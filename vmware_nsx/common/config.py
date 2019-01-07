@@ -391,6 +391,17 @@ nsx_v3_and_p = [
                 help=_("List of transit networks used by NSX tier0 routers. "
                        "Neutron subnets will not be allowed to use those "
                        "cidrs")),
+    cfg.BoolOpt('init_objects_by_tags',
+                default=False,
+                help=_("When True, the configured transport zones, router and "
+                       "profiles will be found by tags on the NSX. The scope "
+                       "of the tag will be the value of search_objects_"
+                       "scope. The value of the search tag will be the name "
+                       "configured in each respective configuration.")),
+    cfg.StrOpt('search_objects_scope',
+               help=_("This is the scope of the tag that will be used for "
+                      "finding the objects uuids on the NSX during plugin "
+                      "init.")),
 ]
 
 nsx_v3_opts = nsx_v3_and_p + [
@@ -451,17 +462,6 @@ nsx_v3_opts = nsx_v3_and_p + [
     cfg.IntOpt('dhcp_lease_time',
                default=86400,
                help=_("DHCP default lease time.")),
-    cfg.BoolOpt('init_objects_by_tags',
-                default=False,
-                help=_("When True, the configured transport zones, router and "
-                       "profiles will be found by tags on the NSX. The scope "
-                       "of the tag will be the value of search_objects_"
-                       "scope. The value of the search tag will be the name "
-                       "configured in each respective configuration.")),
-    cfg.StrOpt('search_objects_scope',
-               help=_("This is the scope of the tag that will be used for "
-                      "finding the objects uuids on the NSX during plugin "
-                      "init.")),
     cfg.ListOpt('switching_profiles',
                 default=[],
                 help=_("Optional parameter defining a list switching profiles "
