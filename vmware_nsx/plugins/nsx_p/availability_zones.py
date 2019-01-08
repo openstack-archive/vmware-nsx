@@ -42,6 +42,7 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
         self.default_tier0_router = cfg.CONF.nsx_p.default_tier0_router
         self.dns_domain = cfg.CONF.nsx_p.dns_domain
         self.nameservers = cfg.CONF.nsx_p.nameservers
+        self.edge_cluster = cfg.CONF.nsx_p.edge_cluster
 
     def _init_default_resource(self, nsxpolicy, resource_api, config_name,
                                filter_list_results=None,
@@ -127,6 +128,11 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
         self._default_tier0_router = self._init_default_resource(
             nsxpolicy, nsxpolicy.tier0, 'default_tier0_router',
             auto_config=True, is_mandatory=True,
+            search_scope=search_scope)
+
+        self._edge_cluster_uuid = self._init_default_resource(
+            nsxpolicy, nsxpolicy.edge_cluster, 'edge_cluster',
+            auto_config=True, is_mandatory=False,
             search_scope=search_scope)
 
         # If passthrough api is supported, also initialize those NSX objects

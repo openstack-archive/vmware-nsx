@@ -3027,6 +3027,7 @@ class TestL3NatTestCase(L3NatTest,
                 self._add_external_gateway_to_router(
                     router_id, ext_subnet['network_id'])
                 change_sr.assert_called_once_with(mock.ANY, edge_cluster)
+        self.mock_get_edge_cluster.start()
 
 
 class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,

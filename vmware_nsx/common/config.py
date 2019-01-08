@@ -917,6 +917,10 @@ nsx_v3_and_p_az_opts = [
                help=_("Name or UUID of the default tier0 router that will be "
                       "used for connecting to tier1 logical routers and "
                       "configuring external networks")),
+    cfg.StrOpt('edge_cluster',
+               help=_("(Optional) Specifying an edge cluster for Tier1 "
+                      "routers to connect other that the one connected to"
+                      " the Tier0 router")),
 ]
 
 nsxv3_az_opts = nsx_v3_and_p_az_opts + [
@@ -931,10 +935,6 @@ nsxv3_az_opts = nsx_v3_and_p_az_opts + [
                help=_("Name or UUID of the default tier0 router that will be "
                       "used for connecting to tier1 logical routers and "
                       "configuring external networks")),
-    cfg.StrOpt('edge_cluster',
-               help=_("(Optional) Specifying an edge cluster for Tier1 "
-                      "routers to connect other that the one connected to"
-                      " the Tier0 router")),
 ]
 
 nsxp_az_opts = nsx_v3_and_p_az_opts
