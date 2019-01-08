@@ -60,6 +60,7 @@ NSX_OVERLAY_TZ_NAME = 'OVERLAY_TZ'
 NSX_VLAN_TZ_NAME = 'VLAN_TZ'
 DEFAULT_TIER0_ROUTER_UUID = "efad0078-9204-4b46-a2d8-d4dd31ed448f"
 NSX_DHCP_PROFILE_ID = 'DHCP_PROFILE'
+NSX_MD_PROXY_ID = 'MD_PROXY'
 LOGICAL_SWITCH_ID = '00000000-1111-2222-3333-444444444444'
 
 
@@ -148,11 +149,16 @@ class NsxPPluginTestCaseMixin(
             "vmware_nsxlib.v3.resources.LogicalDhcpServer.create_binding",
             side_effect=_return_id_key).start()
 
+        mock.patch("vmware_nsxlib.v3.NsxLib."
+                   "get_id_by_resource_and_tag").start()
+
     def setup_conf_overrides(self):
         cfg.CONF.set_override('default_overlay_tz', NSX_OVERLAY_TZ_NAME,
                               'nsx_p')
         cfg.CONF.set_override('default_vlan_tz', NSX_VLAN_TZ_NAME, 'nsx_p')
         cfg.CONF.set_override('dhcp_profile', NSX_DHCP_PROFILE_ID, 'nsx_p')
+        cfg.CONF.set_override('metadata_proxy', NSX_MD_PROXY_ID, 'nsx_p')
+        cfg.CONF.set_override('dhcp_agent_notification', False)
 
     def _create_network(self, fmt, name, admin_state_up,
                         arg_list=None, providernet_args=None,
@@ -193,6 +199,10 @@ class NsxPPluginTestCaseMixin(
                             providernet_args=providernet_args,
                             arg_list=(pnet.NETWORK_TYPE,
                                       pnet.PHYSICAL_NETWORK))
+
+    def _initialize_azs(self):
+        self.plugin.init_availability_zones()
+        self.plugin._init_default_config()
 
 
 class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,

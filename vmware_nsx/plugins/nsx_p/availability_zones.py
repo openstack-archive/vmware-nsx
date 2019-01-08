@@ -93,11 +93,10 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
                         'az': self.name})
                     raise nsx_exc.NsxPluginException(err_msg=msg)
 
-    def translate_configured_names_to_uuids(self, nsxpolicy):
+    def translate_configured_names_to_uuids(self, nsxpolicy, nsxlib=None):
         super(NsxPAvailabilityZone, self).translate_configured_names_to_uuids(
             nsxpolicy)
 
-        # TODO(asarfaty): add DHCP/metadata parameters
         # TODO(asarfaty): add support for init_objects_by_tags
         self._default_overlay_tz_uuid = self._init_default_resource(
             nsxpolicy.transport_zone, 'default_overlay_tz',
@@ -116,6 +115,14 @@ class NsxPAvailabilityZone(v3_az.NsxV3AvailabilityZone):
             auto_config=True, is_mandatory=True)
 
         self.dhcp_relay_service = cfg.CONF.nsx_p.dhcp_relay_service
+
+        # If passthrough api is supported, also initialize those NSX objects
+        if nsxlib:
+            self._translate_dhcp_profile(nsxlib)
+            self._translate_metadata_proxy(nsxlib)
+        else:
+            self._native_dhcp_profile_uuid = None
+            self._native_md_proxy_uuid = None
 
 
 class NsxPAvailabilityZones(common_az.ConfiguredAvailabilityZones):

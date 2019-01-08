@@ -76,35 +76,6 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
             self._edge_cluster_uuid = edge_cluster_uuid
         else:
             self._edge_cluster_uuid = None
-        if self.dhcp_profile:
-            dhcp_id = None
-            if search_scope:
-                # Find the TZ by its tag
-                dhcp_id = nsxlib.get_id_by_resource_and_tag(
-                    nsxlib.native_dhcp_profile.resource_type,
-                    search_scope,
-                    self.dhcp_profile)
-            if not dhcp_id:
-                dhcp_id = nsxlib.native_dhcp_profile.get_id_by_name_or_id(
-                    self.dhcp_profile)
-            self._native_dhcp_profile_uuid = dhcp_id
-        else:
-            self._native_dhcp_profile_uuid = None
-
-        if self.metadata_proxy:
-            proxy_id = None
-            if search_scope:
-                # Find the TZ by its tag
-                proxy_id = nsxlib.get_id_by_resource_and_tag(
-                    nsxlib.native_md_proxy.resource_type,
-                    search_scope,
-                    self.metadata_proxy)
-            if not proxy_id:
-                proxy_id = nsxlib.native_md_proxy.get_id_by_name_or_id(
-                    self.metadata_proxy)
-            self._native_md_proxy_uuid = proxy_id
-        else:
-            self._native_md_proxy_uuid = None
 
         if self.default_overlay_tz:
             tz_id = None
@@ -123,6 +94,9 @@ class NsxV3AvailabilityZone(v3_az.NsxV3AvailabilityZone):
             self._default_overlay_tz_uuid = tz_id
         else:
             self._default_overlay_tz_uuid = None
+
+        self._translate_dhcp_profile(nsxlib, search_scope=search_scope)
+        self._translate_metadata_proxy(nsxlib, search_scope=search_scope)
 
         # Optional configurations (may be None)
         if self.default_vlan_tz:
