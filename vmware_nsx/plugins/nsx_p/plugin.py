@@ -94,6 +94,10 @@ NO_SEG_SECURITY_PROFILE_UUID = 'neutron-no-segment-security-profile'
 SEG_SECURITY_PROFILE_UUID = (
     policy_defs.SegmentSecurityProfileDef.DEFAULT_PROFILE)
 
+# Priorities for NAT rules: (FIP specific rules should come before GW rules)
+NAT_RULE_PRIORITY_FIP = 2000
+NAT_RULE_PRIORITY_GW = 3000
+
 
 @resource_extend.has_resource_extenders
 class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
@@ -951,7 +955,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             router_id,
             nat_rule_id=self._get_snat_rule_id(subnet),
             action=policy_constants.NAT_ACTION_SNAT,
-            #sequence_number=GW_NAT_PRI # TODO(asarfaty) handle priorities
+            sequence_number=NAT_RULE_PRIORITY_GW,
             translated_network=gw_ip,
             source_network=subnet['cidr'],
             firewall_match=policy_constants.NAT_FIREWALL_MATCH_INTERNAL)
@@ -970,7 +974,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             router_id,
             nat_rule_id=self._get_no_dnat_rule_id(subnet),
             action=policy_constants.NAT_ACTION_NO_DNAT,
-            #sequence_number=GW_NAT_PRI # TODO(asarfaty) handle priorities
+            sequence_number=NAT_RULE_PRIORITY_GW,
             destination_network=subnet['cidr'],
             firewall_match=policy_constants.NAT_FIREWALL_MATCH_BYPASS)
 
@@ -1334,6 +1338,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             action=policy_constants.NAT_ACTION_SNAT,
             translated_network=ext_ip,
             source_network=int_ip,
+            sequence_number=NAT_RULE_PRIORITY_FIP,
             firewall_match=policy_constants.NAT_FIREWALL_MATCH_INTERNAL)
         self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
             'dnat for fip %s' % fip_id,
@@ -1342,6 +1347,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             action=policy_constants.NAT_ACTION_DNAT,
             translated_network=int_ip,
             destination_network=ext_ip,
+            sequence_number=NAT_RULE_PRIORITY_FIP,
             firewall_match=policy_constants.NAT_FIREWALL_MATCH_INTERNAL)
 
     def _delete_fip_nat_rules(self, tier1_id, fip_id):
