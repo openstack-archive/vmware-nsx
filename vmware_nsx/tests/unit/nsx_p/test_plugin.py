@@ -836,7 +836,6 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
 
 class NsxPTestSubnets(test_db_base_plugin_v2.TestSubnetsV2,
                       NsxPPluginTestCaseMixin):
-    # TODO(asarfaty) add NsxNativeDhcpTestCase tests here too
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None):
         super(NsxPTestSubnets, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
         self.disable_dhcp = False
