@@ -1171,6 +1171,17 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                              "gateway. Router:%s has been removed from "
                              "DB and backend",
                              router['id'])
+
+        if cfg.CONF.nsx_p.allow_passthrough:
+            try:
+                # Enable standby relocation on this router
+                self.nsxpolicy.tier1.set_standby_relocation(
+                    router['id'],
+                    enable_standby_relocation=True)
+            except Exception as ex:
+                LOG.warning("Failed to enable standby relocation for router "
+                            "%s: %s", router['id'], ex)
+
         return self.get_router(context, router['id'])
 
     def delete_router(self, context, router_id):
