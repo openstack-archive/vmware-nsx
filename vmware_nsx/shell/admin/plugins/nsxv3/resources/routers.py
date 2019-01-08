@@ -114,6 +114,33 @@ def update_nat_rules(resource, event, trigger, **kwargs):
 
 
 @admin_utils.output_header
+def update_enable_standby_relocation(resource, event, trigger, **kwargs):
+    """Enable standby relocation on all routers """
+    # This feature is supported only since nsx version 2.4
+    nsxlib = utils.get_connected_nsxlib()
+    version = nsxlib.get_version()
+    if not nsx_utils.is_nsx_version_2_4_0(version):
+        LOG.info("Standby relocation update is only supported from 2.4 "
+                 "onwards")
+        LOG.info("Version is %s", version)
+        return
+
+    # Go over all neutron routers
+    plugin = RoutersPlugin()
+    admin_cxt = neutron_context.get_admin_context()
+    filters = utils.get_plugin_filters(admin_cxt)
+    neutron_routers = plugin.get_routers(admin_cxt, filters=filters)
+    for router in neutron_routers:
+        neutron_id = router['id']
+        # get the router nsx id from the mapping table
+        nsx_id = nsx_db.get_nsx_router_id(admin_cxt.session,
+                                          neutron_id)
+        nsxlib.logical_router.update(lrouter_id=nsx_id,
+                                     enable_standby_relocation=True)
+    LOG.info("All routers where enabled with standby relocation")
+
+
+@admin_utils.output_header
 def list_orphaned_routers(resource, event, trigger, **kwargs):
     nsxlib = utils.get_connected_nsxlib()
     admin_cxt = neutron_context.get_admin_context()
@@ -231,3 +258,6 @@ registry.subscribe(delete_backend_router,
 registry.subscribe(update_dhcp_relay,
                    constants.ROUTERS,
                    shell.Operations.NSX_UPDATE_DHCP_RELAY.value)
+registry.subscribe(update_enable_standby_relocation,
+                   constants.ROUTERS,
+                   shell.Operations.NSX_ENABLE_STANDBY_RELOCATION.value)

@@ -345,6 +345,10 @@ Routers
 
     nsxadmin -r routers -o nsx-update-dhcp-relay
 
+- Enable standby relocation on NSX routers that were created without it::
+
+    nsxadmin -r routers -o nsx-enable-standby-relocation
+
 Orphaned Routers
 ~~~~~~~~~~~~~~~~~
 
