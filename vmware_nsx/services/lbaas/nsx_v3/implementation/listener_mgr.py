@@ -34,9 +34,6 @@ LOG = logging.getLogger(__name__)
 
 class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgeListenerManagerFromDict, self).__init__()
-
     def _get_virtual_server_kwargs(self, context, listener, vs_name, tags,
                                    app_profile_id, certificate=None):
         # If loadbalancer vip_port already has floating ip, use floating
@@ -74,6 +71,7 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             kwargs.update(ssl_profile_binding)
         return kwargs
 
+    @log_helpers.log_method_call
     def _get_ssl_profile_binding(self, tags, certificate=None):
         tm_client = self.core_plugin.nsxlib.trust_management
         if certificate:
@@ -97,6 +95,7 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 }
             }
 
+    @log_helpers.log_method_call
     def _get_listener_tags(self, context, listener):
         tags = lb_utils.get_tags(self.core_plugin, listener['id'],
                                  lb_const.LB_LISTENER_TYPE,
@@ -110,6 +109,7 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             'tag': listener['loadbalancer_id']})
         return tags
 
+    @log_helpers.log_method_call
     def create(self, context, listener, completor,
                certificate=None):
         lb_id = listener['loadbalancer_id']
@@ -165,6 +165,7 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             virtual_server['id'])
         completor(success=True)
 
+    @log_helpers.log_method_call
     def update(self, context, old_listener, new_listener, completor,
                certificate=None):
         nsxlib_lb = self.core_plugin.nsxlib.load_balancer
@@ -203,6 +204,7 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                           'error %(error)s',
                           {'listener': old_listener['id'], 'error': e})
 
+    @log_helpers.log_method_call
     def delete(self, context, listener, completor):
         lb_id = listener['loadbalancer_id']
         nsxlib_lb = self.core_plugin.nsxlib.load_balancer
@@ -285,6 +287,7 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         completor(success=True)
 
 
+@log_helpers.log_method_call
 def stats_getter(context, core_plugin, ignore_list=None):
     """Update Octavia statistics for each listener (virtual server)"""
     stat_list = []

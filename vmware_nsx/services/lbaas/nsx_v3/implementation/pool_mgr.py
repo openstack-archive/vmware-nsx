@@ -35,9 +35,6 @@ LOG = logging.getLogger(__name__)
 
 class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgePoolManagerFromDict, self).__init__()
-
     def _get_pool_kwargs(self, name=None, tags=None, algorithm=None,
                          description=None):
         kwargs = {}
@@ -52,6 +49,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         kwargs['snat_translation'] = {'type': "LbSnatAutoMap"}
         return kwargs
 
+    @log_helpers.log_method_call
     def _build_persistence_profile_tags(self, pool_tags, listener):
         tags = pool_tags[:]
         tags.append({
@@ -65,6 +63,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             'tag': listener['id']})
         return tags
 
+    @log_helpers.log_method_call
     def _validate_session_persistence(self, pool, listener, completor,
                                       old_pool=None):
         sp = pool.get('session_persistence')
@@ -102,6 +101,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                         'old_sp_type': oldsp['type']})
                 raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
 
+    @log_helpers.log_method_call
     def _setup_session_persistence(self, pool, pool_tags,
                                    listener, vs_data):
         sp = pool.get('session_persistence')
@@ -166,12 +166,14 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             return pp_data['id'], None
         return None, None
 
+    @log_helpers.log_method_call
     def _remove_persistence(self, vs_data):
         pp_client = self.core_plugin.nsxlib.load_balancer.persistence_profile
         persistence_profile_id = vs_data.get('persistence_profile_id')
         if persistence_profile_id:
             pp_client.delete(persistence_profile_id)
 
+    @log_helpers.log_method_call
     def _process_vs_update(self, context, pool, listener,
                            nsx_pool_id, nsx_vs_id, completor):
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
@@ -210,11 +212,13 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 LOG.error('Failed to attach pool %s to virtual '
                           'server %s', nsx_pool_id, nsx_vs_id)
 
+    @log_helpers.log_method_call
     def _get_pool_tags(self, context, pool):
         return lb_utils.get_tags(self.core_plugin, pool['id'],
                                  lb_const.LB_POOL_TYPE, pool['tenant_id'],
                                  context.project_name)
 
+    @log_helpers.log_method_call
     def create(self, context, pool, completor):
         lb_id = pool['loadbalancer_id']
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
@@ -265,6 +269,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 raise nsx_exc.NsxPluginException(err_msg=msg)
         completor(success=True)
 
+    @log_helpers.log_method_call
     def update(self, context, old_pool, new_pool, completor):
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
         pool_name = None
@@ -315,6 +320,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                           'error %(error)s',
                           {'pool': old_pool['id'], 'error': e})
 
+    @log_helpers.log_method_call
     def delete(self, context, pool, completor):
         lb_id = pool['loadbalancer_id']
         pool_client = self.core_plugin.nsxlib.load_balancer.pool

@@ -28,9 +28,6 @@ LOG = logging.getLogger(__name__)
 
 class EdgeL7RuleManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgeL7RuleManagerFromDict, self).__init__()
-
     def _update_l7rule_change(self, context, rule, completor,
                               delete=False):
         rule_client = self.core_plugin.nsxlib.load_balancer.rule
@@ -60,11 +57,14 @@ class EdgeL7RuleManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         completor(success=True)
 
+    @log_helpers.log_method_call
     def create(self, context, rule, completor):
         self._update_l7rule_change(context, rule, completor)
 
+    @log_helpers.log_method_call
     def update(self, context, old_rule, new_rule, completor):
         self._update_l7rule_change(context, new_rule, completor)
 
+    @log_helpers.log_method_call
     def delete(self, context, rule, completor):
         self._update_l7rule_change(context, rule, completor, delete=True)

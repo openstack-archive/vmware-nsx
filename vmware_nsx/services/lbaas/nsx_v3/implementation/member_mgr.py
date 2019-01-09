@@ -33,10 +33,6 @@ LOG = logging.getLogger(__name__)
 
 class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgeMemberManagerFromDict, self).__init__()
-
-    @log_helpers.log_method_call
     def _get_info_from_fip(self, context, fip):
         filters = {'floating_ip_address': [fip]}
         floating_ips = self.core_plugin.get_floatingips(context,
@@ -80,6 +76,7 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         return lb_service
 
+    @log_helpers.log_method_call
     def _get_updated_pool_members(self, context, lb_pool, member):
         network = lb_utils.get_network_from_subnet(
             context, self.core_plugin, member['subnet_id'])
@@ -109,11 +106,13 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             LOG.debug("LB binding has already been added, and no need "
                       "to add here.")
 
+    @log_helpers.log_method_call
     def create(self, context, member, completor):
         with locking.LockManager.get_lock(
             'member-%s' % str(member['pool']['loadbalancer_id'])):
             self._member_create(context, member, completor)
 
+    @log_helpers.log_method_call
     def _member_create(self, context, member, completor):
         lb_id = member['pool']['loadbalancer_id']
         pool_id = member['pool']['id']
@@ -229,6 +228,7 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         completor(success=True)
 
+    @log_helpers.log_method_call
     def update(self, context, old_member, new_member, completor):
         lb_id = old_member['pool']['loadbalancer_id']
         pool_id = old_member['pool']['id']
@@ -253,6 +253,7 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                               {'member': old_member['id'], 'err': e})
         completor(success=True)
 
+    @log_helpers.log_method_call
     def delete(self, context, member, completor):
         lb_id = member['pool']['loadbalancer_id']
         pool_id = member['pool']['id']

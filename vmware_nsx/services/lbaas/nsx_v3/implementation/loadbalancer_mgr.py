@@ -15,6 +15,7 @@
 
 
 from neutron_lib import exceptions as n_exc
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -31,6 +32,7 @@ LOG = logging.getLogger(__name__)
 
 class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
+    @log_helpers.log_method_call
     def create(self, context, lb, completor):
         if lb_utils.validate_lb_subnet(context, self.core_plugin,
                                        lb['vip_subnet_id']):
@@ -42,6 +44,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                    {'sub': lb['vip_subnet_id'], 'lb': lb['id']})
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
 
+    @log_helpers.log_method_call
     def update(self, context, old_lb, new_lb, completor):
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
         app_client = self.core_plugin.nsxlib.load_balancer.application_profile
@@ -75,6 +78,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         completor(success=True)
 
+    @log_helpers.log_method_call
     def delete(self, context, lb, completor):
         service_client = self.core_plugin.nsxlib.load_balancer.service
         lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
@@ -116,10 +120,12 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                                                        router_id)
         completor(success=True)
 
+    @log_helpers.log_method_call
     def refresh(self, context, lb):
         # TODO(tongl): implement
         pass
 
+    @log_helpers.log_method_call
     def _nsx_status_to_lb_status(self, nsx_status):
         if not nsx_status:
             # default fallback
@@ -139,6 +145,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         LOG.debug("NSX LB status %s - interpreted as ONLINE", nsx_status)
         return lb_const.ONLINE
 
+    @log_helpers.log_method_call
     def get_lb_pool_members_statuses(self, nsx_pool_id, members_statuses):
         # Combine the NSX pool members data and the NSX statuses to provide
         # member statuses list
@@ -169,6 +176,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 statuses.append({'id': member_id, 'status': member_status})
         return statuses
 
+    @log_helpers.log_method_call
     def get_operating_status(self, context, id, with_members=False):
         """Return a map of the operating status of all connected LB objects """
         service_client = self.core_plugin.nsxlib.load_balancer.service
@@ -230,6 +238,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         return statuses
 
+    @log_helpers.log_method_call
     def stats(self, context, lb):
         # Since multiple LBaaS loadbalancer can share the same LB service,
         # get the corresponding virtual servers' stats instead of LB service.
@@ -263,6 +272,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
         return stats
 
+    @log_helpers.log_method_call
     def _get_lb_virtual_servers(self, context, lb):
         # Get all virtual servers that belong to this loadbalancer
         vs_list = []

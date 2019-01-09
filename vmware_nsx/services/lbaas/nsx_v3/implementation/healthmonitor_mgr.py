@@ -30,11 +30,6 @@ LOG = logging.getLogger(__name__)
 
 
 class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
-
-    @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgeHealthMonitorManagerFromDict, self).__init__()
-
     @log_helpers.log_method_call
     def _build_monitor_args(self, hm):
         if hm['type'] in lb_const.NSXV3_MONITOR_MAP:
@@ -61,6 +56,7 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             #    body['response_status'] = hm['expected_codes']
         return body
 
+    @log_helpers.log_method_call
     def create(self, context, hm, completor):
         lb_id = hm['pool']['loadbalancer_id']
         pool_id = hm['pool']['id']
@@ -106,6 +102,7 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         completor(success=True)
 
+    @log_helpers.log_method_call
     def update(self, context, old_hm, new_hm, completor):
         lb_id = new_hm['pool']['loadbalancer_id']
         pool_id = new_hm['pool']['id']
@@ -128,6 +125,7 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         completor(success=True)
 
+    @log_helpers.log_method_call
     def delete(self, context, hm, completor):
         lb_id = hm['pool']['loadbalancer_id']
         pool_id = hm['pool']['id']
