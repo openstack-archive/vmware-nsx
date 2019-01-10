@@ -2070,13 +2070,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         if is_ens_tz_port:
             self._disable_ens_portsec(port_data)
 
-        if (cfg.CONF.nsx_v3.disable_port_security_for_ens and
-            not self._ens_psec_supported()):
-            LOG.warning("Disabling port security for network %s",
-                        port_data['network_id'])
-            port_data[psec.PORTSECURITY] = False
-            port_data['security_groups'] = []
-
         is_external_net = self._network_is_external(
             context, port_data['network_id'])
 
