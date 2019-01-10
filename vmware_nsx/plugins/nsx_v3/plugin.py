@@ -1015,12 +1015,15 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         provider_data = self._validate_provider_create(context, net_data, az,
                                                        transparent_vlan)
 
-        physical_net = provider_data['physical_net']
-        self._assert_on_ens_with_qos(physical_net, net_data)
+        # ENS validations
         if (provider_data['switch_mode'] ==
             self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
             if not cfg.CONF.nsx_v3.ens_support:
                 raise NotImplementedError(_("ENS support is disabled"))
+            qos_id = net_data.get(qos_consts.QOS_POLICY_ID)
+            if validators.is_attr_set(qos_id):
+                err_msg = _("Cannot configure QOS on ENS networks")
+                raise n_exc.InvalidInput(error_message=err_msg)
             if net_data.get(psec.PORTSECURITY):
                 raise nsx_exc.NsxENSPortSecurity()
             # set the default port security to False
@@ -2328,7 +2331,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _get_net_tz(self, context, net_id):
         mappings = nsx_db.get_nsx_switch_ids(context.session, net_id)
         if mappings:
-            nsx_net_id = nsx_net_id = mappings[0]
+            nsx_net_id = mappings[0]
             if nsx_net_id:
                 nsx_net = self.nsxlib.logical_switch.get(nsx_net_id)
                 return nsx_net.get('transport_zone_id')
