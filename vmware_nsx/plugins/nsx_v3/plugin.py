@@ -1028,16 +1028,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         provider_data = self._validate_provider_create(context, net_data, az,
                                                        transparent_vlan)
 
-        physical_net = provider_data['physical_net']
         neutron_net_id = net_data.get('id') or uuidutils.generate_uuid()
         net_data['id'] = neutron_net_id
-        if self._is_ens_tz(physical_net):
-            self._assert_on_ens_with_qos(net_data)
-            self._ensure_override_ens_with_portsecurity(net_data)
+
+        # ENS validations
         if (provider_data['switch_mode'] ==
             self.nsxlib.transport_zone.HOST_SWITCH_MODE_ENS):
             if not cfg.CONF.nsx_v3.ens_support:
                 raise NotImplementedError(_("ENS support is disabled"))
+            self._assert_on_ens_with_qos(net_data)
+            self._ensure_override_ens_with_portsecurity(net_data)
             if net_data.get(psec.PORTSECURITY):
                 raise nsx_exc.NsxENSPortSecurity()
             # set the default port security to False
