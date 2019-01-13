@@ -147,6 +147,8 @@ Add octavia repo as an external repository and configure following flags in ``lo
     [oslo_messaging]
     topic=vmwarensxv_edge_lb
 
+    [controller_worker]
+    network_driver = network_noop_driver
 
 NSX-T
 -----
@@ -282,6 +284,9 @@ Add octavia repo as an external repository and configure following flags in ``lo
 
     [oslo_messaging]
     topic=vmwarensxv_edge_lb
+
+    [controller_worker]
+    network_driver = network_noop_driver
 
 
 NSX-P
