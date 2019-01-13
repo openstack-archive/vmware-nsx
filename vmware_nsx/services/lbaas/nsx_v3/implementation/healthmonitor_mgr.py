@@ -24,6 +24,7 @@ from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
+from vmware_nsxlib.v3 import nsx_constants
 from vmware_nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
@@ -54,11 +55,15 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 body['request_method'] = hm['http_method']
             if hm['url_path']:
                 body['request_url'] = hm['url_path']
-            # TODO(tongl): nsxv3 backend doesn't support granular control
-            # of expected_codes. So we ignore it and use default for now.
-            # Once backend supports it, we can add it back.
-            # if hm['expected_codes']:
-            #    body['response_status'] = hm['expected_codes']
+            if hm['expected_codes']:
+                if self.core_plugin.nsxlib.feature_supported(
+                    nsx_constants.FEATURE_LB_HM_RESPONSE_CODES):
+                    codes = hm['expected_codes'].split(",")
+                    body['response_status_codes'] = [
+                        int(code) for code in codes]
+                else:
+                    LOG.warning("Ignoring HM expected_codes as the NSX does "
+                                "not support it")
         return body
 
     def create(self, context, hm, completor):
