@@ -16,6 +16,7 @@
 from neutron.db import l3_db
 from neutron.services.flavors import flavors_plugin
 from neutron_lib import exceptions as n_exc
+from oslo_log import helpers as log_helpers
 
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
@@ -25,6 +26,7 @@ from vmware_nsxlib.v3 import nsx_constants
 ADV_RULE_NAME = 'LB external VIP advertisement'
 
 
+@log_helpers.log_method_call
 def get_tags(plugin, resource_id, resource_type, project_id, project_name):
     resource = {'project_id': project_id,
                 'id': resource_id}
@@ -34,12 +36,14 @@ def get_tags(plugin, resource_id, resource_type, project_id, project_name):
     return tags
 
 
+@log_helpers.log_method_call
 def get_network_from_subnet(context, plugin, subnet_id):
     subnet = plugin.get_subnet(context, subnet_id)
     if subnet:
         return plugin.get_network(context, subnet['network_id'])
 
 
+@log_helpers.log_method_call
 def get_router_from_network(context, plugin, subnet_id):
     subnet = plugin.get_subnet(context, subnet_id)
     network_id = subnet['network_id']
@@ -52,6 +56,7 @@ def get_router_from_network(context, plugin, subnet_id):
             return router['id']
 
 
+@log_helpers.log_method_call
 def get_lb_flavor_size(flavor_plugin, context, flavor_id):
     if not flavor_id:
         return lb_const.DEFAULT_LB_SIZE
@@ -68,6 +73,7 @@ def get_lb_flavor_size(flavor_plugin, context, flavor_id):
             raise n_exc.InvalidInput(error_message=err_msg)
 
 
+@log_helpers.log_method_call
 def validate_lb_subnet(context, plugin, subnet_id):
     '''Validate LB subnet before creating loadbalancer on it.
 
@@ -90,6 +96,7 @@ def validate_lb_subnet(context, plugin, subnet_id):
         return False
 
 
+@log_helpers.log_method_call
 def validate_lb_member_subnet(context, plugin, subnet_id, lb):
     '''Validate LB member subnet before creating a member.
 
@@ -123,6 +130,7 @@ def validate_lb_member_subnet(context, plugin, subnet_id, lb):
             return False
 
 
+@log_helpers.log_method_call
 def get_rule_match_conditions(policy):
     match_conditions = []
     # values in rule have already been validated in LBaaS API,
@@ -166,6 +174,7 @@ def get_rule_match_conditions(policy):
     return match_conditions
 
 
+@log_helpers.log_method_call
 def get_rule_actions(context, l7policy):
     lb_id = l7policy['listener']['loadbalancer_id']
     if l7policy['action'] == lb_const.L7_POLICY_ACTION_REDIRECT_TO_POOL:
@@ -194,6 +203,7 @@ def get_rule_actions(context, l7policy):
     return actions
 
 
+@log_helpers.log_method_call
 def convert_l7policy_to_lb_rule(context, policy):
     return {
         'match_conditions': get_rule_match_conditions(policy),
@@ -203,16 +213,19 @@ def convert_l7policy_to_lb_rule(context, policy):
     }
 
 
+@log_helpers.log_method_call
 def remove_rule_from_policy(rule):
     l7rules = rule['policy']['rules']
     rule['policy']['rules'] = [r for r in l7rules if r['id'] != rule['id']]
 
 
+@log_helpers.log_method_call
 def update_rule_in_policy(rule):
     remove_rule_from_policy(rule)
     rule['policy']['rules'].append(rule)
 
 
+@log_helpers.log_method_call
 def update_router_lb_vip_advertisement(context, core_plugin, router,
                                        nsx_router_id):
     # Add a rule to advertise external vips on the router

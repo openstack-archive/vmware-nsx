@@ -30,10 +30,6 @@ LOG = logging.getLogger(__name__)
 
 class EdgeL7PolicyManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
-    def __init__(self):
-        super(EdgeL7PolicyManagerFromDict, self).__init__()
-
-    @log_helpers.log_method_call
     def _update_policy_position(self, vs_id, rule_id, position):
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
         vs = vs_client.get(vs_id)
@@ -46,6 +42,7 @@ class EdgeL7PolicyManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             lb_rules.insert(position - 1, rule_id)
         vs_client.update(vs_id, rule_ids=lb_rules)
 
+    @log_helpers.log_method_call
     def create(self, context, policy, completor):
         lb_id = policy['listener']['loadbalancer_id']
         listener_id = policy['listener_id']
@@ -84,6 +81,7 @@ class EdgeL7PolicyManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             context.session, policy['id'], lb_rule['id'], vs_id)
         completor(success=True)
 
+    @log_helpers.log_method_call
     def update(self, context, old_policy, new_policy, completor):
         rule_client = self.core_plugin.nsxlib.load_balancer.rule
         binding = nsx_db.get_nsx_lbaas_l7policy_binding(context.session,
@@ -111,6 +109,7 @@ class EdgeL7PolicyManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
         completor(success=True)
 
+    @log_helpers.log_method_call
     def delete(self, context, policy, completor):
         vs_client = self.core_plugin.nsxlib.load_balancer.virtual_server
         rule_client = self.core_plugin.nsxlib.load_balancer.rule
