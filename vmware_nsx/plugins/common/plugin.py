@@ -241,11 +241,11 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                 if subnet['subnetpool_id'] == subnetpool_id]
 
     def on_subnetpool_address_scope_updated(self, resource, event,
-                                            trigger, **kwargs):
-        context = kwargs['context']
+                                            trigger, payload=None):
+        context = payload.context
 
         routers = self.get_routers(context)
-        subnetpool_id = kwargs['subnetpool_id']
+        subnetpool_id = payload.resource_id
         elevated_context = context.elevated()
         LOG.info("Inspecting routers for potential configuration changes "
                  "due to address scope change on subnetpool %s", subnetpool_id)
