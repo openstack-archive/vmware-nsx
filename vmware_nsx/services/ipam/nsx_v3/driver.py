@@ -59,6 +59,8 @@ class Nsxv3IpamDriver(common.NsxAbstractIpamDriver):
 
     def _is_supported_net(self, subnet_request):
         """This driver doesn't support multicast cidrs"""
+        if not hasattr(subnet_request, "subnet_cidr"):
+            return True
         net = netaddr.IPNetwork(subnet_request.subnet_cidr[0])
         return not net.is_multicast()
 
