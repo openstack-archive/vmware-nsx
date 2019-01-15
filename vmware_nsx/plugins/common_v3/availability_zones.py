@@ -85,6 +85,10 @@ class NsxV3AvailabilityZone(common_az.ConfiguredAvailabilityZone):
         if nameservers:
             self.nameservers = nameservers
 
+        edge_cluster = az_info.get('edge_cluster')
+        if edge_cluster:
+            self.edge_cluster = edge_cluster
+
     def init_defaults(self):
         # Should be implemented by children
         pass

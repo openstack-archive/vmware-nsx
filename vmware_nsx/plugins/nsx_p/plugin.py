@@ -1052,7 +1052,14 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             nat_rule_id=self._get_snat_rule_id(subnet))
 
     def _get_edge_cluster_path(self, tier0_uuid, router):
-        # TODO(asarfaty): Add support for edge cluster from the AZ config
+        # Take the AZ edge cluster if configured
+        az = self._get_router_az_obj(router)
+        if az and az._edge_cluster_uuid:
+            ec_id = az._edge_cluster_uuid
+            # get the full path of the edge cluster (no backend call)
+            return self.nsxpolicy.edge_cluster.get_path(ec_id)
+
+        # Get the current tier0 edge cluster (cached call)
         return self.nsxpolicy.tier0.get_edge_cluster_path(
             tier0_uuid)
 
