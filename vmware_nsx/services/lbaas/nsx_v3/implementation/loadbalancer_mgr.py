@@ -122,6 +122,11 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         completor(success=True)
 
     @log_helpers.log_method_call
+    def delete_cascade(self, context, lb, completor):
+        """Delete all backend and DB resources of this loadbalancer"""
+        self.delete(context, lb, completor)
+
+    @log_helpers.log_method_call
     def refresh(self, context, lb):
         # TODO(tongl): implement
         pass

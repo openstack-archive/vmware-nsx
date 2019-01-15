@@ -358,3 +358,7 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                                                  lb_id, pool['id'])
 
         completor(success=True)
+
+    @log_helpers.log_method_call
+    def delete_cascade(self, context, pool, completor):
+        self.delete(context, pool, completor)

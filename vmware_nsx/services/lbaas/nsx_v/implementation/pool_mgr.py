@@ -205,6 +205,9 @@ class EdgePoolManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
             completor(success=False)
             LOG.error('Failed to delete pool %s', pool['id'])
 
+    def delete_cascade(self, context, pool, completor):
+        self.delete(context, pool, completor)
+
     def _get_lbaas_fw_section_id(self):
         if not self._fw_section_id:
             self._fw_section_id = lb_common.get_lbaas_fw_section_id(self.vcns)

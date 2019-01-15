@@ -186,3 +186,6 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
         nsxv_db.del_nsxv_lbaas_monitor_binding(
             context.session, lb_id, pool_id, hm['id'], edge_id)
         completor(success=True)
+
+    def delete_cascade(self, context, hm, completor):
+        self.delete(context, hm, completor)

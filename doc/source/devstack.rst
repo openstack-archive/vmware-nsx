@@ -129,7 +129,7 @@ Add neutron-vpnaas repo as an external repository and configure following flags 
 Octavia
 ~~~~~~~
 
-Add octavia repo as an external repository and configure following flags in ``local.conf``::
+Add octavia and python-octaviaclient repos as external repositories and configure following flags in ``local.conf``::
 
     [[local|localrc]]
     OCTAVIA_NODE=api
@@ -254,7 +254,7 @@ Add neutron-vpnaas repo as an external repository and configure following flags 
 Octavia
 ~~~~~~~
 
-Add octavia repo as an external repository and configure following flags in ``local.conf``::
+Add octavia and python-octaviaclient repos as external repositories and configure following flags in ``local.conf``::
 
     [[local|localrc]]
     OCTAVIA_NODE=api

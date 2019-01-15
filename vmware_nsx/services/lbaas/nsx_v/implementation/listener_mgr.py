@@ -300,6 +300,9 @@ class EdgeListenerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
         completor(success=True)
 
+    def delete_cascade(self, context, listener, completor):
+        self.delete(context, listener, completor)
+
 
 def stats_getter(context, core_plugin, ignore_list=None):
     """Update Octavia statistics for each listener (virtual server)"""

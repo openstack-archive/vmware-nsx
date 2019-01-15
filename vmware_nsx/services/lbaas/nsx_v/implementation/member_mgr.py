@@ -223,3 +223,6 @@ class EdgeMemberManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
                 with excutils.save_and_reraise_exception():
                     completor(success=False)
                     LOG.error('Failed to delete member on edge: %s', edge_id)
+
+    def delete_cascade(self, context, member, completor):
+        self.delete(context, member, completor)
