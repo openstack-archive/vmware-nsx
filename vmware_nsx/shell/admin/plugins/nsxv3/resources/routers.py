@@ -135,9 +135,17 @@ def update_enable_standby_relocation(resource, event, trigger, **kwargs):
         # get the router nsx id from the mapping table
         nsx_id = nsx_db.get_nsx_router_id(admin_cxt.session,
                                           neutron_id)
-        nsxlib.logical_router.update(lrouter_id=nsx_id,
-                                     enable_standby_relocation=True)
-    LOG.info("All routers where enabled with standby relocation")
+        try:
+            nsxlib.logical_router.update(lrouter_id=nsx_id,
+                                         enable_standby_relocation=True)
+        except Exception as e:
+            # This may fail if the service router is not created
+            LOG.warning("Router %s cannot enable standby relocation: %s",
+                        neutron_id, e)
+        else:
+            LOG.info("Router %s was enabled with standby relocation",
+                     neutron_id)
+    LOG.info("Done")
 
 
 @admin_utils.output_header

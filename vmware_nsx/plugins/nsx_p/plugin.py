@@ -1064,6 +1064,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             tier0_uuid)
 
     def create_service_router(self, context, router_id):
+        """Create a service router and enable standby relocation"""
         router = self._get_router(context, router_id)
         tier0_uuid = self._get_tier0_uuid_by_router(context, router)
         edge_cluster_path = self._get_edge_cluster_path(
@@ -1075,7 +1076,25 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             LOG.error("Tier0 %s does not have an edge cluster",
                       tier0_uuid)
 
+        if cfg.CONF.nsx_p.allow_passthrough:
+            try:
+                # Enable standby relocation on this router
+                self.nsxpolicy.tier1.set_standby_relocation(
+                    router['id'], enable_standby_relocation=True)
+            except Exception as ex:
+                LOG.warning("Failed to enable standby relocation for router "
+                            "%s: %s", router['id'], ex)
+
     def delete_service_router(self, router_id):
+        if cfg.CONF.nsx_p.allow_passthrough:
+            try:
+                # Enable standby relocation on this router
+                self.nsxpolicy.tier1.set_standby_relocation(
+                    router_id, enable_standby_relocation=False)
+            except Exception as ex:
+                LOG.warning("Failed to disable standby relocation for router "
+                            "%s: %s", router_id, ex)
+
         # remove the edge cluster from the tier1 router
         self.nsxpolicy.tier1.remove_edge_cluster(router_id)
 
@@ -1199,16 +1218,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                              "gateway. Router:%s has been removed from "
                              "DB and backend",
                              router['id'])
-
-        if cfg.CONF.nsx_p.allow_passthrough:
-            try:
-                # Enable standby relocation on this router
-                self.nsxpolicy.tier1.set_standby_relocation(
-                    router['id'],
-                    enable_standby_relocation=True)
-            except Exception as ex:
-                LOG.warning("Failed to enable standby relocation for router "
-                            "%s: %s", router['id'], ex)
 
         return self.get_router(context, router['id'])
 
