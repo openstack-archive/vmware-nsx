@@ -29,6 +29,7 @@ from oslo_log import log as logging
 from neutron.services.externaldns import driver
 
 from vmware_nsx.common import driver_api
+from vmware_nsx.plugins.nsx_p import availability_zones as nsxp_az
 from vmware_nsx.plugins.nsx_v3 import availability_zones as nsx_az
 
 LOG = logging.getLogger(__name__)
@@ -322,6 +323,7 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
     def initialize(self):
         self._availability_zones = nsx_az.NsxV3AvailabilityZones()
         LOG.info("DNSExtensionDriverNSXv3 initialization complete")
+        self.config_dns_domain = cfg.CONF.nsx_v3.dns_domain
 
     def _get_network_and_az(self, network_id, context):
         if not context:
@@ -346,10 +348,10 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
             _dotted_domain(DNS_DOMAIN_DEFAULT)):
             dns_domain = az.dns_domain
         # Global nsx_v3 dns domain
-        elif (cfg.CONF.nsx_v3.dns_domain and
-              (_dotted_domain(cfg.CONF.nsx_v3.dns_domain) !=
+        elif (self.config_dns_domain and
+              (_dotted_domain(self.config_dns_domain) !=
                _dotted_domain(DNS_DOMAIN_DEFAULT))):
-            dns_domain = cfg.CONF.nsx_v3.dns_domain
+            dns_domain = self.config_dns_domain
         # Global neutron dns domain
         elif cfg.CONF.dns_domain:
             dns_domain = cfg.CONF.dns_domain
@@ -368,6 +370,14 @@ class DNSExtensionDriverNSXv3(DNSExtensionDriver):
         if network['router:external']:
             return True
         return False
+
+
+class DNSExtensionDriverNSXp(DNSExtensionDriverNSXv3):
+
+    def initialize(self):
+        self._availability_zones = nsxp_az.NsxPAvailabilityZones()
+        LOG.info("DNSExtensionDriverNSXp initialization complete")
+        self.config_dns_domain = cfg.CONF.nsx_p.dns_domain
 
 
 class DNSExtensionDriverDVS(DNSExtensionDriver):
