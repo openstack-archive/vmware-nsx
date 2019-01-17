@@ -72,6 +72,7 @@ NSX_DHCP_PROFILE_ID = 'default dhcp profile'
 NSX_METADATA_PROXY_ID = 'default metadata proxy'
 NSX_SWITCH_PROFILE = 'dummy switch profile'
 NSX_DHCP_RELAY_SRV = 'dhcp relay srv'
+NSX_EDGE_CLUSTER_UUID = 'dummy edge cluster'
 
 
 def _mock_create_firewall_rules(*args):
@@ -175,7 +176,7 @@ def _mock_nsx_backend_calls():
 
     mock.patch(
         "vmware_nsxlib.v3.NsxLib.get_version",
-        return_value='2.2.0').start()
+        return_value='2.4.0').start()
 
     mock.patch(
         "vmware_nsxlib.v3.load_balancer.Service.get_router_lb_service",
@@ -220,7 +221,7 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
         self.setup_conf_overrides()
         self.mock_get_edge_cluster = mock.patch.object(
             nsx_plugin.NsxV3Plugin, '_get_edge_cluster',
-            return_value=uuidutils.generate_uuid())
+            return_value=NSX_EDGE_CLUSTER_UUID)
         self.mock_get_edge_cluster.start()
         self.mock_plugin_methods()
         # ignoring the given plugin and use the nsx-v3 one
@@ -517,11 +518,12 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
     def test_create_ens_network_with_port_sec(self):
         cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: True}
-        with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
-                        "get_host_switch_mode", return_value="ENS"),\
-            mock.patch(
-            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
-            return_value={'transport_zone_id': 'xxx'}):
+        with mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
+                        return_value='2.3.0'),\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
+                       "get_host_switch_mode", return_value="ENS"),\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch."
+                       "get", return_value={'transport_zone_id': 'xxx'}):
             result = self._create_network(fmt='json', name='ens_net',
                                           admin_state_up=True,
                                           providernet_args=providernet_args,
@@ -534,13 +536,10 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
     def test_create_ens_network_with_port_sec_supported(self):
         cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: True}
-        with mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
-                        return_value='2.4.0'),\
-            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
+        with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                        "get_host_switch_mode", return_value="ENS"),\
-            mock.patch(
-            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
-            return_value={'transport_zone_id': 'xxx'}):
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch."
+                       "get", return_value={'transport_zone_id': 'xxx'}):
             result = self._create_network(fmt='json', name='ens_net',
                                           admin_state_up=True,
                                           providernet_args=providernet_args,
@@ -636,12 +635,12 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
     def test_update_ens_network(self):
         cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: False}
-        with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
-                        "get_host_switch_mode", return_value="ENS"),\
-            mock.patch(
-            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
-            return_value={'transport_zone_id': 'xxx'}):
-
+        with mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
+                        return_value='2.3.0'),\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
+                       "get_host_switch_mode", return_value="ENS"),\
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch."
+                       "get", return_value={'transport_zone_id': 'xxx'}):
             result = self._create_network(fmt='json', name='ens_net',
                                           admin_state_up=True,
                                           providernet_args=providernet_args,
@@ -659,10 +658,8 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
     def test_update_ens_network_psec_supported(self):
         cfg.CONF.set_override('ens_support', True, 'nsx_v3')
         providernet_args = {psec.PORTSECURITY: False}
-        with mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
-                        return_value='2.4.0'),\
-            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
-                       "get_host_switch_mode", return_value="ENS"),\
+        with mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
+                        "get_host_switch_mode", return_value="ENS"),\
             mock.patch(
             "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
             return_value={'transport_zone_id': 'xxx'}):
@@ -1595,11 +1592,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def test_create_ens_port_with_port_sec(self):
         with self.subnet() as subnet,\
+            mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
+                       return_value='2.3.0'),\
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                        "get_host_switch_mode", return_value="ENS"),\
-            mock.patch(
-            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
-            return_value={'transport_zone_id': 'xxx'}):
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch."
+                       "get", return_value={'transport_zone_id': 'xxx'}):
             args = {'port': {'network_id': subnet['subnet']['network_id'],
                              'tenant_id': subnet['subnet']['tenant_id'],
                              'fixed_ips': [{'subnet_id':
@@ -1613,8 +1611,6 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def test_create_ens_port_with_port_sec_supported(self):
         with self.subnet() as subnet,\
-            mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
-                       return_value='2.4.0'),\
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                        "get_host_switch_mode", return_value="ENS"),\
             mock.patch(
@@ -1632,11 +1628,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def test_update_ens_port(self):
         with self.subnet() as subnet,\
+            mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
+                       return_value='2.3.0'),\
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                        "get_host_switch_mode", return_value="ENS"),\
-            mock.patch(
-            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
-            return_value={'transport_zone_id': 'xxx'}):
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch."
+                       "get", return_value={'transport_zone_id': 'xxx'}):
             args = {'port': {'network_id': subnet['subnet']['network_id'],
                              'tenant_id': subnet['subnet']['tenant_id'],
                              'fixed_ips': [{'subnet_id':
@@ -1654,13 +1651,10 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
 
     def test_update_ens_port_psec_supported(self):
         with self.subnet() as subnet,\
-            mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
-                       return_value='2.4.0'),\
             mock.patch("vmware_nsxlib.v3.core_resources.NsxLibTransportZone."
                        "get_host_switch_mode", return_value="ENS"),\
-            mock.patch(
-            "vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch.get",
-            return_value={'transport_zone_id': 'xxx'}):
+            mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalSwitch."
+                       "get", return_value={'transport_zone_id': 'xxx'}):
             args = {'port': {'network_id': subnet['subnet']['network_id'],
                              'tenant_id': subnet['subnet']['tenant_id'],
                              'fixed_ips': [{'subnet_id':
@@ -2596,8 +2590,8 @@ class TestL3NatTestCase(L3NatTest,
                           "add_gw_snat_rule")
 
     def _mock_add_remove_service_router(self):
-        return mock.patch("vmware_nsxlib.v3.router.RouterLib."
-                          "update_router_edge_cluster")
+        return mock.patch("vmware_nsxlib.v3.core_resources."
+                          "NsxLibLogicalRouter.update")
 
     def _mock_del_snat_rule(self):
         return mock.patch("vmware_nsxlib.v3.router.RouterLib."
@@ -2668,9 +2662,11 @@ class TestL3NatTestCase(L3NatTest,
                 router_id = r['router']['id']
                 self._add_external_gateway_to_router(
                     router_id, ext_subnet['network_id'])
-                # Checking that update_edge_cluster is being called with
+                # Checking that router update is being called with
                 # edge_cluster_uuid, for creating a service router
-                self.assertIsNotNone(change_sr.call_args_list[0][0][1])
+                change_sr.assert_called_once_with(
+                    mock.ANY, edge_cluster_id=NSX_EDGE_CLUSTER_UUID,
+                    enable_standby_relocation=True)
 
     def test_remove_service_router_disable_snat(self):
         with self.address_scope(name='as1') as addr_scope, \
@@ -2688,10 +2684,12 @@ class TestL3NatTestCase(L3NatTest,
                         r['router']['id'],
                         ext_subnet['network_id'],
                         False)
-                    # Checking that update_edge_cluster is being called
+                    # Checking that router update is being called
                     # and setting edge_cluster_uuid to None, for service
                     # router removal.
-                    self.assertIsNone(change_sr.call_args_list[0][0][1])
+                    change_sr.assert_called_once_with(
+                        mock.ANY, edge_cluster_id=None,
+                        enable_standby_relocation=False)
 
     def test_router_address_scope_snat_rules(self):
         """Test that if the router interface had the same address scope
@@ -3026,7 +3024,9 @@ class TestL3NatTestCase(L3NatTest,
                 router_id = r['router']['id']
                 self._add_external_gateway_to_router(
                     router_id, ext_subnet['network_id'])
-                change_sr.assert_called_once_with(mock.ANY, edge_cluster)
+                change_sr.assert_called_once_with(
+                    mock.ANY, edge_cluster_id=edge_cluster,
+                    enable_standby_relocation=True)
         self.mock_get_edge_cluster.start()
 
 
