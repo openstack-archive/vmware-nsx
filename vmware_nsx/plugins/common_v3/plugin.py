@@ -56,6 +56,7 @@ from neutron_lib.db import api as db_api
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
+from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import utils as plugin_utils
 from neutron_lib.services.qos import constants as qos_consts
@@ -2352,3 +2353,44 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             'os-neutron-net-id', network_id)
         if port_id:
             self.nsxlib.logical_port.delete(port_id)
+
+    def _support_vlan_router_interfaces(self):
+        """Should be implemented by each plugin"""
+        pass
+
+    def _validate_multiple_subnets_routers(self, context, router_id, net_id):
+        network = self.get_network(context, net_id)
+        net_type = network.get(pnet.NETWORK_TYPE)
+        if (net_type and
+            not self._support_vlan_router_interfaces() and
+            not self._is_overlay_network(context, net_id)):
+            err_msg = (_("Only overlay networks can be attached to a logical "
+                         "router. Network %(net_id)s is a %(net_type)s based "
+                         "network") % {'net_id': net_id, 'net_type': net_type})
+            LOG.error(err_msg)
+            raise n_exc.InvalidInput(error_message=err_msg)
+        # Unable to attach a trunked network to a router interface
+        if cfg.CONF.vlan_transparent:
+            if network.get('vlan_transparent') is True:
+                err_msg = (_("Transparent VLAN networks cannot be attached to "
+                             "a logical router."))
+                LOG.error(err_msg)
+                raise n_exc.InvalidInput(error_message=err_msg)
+        port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
+                        'network_id': [net_id]}
+        intf_ports = self.get_ports(context.elevated(), filters=port_filters)
+        router_ids = [port['device_id']
+                      for port in intf_ports if port['device_id']]
+        if len(router_ids) > 0:
+            err_msg = _("Only one subnet of network %(net_id)s can be "
+                        "attached to router, one subnet is already attached "
+                        "to router %(router_id)s") % {
+                'net_id': net_id,
+                'router_id': router_ids[0]}
+            LOG.error(err_msg)
+            if router_id in router_ids:
+                # attach to the same router again
+                raise n_exc.InvalidInput(error_message=err_msg)
+            else:
+                # attach to multiple routers
+                raise l3_exc.RouterInterfaceAttachmentConflict(reason=err_msg)

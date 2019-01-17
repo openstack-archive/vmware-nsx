@@ -44,7 +44,6 @@ from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
-from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
@@ -2637,44 +2636,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             address_groups.append(address_group)
         return (ports, address_groups)
 
-    def _validate_multiple_subnets_routers(self, context, router_id, net_id):
-        network = self.get_network(context, net_id)
-        net_type = network.get(pnet.NETWORK_TYPE)
-        if (net_type and
-            not self.nsxlib.feature_supported(
-                nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE) and
-            not self._is_overlay_network(context, net_id)):
-            err_msg = (_("Only overlay networks can be attached to a logical "
-                         "router. Network %(net_id)s is a %(net_type)s based "
-                         "network") % {'net_id': net_id, 'net_type': net_type})
-            LOG.error(err_msg)
-            raise n_exc.InvalidInput(error_message=err_msg)
-        # Unable to attach a trunked network to a router interface
-        if cfg.CONF.vlan_transparent:
-            if network.get('vlan_transparent') is True:
-                err_msg = (_("Transparent VLAN networks cannot be attached to "
-                             "a logical router."))
-                LOG.error(err_msg)
-                raise n_exc.InvalidInput(error_message=err_msg)
-        port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
-                        'network_id': [net_id]}
-        intf_ports = self.get_ports(context.elevated(), filters=port_filters)
-        router_ids = [port['device_id']
-                      for port in intf_ports if port['device_id']]
-        if len(router_ids) > 0:
-            err_msg = _("Only one subnet of network %(net_id)s can be "
-                        "attached to router, one subnet is already attached "
-                        "to router %(router_id)s") % {
-                'net_id': net_id,
-                'router_id': router_ids[0]}
-            LOG.error(err_msg)
-            if router_id in router_ids:
-                # attach to the same router again
-                raise n_exc.InvalidInput(error_message=err_msg)
-            else:
-                # attach to multiple routers
-                raise l3_exc.RouterInterfaceAttachmentConflict(reason=err_msg)
-
     def _add_router_interface_wrapper(self, context, router_id,
                                       interface_info):
         if cfg.CONF.api_replay_mode:
@@ -3418,3 +3379,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _get_net_dhcp_relay(self, context, net_id):
         return self.get_network_az_by_net_id(
             context, net_id).dhcp_relay_service
+
+    def _support_vlan_router_interfaces(self):
+        return self.nsxlib.feature_supported(
+            nsxlib_consts.FEATURE_VLAN_ROUTER_INTERFACE)

@@ -1350,23 +1350,39 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def add_router_interface(self, context, router_id, interface_info):
         network_id = self._get_interface_network(context, interface_info)
         extern_net = self._network_is_external(context, network_id)
+        overlay_net = self._is_overlay_network(context, network_id)
         router_db = self._get_router(context, router_id)
         gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
                          else None)
 
-        # A router interface cannot be an external network
-        if extern_net:
-            msg = _("An external network cannot be attached as "
-                    "an interface to a router")
-            raise n_exc.InvalidInput(error_message=msg)
+        with locking.LockManager.get_lock(str(network_id)):
+            # disallow more than one subnets belong to same network being
+            # attached to routers
+            self._validate_multiple_subnets_routers(
+                context, router_id, network_id)
 
-        # Update the interface of the neutron router
-        info = super(NsxPolicyPlugin, self).add_router_interface(
-             context, router_id, interface_info)
+            # A router interface cannot be an external network
+            if extern_net:
+                msg = _("An external network cannot be attached as "
+                        "an interface to a router")
+                raise n_exc.InvalidInput(error_message=msg)
 
-        self._validate_interface_address_scope(context, router_db, info)
+            # Non overlay networks should be configured with a centralized
+            # router, which is allowed only if GW network is attached
+            if not overlay_net and not gw_network_id:
+                msg = _("A router attached to a VLAN backed network "
+                        "must have an external network assigned")
+                raise n_exc.InvalidInput(error_message=msg)
+
+            # Update the interface of the neutron router
+            info = super(NsxPolicyPlugin, self).add_router_interface(
+                 context, router_id, interface_info)
 
         try:
+            # If it is a no-snat router, interface address scope must be the
+            # same as the gateways
+            self._validate_interface_address_scope(context, router_db, info)
+
             # Check GW & subnets TZ
             subnets = self._find_router_subnets(context.elevated(), router_id)
             tier0_uuid = self._get_tier0_uuid_by_router(
@@ -2091,3 +2107,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def _get_net_dhcp_relay(self, context, net_id):
         # No dhcp relay support yet
         return None
+
+    def _support_vlan_router_interfaces(self):
+        return True
