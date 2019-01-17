@@ -651,8 +651,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         return tags
 
-    def _create_port_on_backend(self, context, port_data, is_psec_on,
-                                qos_policy_id):
+    def _create_or_update_port_on_backend(self, context, port_data, is_psec_on,
+                                          qos_policy_id, original_port=None):
+        is_create = original_port is None
+        is_update = not is_create
+
         name = self._build_port_name(context, port_data)
         address_bindings = self._build_port_address_bindings(
             context, port_data)
@@ -715,10 +718,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 name, segment_id, port_data['id'],
                 qos_profile_id=qos_policy_id)
 
+        # Update port admin status using passthrough api, only if it changed
+        # or new port with disabled admin state
         if cfg.CONF.nsx_p.allow_passthrough and 'admin_state_up' in port_data:
-            # This api uses the passthrough api
-            self.nsxpolicy.segment_port.set_admin_state(
-                segment_id, port_data['id'], port_data['admin_state_up'])
+            new_state = port_data['admin_state_up']
+            if ((is_create and new_state is False) or
+                (is_update and
+                 original_port.get('admin_state_up') != new_state)):
+                # This api uses the passthrough api
+                self.nsxpolicy.segment_port.set_admin_state(
+                    segment_id, port_data['id'], new_state)
 
     def base_create_port(self, context, port):
         neutron_db = super(NsxPolicyPlugin, self).create_port(context, port)
@@ -781,8 +790,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         if not is_external_net:
             try:
-                self._create_port_on_backend(context, port_data, is_psec_on,
-                                             qos_policy_id)
+                self._create_or_update_port_on_backend(
+                    context, port_data, is_psec_on, qos_policy_id)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error('Failed to create port %(id)s on NSX '
@@ -867,8 +876,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                 is_psec_on, qos_policy_id):
         # For now port create and update are the same
         # Update might evolve with more features
-        return self._create_port_on_backend(context, updated_port, is_psec_on,
-                                            qos_policy_id)
+        return self._create_or_update_port_on_backend(
+            context, updated_port, is_psec_on,
+            qos_policy_id, original_port=original_port)
 
     def update_port(self, context, port_id, port):
         with db_api.CONTEXT_WRITER.using(context):
