@@ -707,7 +707,7 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                            'cidr': '172.20.1.0/24'}}
         ports = [{'subnets': [{'ip_addresses': [u'172.20.1.60'],
                                'prefix_length': 24}],
-                  'resource_type': 'LogicalRouterUpLinkPort'}]
+                  'resource_type': 'LogicalRouterUplinkPort'}]
         with mock.patch.object(self.plugin.nsxlib.logical_router_port,
                                'get_by_router_id',
                                return_value=ports):

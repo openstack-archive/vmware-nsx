@@ -1746,6 +1746,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Unable to delete DHCP server mapping for "
                           "network %s", network_id)
 
+    def _cidrsOverlap(self, cidr0, cidr1):
+        return cidr0.first <= cidr1.last and cidr1.first <= cidr0.last
+
     def _validate_address_space(self, context, subnet):
         cidr = subnet.get('cidr')
         if (not validators.is_attr_set(cidr) or
@@ -1763,28 +1766,26 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
 
-        # Ensure that the NSX uplink does not lie on the same subnet as
+        # Ensure that the NSX uplink cidr does not lie on the same subnet as
         # the external subnet
         filters = {'id': [subnet['network_id']],
                    'router:external': [True]}
-        nets = self.get_networks(context, filters=filters)
-        for net in nets:
-            tier0 = net.get(pnet.PHYSICAL_NETWORK)
-            if tier0:
-                ports = self.nsxlib.logical_router_port.get_by_router_id(tier0)
-                for port in ports:
-                    if (port.get('resource_type') ==
-                        'LogicalRouterUpLinkPort'):
-                        for subnet in port.get('subnets', []):
-                            for ip_address in subnet.get('ip_addresses'):
-                                if (netaddr.IPAddress(ip_address) in
-                                    netaddr.IPNetwork(cidr)):
-                                    msg = _("External subnet cannot "
-                                            "overlap with T0 router "
-                                            "address!")
-                                    LOG.error(msg)
-                                    raise n_exc.InvalidInput(
-                                            error_message=msg)
+        external_nets = self.get_networks(context, filters=filters)
+        tier0_routers = [ext_net[pnet.PHYSICAL_NETWORK]
+                         for ext_net in external_nets
+                         if ext_net.get(pnet.PHYSICAL_NETWORK)]
+
+        rtr_port_client = self.nsxlib.logical_router_port
+        for tier0_rtr in set(tier0_routers):
+            tier0_cidrs = rtr_port_client.get_tier0_uplink_cidrs(tier0_rtr)
+            for tier0_cidr in tier0_cidrs:
+                tier0_subnet = netaddr.IPNetwork(tier0_cidr).cidr
+                for subnet_network in subnet_networks:
+                    if self._cidrsOverlap(tier0_subnet, subnet_network):
+                        msg = _("External subnet cannot overlap with T0 "
+                                "router cidr %s") % tier0_cidr
+                        LOG.error(msg)
+                        raise n_exc.InvalidInput(error_message=msg)
 
     def _create_bulk_with_callback(self, resource, context, request_items,
                                    post_create_func=None, rollback_func=None):
