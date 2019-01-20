@@ -3407,8 +3407,10 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                         source_net=subnet['cidr'],
                         bypass_firewall=False)
 
-    def _get_tier0_uplink_ips(self, tier0_id):
-        return self.nsxlib.logical_router_port.get_tier0_uplink_ips(tier0_id)
+    def _get_tier0_uplink_cidrs(self, tier0_id):
+        # return a list of tier0 uplink ip/prefix addresses
+        return self.nsxlib.logical_router_port.get_tier0_uplink_cidrs(
+            tier0_id)
 
     def _get_neutron_net_ids_by_nsx_id(self, context, lswitch_id):
         return nsx_db.get_net_ids(context.session, lswitch_id)

@@ -715,7 +715,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """Should be implemented by each plugin"""
         pass
 
-    def _get_tier0_uplink_ips(self, tier0_id):
+    def _get_tier0_uplink_cidrs(self, tier0_id):
         """Should be implemented by each plugin"""
         pass
 
@@ -2248,6 +2248,9 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     return False
         return True if count == 1 else False
 
+    def _cidrs_overlap(self, cidr0, cidr1):
+        return cidr0.first <= cidr1.last and cidr1.first <= cidr0.last
+
     def _validate_address_space(self, context, subnet):
         # Only working for IPv4 at the moment
         if (subnet['ip_version'] != 4):
@@ -2277,7 +2280,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
 
-        # Ensure that the NSX uplink does not lie on the same subnet as
+        # Ensure that the NSX uplink cidr does not lie on the same subnet as
         # the external subnet
         filters = {'id': [subnet['network_id']],
                    'router:external': [True]}
@@ -2287,12 +2290,13 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                          if ext_net.get(pnet.PHYSICAL_NETWORK)]
 
         for tier0_rtr in set(tier0_routers):
-            tier0_ips = self._get_tier0_uplink_ips(tier0_rtr)
-            for ip_address in tier0_ips:
+            tier0_cidrs = self._get_tier0_uplink_cidrs(tier0_rtr)
+            for cidr in tier0_cidrs:
+                tier0_subnet = netaddr.IPNetwork(cidr).cidr
                 for subnet_network in subnet_networks:
-                    if (netaddr.IPAddress(ip_address) in subnet_network):
+                    if self._cidrs_overlap(tier0_subnet, subnet_network):
                         msg = _("External subnet cannot overlap with T0 "
-                                "router address %s") % ip_address
+                                "router cidr %s") % cidr
                         LOG.error(msg)
                         raise n_exc.InvalidInput(error_message=msg)
 

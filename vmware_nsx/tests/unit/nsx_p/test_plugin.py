@@ -1084,8 +1084,8 @@ class NsxPTestSubnets(test_db_base_plugin_v2.TestSubnetsV2,
                                'host_routes': None,
                                'ip_version': 4}}
             with mock.patch.object(self.plugin.nsxpolicy.tier0,
-                                   'get_uplink_ips',
-                                   return_value=['172.20.1.60']):
+                                   'get_uplink_cidrs',
+                                   return_value=['172.20.1.60/24']):
                 self.assertRaises(n_exc.InvalidInput,
                                   self.plugin.create_subnet,
                                   context.get_admin_context(), data)

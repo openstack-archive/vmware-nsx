@@ -2042,8 +2042,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def _has_native_dhcp_metadata(self):
         return True
 
-    def _get_tier0_uplink_ips(self, tier0_id):
-        return self.nsxpolicy.tier0.get_uplink_ips(tier0_id)
+    def _get_tier0_uplink_cidrs(self, tier0_id):
+        # return a list of tier0 uplink ip/prefix addresses
+        return self.nsxpolicy.tier0.get_uplink_cidrs(tier0_id)
 
     def _is_vlan_router_interface_supported(self):
         return True
