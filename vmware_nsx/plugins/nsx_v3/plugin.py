@@ -1771,6 +1771,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error("Unable to delete DHCP server mapping for "
                           "network %s", network_id)
 
+    def _cidrs_overlap(self, cidr0, cidr1):
+        return cidr0.first <= cidr1.last and cidr1.first <= cidr0.last
+
     def _validate_address_space(self, context, subnet):
         # Only working for IPv4 at the moment
         if (subnet['ip_version'] != 4):
@@ -1800,7 +1803,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     LOG.error(msg)
                     raise n_exc.InvalidInput(error_message=msg)
 
-        # Ensure that the NSX uplink does not lie on the same subnet as
+        # Ensure that the NSX uplink cidr does not lie on the same subnet as
         # the external subnet
         filters = {'id': [subnet['network_id']],
                    'router:external': [True]}
@@ -1808,14 +1811,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         tier0_routers = [ext_net[pnet.PHYSICAL_NETWORK]
                          for ext_net in external_nets
                          if ext_net.get(pnet.PHYSICAL_NETWORK)]
+
+        rtr_port_client = self.nsxlib.logical_router_port
         for tier0_rtr in set(tier0_routers):
-            tier0_ips = self.nsxlib.logical_router_port.get_tier0_uplink_ips(
-                tier0_rtr)
-            for ip_address in tier0_ips:
+            tier0_cidrs = rtr_port_client.get_tier0_uplink_cidrs(tier0_rtr)
+            for cidr in tier0_cidrs:
+                tier0_subnet = netaddr.IPNetwork(cidr).cidr
                 for subnet_network in subnet_networks:
-                    if (netaddr.IPAddress(ip_address) in subnet_network):
+                    if self._cidrs_overlap(tier0_subnet, subnet_network):
                         msg = _("External subnet cannot overlap with T0 "
-                                "router address %s!") % ip_address
+                                "router cidr %s") % cidr
                         LOG.error(msg)
                         raise n_exc.InvalidInput(error_message=msg)
 
