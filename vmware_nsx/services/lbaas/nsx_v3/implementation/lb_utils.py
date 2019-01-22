@@ -236,7 +236,7 @@ def update_router_lb_vip_advertisement(context, core_plugin, router,
             'display_name': ADV_RULE_NAME,
             'action': nsx_constants.FW_ACTION_ALLOW,
             'networks': external_cidrs,
-            'rule_filter': {'prefix_operator': 'EQ',
+            'rule_filter': {'prefix_operator': 'GE',
                             'match_route_types': ['T1_LB_VIP']}}
         core_plugin.nsxlib.logical_router.update_advertisement_rules(
             nsx_router_id, [adv_rule], name_prefix=ADV_RULE_NAME)

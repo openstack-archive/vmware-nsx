@@ -1011,7 +1011,7 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                 [{'networks': [ext_cidr],
                   'display_name': lb_utils.ADV_RULE_NAME,
                   'rule_filter': {'match_route_types': ['T1_LB_VIP'],
-                  'prefix_operator': 'EQ'},
+                  'prefix_operator': 'GE'},
                   'action': 'ALLOW'}],
                 name_prefix=lb_utils.ADV_RULE_NAME)
             mock_successful_completion = (
