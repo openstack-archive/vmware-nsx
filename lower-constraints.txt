@@ -6,7 +6,7 @@ asn1crypto==0.23.0
 Babel==2.3.4
 beautifulsoup4==4.6.0
 cachetools==2.0.0
-cffi==1.7.0
+cffi==1.8.2
 cliff==2.8.0
 cmd2==0.8.0
 contextlib2==0.4.0
