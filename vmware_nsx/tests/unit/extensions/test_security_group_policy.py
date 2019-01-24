@@ -18,6 +18,7 @@ import webob.exc
 
 from neutron.extensions import securitygroup as ext_sg
 from neutron.tests.unit.api import test_extensions
+from neutron.tests.unit.db import test_db_base_plugin_v2
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import constants
 from neutron_lib import context
@@ -44,7 +45,7 @@ class SecGroupPolicyExtensionTestCase(
                                return_value="6.2.3"):
             super(SecGroupPolicyExtensionTestCase, self).setUp(
                 plugin=plugin, ext_mgr=ext_mgr)
-            self._tenant_id = 'foobar'
+            self._tenant_id = test_db_base_plugin_v2.TEST_TENANT_ID
             # add policy & logging security group attribute
             ext_sg.Securitygroup().update_attributes_map(
                 ext_policy.RESOURCE_ATTRIBUTE_MAP)
@@ -59,8 +60,7 @@ class SecGroupPolicyExtensionTestCase(
              'policy': policy_id,
              'description': description if description else '',
              'logging': logging}}
-        security_group_req = self.new_create_request('security-groups', body)
-        return security_group_req.get_response(self.ext_api)
+        return self._create_security_group_response(self.fmt, body)
 
     def _get_secgroup_with_policy(self):
         policy_id = 'policy-5'

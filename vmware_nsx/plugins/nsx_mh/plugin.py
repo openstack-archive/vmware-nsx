@@ -2485,7 +2485,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             if not security_group:
                 raise ext_sg.SecurityGroupNotFound(id=security_group_id)
             # Check for duplicate rules
-            self._check_for_duplicate_rules(context, s)
+            self._check_for_duplicate_rules(context, security_group_id, s)
             # gather all the existing security group rules since we need all
             # of them to PUT to NSX.
             existing_rules = self.get_security_group_rules(
