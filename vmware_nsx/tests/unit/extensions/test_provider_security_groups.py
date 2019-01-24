@@ -18,6 +18,7 @@ import webob.exc
 from neutron.db import db_base_plugin_v2
 from neutron.db import securitygroups_db
 from neutron.extensions import securitygroup as ext_sg
+from neutron.tests.unit.db import test_db_base_plugin_v2
 from neutron.tests.unit.extensions import test_securitygroup
 from neutron_lib import context
 from neutron_lib.db import api as db_api
@@ -131,7 +132,7 @@ class ProviderSecurityGroupExtTestCase(
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None):
         super(ProviderSecurityGroupExtTestCase, self).setUp(
             plugin=plugin, ext_mgr=ext_mgr)
-        self._tenant_id = 'foobar'
+        self._tenant_id = test_db_base_plugin_v2.TEST_TENANT_ID
         # add provider group attributes
         ext_sg.Securitygroup().update_attributes_map(
             provider_sg.EXTENDED_ATTRIBUTES_2_0)
