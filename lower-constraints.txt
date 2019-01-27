@@ -145,6 +145,3 @@ waitress==1.1.0
 WebOb==1.7.1
 WebTest==2.0.27
 wrapt==1.7.0
-
-# Temporary fix until https://review.openstack.org/#/c/608357 is merged
-ryu==4.30
