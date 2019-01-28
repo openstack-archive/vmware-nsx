@@ -401,15 +401,19 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         # ATTR_NOT_SPECIFIED is for the case where a port is created on a
         # shared network that is not owned by the tenant.
         port_data = port['port']
-
+        network_type = self._dvs_get_network(context, port['port'][
+            'network_id'])['provider:network_type']
         with db_api.CONTEXT_WRITER.using(context):
             # First we allocate port in neutron database
             neutron_db = super(NsxDvsV2, self).create_port(context, port)
             self._extension_manager.process_create_port(
                 context, port_data, neutron_db)
-            port_security = self._get_network_security_binding(
-                context, neutron_db['network_id'])
-            port_data[psec.PORTSECURITY] = port_security
+            if network_type and network_type == 'vlan':
+                port_data[psec.PORTSECURITY] = False
+            else:
+                port_security = self._get_network_security_binding(
+                    context, neutron_db['network_id'])
+                port_data[psec.PORTSECURITY] = port_security
             self._process_port_port_security_create(
                 context, port_data, neutron_db)
             # Update fields obtained from neutron db (eg: MAC address)
@@ -417,12 +421,17 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             has_ip = self._ip_on_port(neutron_db)
 
             # security group extension checks
-            if has_ip:
-                self._ensure_default_security_group_on_port(context, port)
-            elif validators.is_attr_set(port_data.get(ext_sg.SECURITYGROUPS)):
-                raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
-            port_data[ext_sg.SECURITYGROUPS] = (
-                self._get_security_groups_on_port(context, port))
+            if network_type and network_type != 'vlan':
+                if has_ip:
+                    self._ensure_default_security_group_on_port(context, port)
+                elif validators.is_attr_set(port_data.get(
+                        ext_sg.SECURITYGROUPS)):
+                    raise psec_exc.PortSecurityAndIPRequiredForSecurityGroups()
+            if network_type and network_type == 'vlan':
+                port_data[ext_sg.SECURITYGROUPS] = []
+            else:
+                port_data[ext_sg.SECURITYGROUPS] = (
+                    self._get_security_groups_on_port(context, port))
             self._process_port_create_security_group(
                 context, port_data, port_data[ext_sg.SECURITYGROUPS])
             self._process_portbindings_create_and_update(context,
@@ -466,7 +475,6 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         delete_addr_pairs = self._check_update_deletes_allowed_address_pairs(
             port)
         has_addr_pairs = self._check_update_has_allowed_address_pairs(port)
-
         with db_api.CONTEXT_WRITER.using(context):
             ret_port = super(NsxDvsV2, self).update_port(
                 context, id, port)
@@ -477,8 +485,12 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
             port['port'].pop('fixed_ips', None)
             ret_port.update(port['port'])
 
-            # populate port_security setting
-            if psec.PORTSECURITY not in port['port']:
+            # populate port_security setting, ignoring vlan network ports.
+            network_type = self._dvs_get_network(context,
+                                                 ret_port['network_id'])[
+                'provider:network_type']
+            if (psec.PORTSECURITY not in port['port'] and network_type !=
+                    'vlan'):
                 ret_port[psec.PORTSECURITY] = self._get_port_security_binding(
                     context, id)
             # validate port security and allowed address pairs
@@ -500,8 +512,11 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                     context, ret_port, ret_port[addr_apidef.ADDRESS_PAIRS])
 
             if psec.PORTSECURITY in port['port']:
-                self._process_port_port_security_update(
-                    context, port['port'], ret_port)
+                if network_type != 'vlan':
+                    self._process_port_port_security_update(
+                        context, port['port'], ret_port)
+                else:
+                    ret_port[psec.PORTSECURITY] = False
             self._process_vnic_type(context, port['port'], id)
             LOG.debug("Updating port: %s", port)
             self._extension_manager.process_update_port(

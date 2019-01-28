@@ -255,6 +255,50 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
                 port_status = port['port']['status']
                 self.assertEqual(port_status, 'ACTIVE')
 
+    def test_create_dvs_port_vlan_no_port_security(self):
+        params = {'provider:network_type': 'vlan',
+                  'provider:physical_network': 'dvs',
+                  'provider:segmentation_id': 7}
+        params['arg_list'] = tuple(params.keys())
+        with mock.patch.object(self._plugin._dvs, 'add_port_group'),\
+                mock.patch.object(self._plugin._dvs, 'delete_port_group'),\
+                mock.patch.object(dvs.DvsManager, 'get_dvs_moref_by_name'),\
+                mock.patch.object(dvs.DvsManager, 'add_port_group'),\
+                mock.patch.object(dvs.DvsManager, 'delete_port_group'):
+            with self.network(**params) as network,\
+                    self.subnet(network) as subnet,\
+                    self.port(subnet) as port:
+                self.assertEqual('dvs',
+                                 port['port'][portbindings.VIF_TYPE])
+                port_security = port['port']['port_security_enabled']
+                security_groups = port['port']['security_groups']
+                self.assertEqual(port_security, False)
+                self.assertEqual(security_groups, [])
+
+    def test_update_dvs_port_vlan_no_port_security(self):
+        params = {'provider:network_type': 'vlan',
+                  'provider:physical_network': 'dvs',
+                  'provider:segmentation_id': 7}
+        params['arg_list'] = tuple(params.keys())
+        with mock.patch.object(self._plugin._dvs, 'add_port_group'),\
+                mock.patch.object(self._plugin._dvs, 'delete_port_group'),\
+                mock.patch.object(dvs.DvsManager, 'get_dvs_moref_by_name'),\
+                mock.patch.object(dvs.DvsManager, 'add_port_group'),\
+                mock.patch.object(dvs.DvsManager, 'delete_port_group'):
+            with self.network(**params) as network,\
+                    self.subnet(network) as subnet,\
+                    self.port(subnet) as port:
+                self.assertEqual('dvs',
+                                 port['port'][portbindings.VIF_TYPE])
+                data = {'port': {'port_security_enabled': True}}
+                req = self.new_update_request('ports',
+                                              data, port['port']['id'])
+                res = self.deserialize('json', req.get_response(self.api))
+                port_security = res['port']['port_security_enabled']
+                security_groups = res['port']['security_groups']
+                self.assertEqual(port_security, False)
+                self.assertEqual(security_groups, [])
+
     def test_create_router_only_dvs_backend(self):
         data = {'router': {'tenant_id': 'whatever'}}
         data['router']['name'] = 'router1'
