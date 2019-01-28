@@ -306,6 +306,10 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         # Register NSXv3 trunk driver to support trunk extensions
         self.trunk_driver = trunk_driver.NsxV3TrunkDriver.create(self)
 
+        registry.subscribe(self.spawn_complete,
+                           resources.PROCESS,
+                           events.AFTER_SPAWN)
+
         # subscribe the init complete method last, so it will be called only
         # if init was successful
         registry.subscribe(self.init_complete,
@@ -442,6 +446,14 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def is_tvd_plugin():
         return False
 
+    def spawn_complete(self, resource, event, trigger, payload=None):
+        # This method should run only once, but after init_complete
+        if not self.init_is_complete:
+            self.init_complete(None, None, None)
+
+        # Init the FWaaS support
+        self._init_fwaas()
+
     def init_complete(self, resource, event, trigger, payload=None):
         with locking.LockManager.get_lock('plugin-init-complete'):
             if self.init_is_complete:
@@ -452,9 +464,6 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # each process has its own keepalive loops + state
             self.nsxlib.reinitialize_cluster(resource, event, trigger,
                                              payload=payload)
-
-            # Init the FWaaS support
-            self._init_fwaas()
 
             self.init_is_complete = True
 
