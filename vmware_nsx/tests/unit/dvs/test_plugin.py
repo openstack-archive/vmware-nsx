@@ -381,3 +381,25 @@ class NeutronSimpleDvsTest(NeutronSimpleDvsTestCase):
                             'admin_state_up': True}}
         self.assertRaises(exp.BadRequest, self._plugin.create_network,
                           context.get_admin_context(), data)
+
+    def test_create_vlan_network_fail_duplicate_dvs(self):
+        params = {'provider:network_type': 'vlan',
+                  'admin_state_up': True,
+                  'name': 'test_net',
+                  'tenant_id': 'fake_tenant',
+                  'shared': False,
+                  'provider:physical_network': 'fake-moid',
+                  'provider:segmentation_id': 7,
+                  'port_security_enabled': False}
+
+        with mock.patch.object(self._plugin._dvs,
+              'add_port_group'),\
+              mock.patch.object(dvs.DvsManager,
+              'add_port_group'),\
+              mock.patch.object(dvs.DvsManager,
+              'get_dvs_moref_by_name',
+               return_value=mock.MagicMock()):
+            ctx = context.get_admin_context()
+            self._plugin.create_network(ctx, {'network': params})
+            self.assertRaises(exp.InvalidInput, self._plugin.create_network,
+                              ctx, {'network': params})

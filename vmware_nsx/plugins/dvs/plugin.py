@@ -272,6 +272,14 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
         network_type_set = validators.is_attr_set(network_type)
         segmentation_id = net_data.get(pnet.SEGMENTATION_ID)
         segmentation_id_set = validators.is_attr_set(segmentation_id)
+        physical_network = net_data.get(pnet.PHYSICAL_NETWORK)
+        if network_type == 'vlan':
+            bindings = nsx_db.get_network_bindings_by_vlanid_and_physical_net(
+                context.session, segmentation_id, physical_network)
+            if bindings:
+                err_msg = _("Network with that dvs-id and vlan tag already "
+                            "exists")
+                raise n_exc.InvalidInput(error_message=err_msg)
         if not context.is_admin:
             err_msg = _("Only an admin can create a DVS provider "
                         "network")
