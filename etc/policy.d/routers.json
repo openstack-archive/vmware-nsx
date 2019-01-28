@@ -3,15 +3,6 @@
     "get_router:distributed": "rule:admin_or_owner",
     "update_router:distributed": "rule:admin_or_owner",
 
-    "get_router:ha": "rule:admin_only",
-    "create_router": "rule:regular_user",
     "create_router:external_gateway_info:enable_snat": "rule:admin_or_owner",
-    "create_router:ha": "rule:admin_only",
-    "get_router": "rule:admin_or_owner",
-    "update_router:external_gateway_info:enable_snat": "rule:admin_or_owner",
-    "update_router:ha": "rule:admin_only",
-    "delete_router": "rule:admin_or_owner",
-
-    "add_router_interface": "rule:admin_or_owner",
-    "remove_router_interface": "rule:admin_or_owner",
+    "update_router:external_gateway_info:enable_snat": "rule:admin_or_owner"
 }
