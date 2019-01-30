@@ -402,6 +402,9 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                     self,
                     self._get_octavia_stats_getter()))
 
+        # Init the FWaaS support
+        self._init_fwaas()
+
     def init_complete(self, resource, event, trigger, payload=None):
         with locking.LockManager.get_lock('plugin-init-complete'):
             if self.init_is_complete:
@@ -412,9 +415,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             # each process has its own keepalive loops + state
             self.nsxlib.reinitialize_cluster(resource, event, trigger,
                                              payload=payload)
-
-            # Init the FWaaS support
-            self._init_fwaas()
 
             # Init the house keeper
             self.housekeeper = housekeeper.NsxHousekeeper(
