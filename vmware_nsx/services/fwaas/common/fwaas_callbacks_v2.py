@@ -246,3 +246,35 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
             len(fwg.get('ports', [])) <= 1):
             self.fwplugin_rpc.set_firewall_group_status(
                 context, fwg['id'], nl_constants.INACTIVE)
+
+
+class NsxCommonv3FwaasCallbacksV2(NsxFwaasCallbacksV2):
+    """NSX-V3+Policy RPC callbacks for Firewall As A Service - V2."""
+
+    def should_apply_firewall_to_router(self, context, router_id):
+        """Return True if the FWaaS rules should be added to this router."""
+        if not super(NsxCommonv3FwaasCallbacksV2,
+                     self).should_apply_firewall_to_router(context,
+                                                           router_id):
+            return False
+
+        # get all the relevant router info
+        ctx_elevated = context.elevated()
+        router_data = self.core_plugin.get_router(ctx_elevated, router_id)
+        if not router_data:
+            LOG.error("Couldn't read router %s data", router_id)
+            return False
+
+        # Check if the FWaaS driver supports this router
+        if not self.internal_driver.should_apply_firewall_to_router(
+            router_data):
+            return False
+
+        return True
+
+    def router_with_fwg(self, context, router_interfaces):
+        for port in router_interfaces:
+            fwg = self.get_port_fwg(context, port['id'])
+            if fwg and fwg.get('status') == nl_constants.ACTIVE:
+                return True
+        return False

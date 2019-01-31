@@ -13,74 +13,55 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
-
-from neutron_lib.api.definitions import constants as fwaas_consts
-from neutron_lib.callbacks import events
-from neutron_lib.callbacks import registry
-from neutron_lib.callbacks import resources
-from neutron_lib.plugins import directory
+from neutron_lib import context as n_context
+from neutron_lib.exceptions import firewall_v2 as exceptions
 from oslo_log import log as logging
 
-from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.fwaas.common import fwaas_driver_base
-from vmware_nsxlib.v3 import nsx_constants as consts
 
 LOG = logging.getLogger(__name__)
-RULE_NAME_PREFIX = 'Fwaas-'
-DEFAULT_RULE_NAME = 'Default LR Layer3 Rule'
 
 
-#TODO(asarfaty): this base class now serves only 1 driver and can be merged
-# with it
 class CommonEdgeFwaasV3Driver(fwaas_driver_base.EdgeFwaasDriverBaseV2):
-    """Base class for NSX-V3 driver for Firewall As A Service - V1 & V2."""
+    """Base class for NSX-V3/Policy driver for Firewall As A Service  V2."""
 
-    def __init__(self, driver_exception, driver_name):
+    def __init__(self, driver_name):
         super(CommonEdgeFwaasV3Driver, self).__init__(driver_name)
         self.backend_support = True
-        self.driver_exception = driver_exception
-        registry.subscribe(
-            self.check_backend_version,
-            resources.PROCESS, events.BEFORE_SPAWN)
+        self.driver_exception = exceptions.FirewallInternalDriverError
         self._core_plugin = None
 
     @property
     def core_plugin(self):
-        """Get the NSX-V3 core plugin"""
-        if not self._core_plugin:
-            self._core_plugin = directory.get_plugin()
-            if self._core_plugin.is_tvd_plugin():
-                self._core_plugin = self._core_plugin.get_plugin_by_type(
-                    projectpluginmap.NsxPlugins.NSX_T)
-                if not self._core_plugin:
-                    # The nsx-t plugin was not initialized
-                    return
-            # make sure plugin init was completed
-            if not self._core_plugin.init_is_complete:
-                self._core_plugin.init_complete(None, None, {})
-        return self._core_plugin
+        """Get the core plugin - should be implemented by each driver"""
+        pass
 
-    @property
-    def nsxlib(self):
-        return self.core_plugin.nsxlib
+    def validate_backend_version(self):
+        """Validate NSX backend supports FWaaS
+        Can be implemented by each driver
+        """
+        pass
 
-    @property
-    def nsx_firewall(self):
-        return self.nsxlib.firewall_section
+    def _update_backend_routers(self, apply_list, fwg_id):
+        """Update all the affected router on the backend"""
+        self.validate_backend_version()
+        LOG.info("Updating routers firewall for firewall group %s", fwg_id)
+        context = n_context.get_admin_context()
+        routers = set()
+        # the apply_list is a list of tuples: routerInfo, port-id
+        for router_info, port_id in apply_list:
+            # Skip dummy entries that were added only to avoid errors
+            if isinstance(router_info, str):
+                continue
+            # Skip unsupported routers
+            if not self.should_apply_firewall_to_router(router_info.router):
+                continue
+            routers.add(router_info.router_id)
 
-    @property
-    def nsx_router(self):
-        return self.nsxlib.logical_router
-
-    def check_backend_version(self, resource, event, trigger, payload=None):
-        if (self.core_plugin and
-            not self.nsxlib.feature_supported(consts.FEATURE_ROUTER_FIREWALL)):
-            # router firewall is not supported
-            LOG.warning("FWaaS is not supported by the NSX backend (version "
-                        "%s): Router firewall is not supported",
-                        self.nsxlib.get_version())
-            self.backend_support = False
+        # update each router once
+        for router_id in routers:
+            self.core_plugin.update_router_firewall(context, router_id,
+                                                    from_fw=True)
 
     def should_apply_firewall_to_router(self, router_data):
         """Return True if the firewall rules should be added the router"""
@@ -88,168 +69,4 @@ class CommonEdgeFwaasV3Driver(fwaas_driver_base.EdgeFwaasDriverBaseV2):
             LOG.info("Cannot apply firewall to router %s with no gateway",
                      router_data['id'])
             return False
-
         return True
-
-    def _translate_action(self, fwaas_action, fwaas_rule_id):
-        """Translate FWaaS action to NSX action"""
-        if fwaas_action == fwaas_consts.FWAAS_ALLOW:
-            return consts.FW_ACTION_ALLOW
-        if fwaas_action == fwaas_consts.FWAAS_DENY:
-            return consts.FW_ACTION_DROP
-        if fwaas_action == fwaas_consts.FWAAS_REJECT:
-            # reject is not supported by the nsx router firewall
-            LOG.warning("Reject action is not supported by the NSX backend "
-                        "for router firewall. Using %(action)s instead for "
-                        "rule %(id)s",
-                  {'action': consts.FW_ACTION_DROP,
-                   'id': fwaas_rule_id})
-            return consts.FW_ACTION_DROP
-        # Unexpected action
-        LOG.error("Unsupported FWAAS action %(action)s for rule %(id)s", {
-            'action': fwaas_action, 'id': fwaas_rule_id})
-        raise self.driver_exception(driver=self.driver_name)
-
-    def _translate_cidr(self, cidr, fwaas_rule_id):
-        # Validate that this is a legal & supported ipv4 / ipv6 cidr
-        error_msg = (_("Unsupported FWAAS cidr %(cidr)s for rule %(id)s") % {
-                     'cidr': cidr, 'id': fwaas_rule_id})
-        net = netaddr.IPNetwork(cidr)
-        if net.version == 4:
-            if cidr.startswith('0.0.0.0/'):
-                # Treat as ANY and just log warning
-                LOG.warning(error_msg)
-                return
-            if net.prefixlen == 0:
-                LOG.error(error_msg)
-                raise self.driver_exception(driver=self.driver_name)
-        elif net.version == 6:
-            if str(net.ip) == "::" or net.prefixlen == 0:
-                LOG.error(error_msg)
-                raise self.driver_exception(driver=self.driver_name)
-        else:
-            LOG.error(error_msg)
-            raise self.driver_exception(driver=self.driver_name)
-
-        return self.nsx_firewall.get_ip_cidr_reference(
-            cidr,
-            consts.IPV6 if net.version == 6 else consts.IPV4)
-
-    def translate_addresses_to_target(self, cidrs, plugin_type,
-                                      fwaas_rule_id=None):
-        translated_cidrs = []
-        for ip in cidrs:
-            res = self._translate_cidr(ip, fwaas_rule_id)
-            if res:
-                translated_cidrs.append(res)
-        return translated_cidrs
-
-    @staticmethod
-    def _translate_protocol(fwaas_protocol):
-        """Translate FWaaS L4 protocol to NSX protocol"""
-        if fwaas_protocol.lower() == 'tcp':
-            return consts.TCP
-        if fwaas_protocol.lower() == 'udp':
-            return consts.UDP
-        if fwaas_protocol.lower() == 'icmp':
-            # This will cover icmpv6 too, when adding  the rule.
-            return consts.ICMPV4
-
-    @staticmethod
-    def _translate_ports(ports):
-        return [ports.replace(':', '-')]
-
-    def _translate_services(self, fwaas_rule):
-        l4_protocol = self._translate_protocol(fwaas_rule['protocol'])
-        if l4_protocol in [consts.TCP, consts.UDP]:
-            source_ports = []
-            destination_ports = []
-            if fwaas_rule.get('source_port'):
-                source_ports = self._translate_ports(
-                    fwaas_rule['source_port'])
-            if fwaas_rule.get('destination_port'):
-                destination_ports = self._translate_ports(
-                    fwaas_rule['destination_port'])
-
-            return [self.nsx_firewall.get_nsservice(
-                consts.L4_PORT_SET_NSSERVICE,
-                l4_protocol=l4_protocol,
-                source_ports=source_ports,
-                destination_ports=destination_ports)]
-        elif l4_protocol == consts.ICMPV4:
-            # Add both icmp v4 & v6 services
-            return [
-                self.nsx_firewall.get_nsservice(
-                    consts.ICMP_TYPE_NSSERVICE,
-                    protocol=consts.ICMPV4),
-                self.nsx_firewall.get_nsservice(
-                    consts.ICMP_TYPE_NSSERVICE,
-                    protocol=consts.ICMPV6),
-            ]
-
-    def _translate_rules(self, fwaas_rules, replace_src=None,
-                         replace_dest=None, logged=False):
-        translated_rules = []
-        for rule in fwaas_rules:
-            nsx_rule = {}
-            if not rule['enabled']:
-                # skip disabled rules
-                continue
-            # Make sure the rule has a name, and it starts with the prefix
-            # (backend max name length is 255)
-            if rule.get('name'):
-                name = RULE_NAME_PREFIX + rule['name']
-            else:
-                name = RULE_NAME_PREFIX + rule['id']
-            nsx_rule['display_name'] = name[:255]
-            if rule.get('description'):
-                nsx_rule['notes'] = rule['description']
-            nsx_rule['action'] = self._translate_action(
-                rule['action'], rule['id'])
-            if (rule.get('destination_ip_address') and
-                not rule['destination_ip_address'].startswith('0.0.0.0/')):
-                nsx_rule['destinations'] = self.translate_addresses_to_target(
-                    [rule['destination_ip_address']], rule['id'])
-            elif replace_dest:
-                # set this value as the destination logical switch
-                # (only if no dest IP)
-                nsx_rule['destinations'] = [{'target_type': 'LogicalSwitch',
-                                             'target_id': replace_dest}]
-            if (rule.get('source_ip_address') and
-                not rule['source_ip_address'].startswith('0.0.0.0/')):
-                nsx_rule['sources'] = self.translate_addresses_to_target(
-                    [rule['source_ip_address']], rule['id'])
-            elif replace_src:
-                # set this value as the source logical switch,
-                # (only if no source IP)
-                nsx_rule['sources'] = [{'target_type': 'LogicalSwitch',
-                                        'target_id': replace_src}]
-            if rule.get('protocol'):
-                nsx_rule['services'] = self._translate_services(rule)
-            if logged:
-                nsx_rule['logged'] = logged
-            # Set rule direction
-            if replace_src:
-                nsx_rule['direction'] = 'OUT'
-            elif replace_dest:
-                nsx_rule['direction'] = 'IN'
-            translated_rules.append(nsx_rule)
-
-        return translated_rules
-
-    def validate_backend_version(self):
-        # prevent firewall actions if the backend does not support it
-        if not self.backend_support:
-            LOG.error("The NSX backend does not support router firewall")
-            raise self.driver_exception(driver=self.driver_name)
-
-    def get_default_backend_rule(self, section_id, allow_all=True):
-        # Add default allow all rule
-        old_default_rule = self.nsx_firewall.get_default_rule(
-            section_id)
-        return {
-            'display_name': DEFAULT_RULE_NAME,
-            'action': (consts.FW_ACTION_ALLOW if allow_all
-                       else consts.FW_ACTION_DROP),
-            'is_default': True,
-            'id': old_default_rule['id'] if old_default_rule else 0}

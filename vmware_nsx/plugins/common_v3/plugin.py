@@ -25,6 +25,7 @@ import webob.exc
 from six import moves
 from six import string_types
 
+from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
 from neutron.db.availability_zone import router as router_az_db
@@ -42,6 +43,7 @@ from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
 from neutron.extensions import securitygroup as ext_sg
+from neutron_lib.agent import topics
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import external_net as extnet_apidef
@@ -60,6 +62,7 @@ from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.exceptions import port_security as psec_exc
 from neutron_lib.plugins import utils as plugin_utils
+from neutron_lib import rpc as n_rpc
 from neutron_lib.services.qos import constants as qos_consts
 from neutron_lib.utils import helpers
 from neutron_lib.utils import net as nl_net_utils
@@ -122,6 +125,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._network_vlans = plugin_utils.parse_network_vlan_ranges(
             self._get_conf_attr('network_vlan_ranges'))
         self._native_dhcp_enabled = False
+        self.start_rpc_listeners_called = False
 
     def _init_native_dhcp(self):
         if not self.nsxlib:
@@ -173,6 +177,26 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _get_conf_attr(self, attr):
         plugin_cfg = getattr(cfg.CONF, self.cfg_group)
         return getattr(plugin_cfg, attr)
+
+    def _setup_rpc(self):
+        """Should be implemented by each plugin"""
+        pass
+
+    def start_rpc_listeners(self):
+        if self.start_rpc_listeners_called:
+            # If called more than once - we should not create it again
+            return self.conn.consume_in_threads()
+
+        self._setup_rpc()
+        self.topic = topics.PLUGIN
+        self.conn = n_rpc.Connection()
+        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
+        self.conn.create_consumer(topics.REPORTS,
+                                  [agents_db.AgentExtRpcCallback()],
+                                  fanout=False)
+        self.start_rpc_listeners_called = True
+
+        return self.conn.consume_in_threads()
 
     def _get_interface_network(self, context, interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)
@@ -2422,3 +2446,12 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             else:
                 # attach to multiple routers
                 raise l3_exc.RouterInterfaceAttachmentConflict(reason=err_msg)
+
+    def _router_has_edge_fw_rules(self, context, router):
+        if not router.gw_port_id:
+            # No GW -> No rule on the edge firewall
+            return False
+
+        if self.fwaas_callbacks and self.fwaas_callbacks.fwaas_enabled:
+            ports = self._get_router_interfaces(context, router.id)
+            return self.fwaas_callbacks.router_with_fwg(context, ports)
