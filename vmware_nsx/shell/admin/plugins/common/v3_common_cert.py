@@ -13,6 +13,7 @@
 #    under the License.
 
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from neutron_lib import context
@@ -67,12 +68,21 @@ def get_certificate_manager(plugin_conf, **kwargs):
 
 
 def verify_client_cert_on(plugin_conf):
-    if plugin_conf.nsx_use_client_auth:
-        return True
-
-    LOG.info("Operation not applicable since client authentication "
+    if not plugin_conf.nsx_use_client_auth:
+        LOG.info("Operation not applicable since client authentication "
              "is disabled")
-    return False
+        return False
+
+    try:
+        if not plugin_conf.allow_passthrough:
+            LOG.info("Operation not applicable since passthrough API is "
+                     "disabled")
+            return False
+    except cfg.NoSuchOptError:
+        # No such option exists - passthrough check is irrelevant
+        pass
+
+    return True
 
 
 def generate_cert(plugin_conf, **kwargs):
