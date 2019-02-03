@@ -297,15 +297,16 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                            resources.PORT, events.BEFORE_DELETE)
 
     @staticmethod
-    def _prevent_l3_port_delete_callback(resource, event, trigger, **kwargs):
+    def _prevent_l3_port_delete_callback(resource, event,
+                                         trigger, payload=None):
         """Register a callback to replace the default one
 
         This callback will prevent port deleting only if the port plugin
         is not NSX-T (in NSX-T plugin it was already handled)
         """
-        context = kwargs['context']
-        port_id = kwargs['port_id']
-        port_check = kwargs['port_check']
+        context = payload.context
+        port_id = payload.resource_id
+        port_check = payload.metadata['port_check']
         l3plugin = directory.get_plugin(plugin_constants.L3)
         if l3plugin and port_check:
             # if not nsx-t - call super code
