@@ -720,6 +720,8 @@ class Vcns(object):
             h, c = self.do_request(HTTP_GET, section_uri, format='xml',
                                    decode=False)
         etag = h['etag']
+        # remove extra "" from the etag
+        etag = etag.replace('"', '')
         headers = {'If-Match': etag}
         return headers
 
