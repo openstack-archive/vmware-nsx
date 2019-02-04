@@ -1124,6 +1124,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 LOG.warning("Failed to disable standby relocation for router "
                             "%s: %s", router_id, ex)
 
+        # remove the edge firewall
+        self.nsxpolicy.tier1.update(router_id, disable_firewall=True)
+
         # remove the edge cluster from the tier1 router
         self.nsxpolicy.tier1.remove_edge_cluster(router_id)
 
