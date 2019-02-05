@@ -27,18 +27,9 @@ from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.plugins.nsx_v3 import plugin
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
-from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v1
 from vmware_nsx.services.fwaas.nsx_v3 import fwaas_callbacks_v2
 from vmware_nsx.shell.admin.plugins.common import utils as admin_utils
 from vmware_nsxlib.v3 import nsx_constants
-
-try:
-    from neutron_fwaas.services.firewall import fwaas_plugin as fwaas_plugin_v1
-except ImportError:
-    # FWaaS project no found
-    from vmware_nsx.services.fwaas.common import fwaas_mocks \
-        as fwaas_plugin_v1
-
 
 _NSXLIB = None
 
@@ -162,12 +153,6 @@ class NsxV3PluginWrapper(plugin.NsxV3Plugin):
                         'firewall_v2',
                         fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2,
                         None)
-                else:
-                    # FWaaS V1
-                    self._init_fwaas_plugin(
-                        'firewall',
-                        fwaas_callbacks_v1.Nsxv3FwaasCallbacksV1,
-                        fwaas_plugin_v1.FirewallCallbacks)
                 return
 
     def _init_dhcp_metadata(self):
