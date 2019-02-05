@@ -110,12 +110,16 @@ elif [[ $Q_PLUGIN == 'vmware_dvs' ]]; then
     source $dir/lib/vmware_dvs
 fi
 
-if [[ "$1" == "stack" && "$2" == "post-config" ]]; then
+if [[ "$1" == "stack" && ("$2" == "install" || "$2" == "post-config") ]]; then
     if is_service_enabled q-fwaas-v2; then
         # make sure ml2 config exists for FWaaS-v2
         if [ ! -f "/etc/neutron/plugins/ml2/ml2_conf.ini" ]; then
-            mkdir /etc/neutron/plugins/ml2
-            cp $DEST/neutron/etc/neutron/plugins/ml2/ml2_conf.ini.sample /etc/neutron/plugins/ml2/ml2_conf.ini
+            if [[ ! -f "/etc/neutron" ]]; then
+                # Create /etc/neutron with the right ownership
+                sudo install -d -o $STACK_USER $NEUTRON_CONF_DIR
+            fi
+            mkdir -p /etc/neutron/plugins/ml2
+            touch /etc/neutron/plugins/ml2/ml2_conf.ini
         fi
     fi
 fi
