@@ -49,10 +49,15 @@ class PolicyQosNotificationsHandler(object):
     def _nsxpolicy(self):
         return self.core_plugin.nsxpolicy
 
+    def _get_tags(self, context, policy):
+        policy_dict = {'id': policy.id, 'tenant_id': policy.tenant_id}
+        return self._nsxpolicy.build_v3_tags_payload(
+            policy_dict, resource_type='os-neutron-qos-id',
+            project_name=context.tenant_name)
+
     def create_or_update_policy(self, context, policy):
         policy_id = policy.id
-        tags = self._nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name, project_id=policy.tenant_id)
+        tags = self._get_tags(context, policy)
         pol_name = utils.get_name_and_uuid(policy.name or 'policy',
                                            policy.id)
 

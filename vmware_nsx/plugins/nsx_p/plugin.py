@@ -326,8 +326,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # update the network name to indicate the neutron id too.
         net_name = utils.get_name_and_uuid(net_data['name'] or 'network',
                                            net_data['id'])
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name)
+        tags = self.nsxpolicy.build_v3_tags_payload(
+            net_data, resource_type='os-neutron-net-id',
+            project_name=context.tenant_name)
 
         admin_state = net_data.get('admin_state_up', True)
         LOG.debug('create_network: %(net_name)s, %(physical_net)s, '
@@ -666,8 +667,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             attachment_type = policy_constants.ATTACHMENT_INDEPENDENT
 
         tags = self._build_port_tags(port_data)
-        tags.extend(self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name, project_id=port_data.get('tenant_id')))
+        if device_owner == const.DEVICE_OWNER_DHCP:
+            tag_resource_type = 'os-neutron-dport-id'
+        elif device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
+            tag_resource_type = 'os-neutron-rport-id'
+        else:
+            tag_resource_type = 'os-neutron-port-id'
+        tags.extend(self.nsxpolicy.build_v3_tags_payload(
+            port_data, resource_type=tag_resource_type,
+            project_name=context.tenant_name))
 
         if self._is_excluded_port(device_owner, is_psec_on):
             tags.append({'scope': security.PORT_SG_SCOPE,
@@ -1225,8 +1233,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         router_name = utils.get_name_and_uuid(router['name'] or 'router',
                                               router['id'])
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name, project_id=r.get('tenant_id'))
+        tags = self.nsxpolicy.build_v3_tags_payload(
+            r, resource_type='os-neutron-router-id',
+            project_name=context.tenant_name)
         try:
             self.nsxpolicy.tier1.create_or_overwrite(
                 router_name, router['id'],
@@ -1650,8 +1659,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         Both will have the security group id as their NSX id.
         """
         sg_id = secgroup['id']
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name, project_id=secgroup.get('tenant_id'))
+        tags = self.nsxpolicy.build_v3_tags_payload(
+            secgroup, resource_type='os-neutron-secg-id',
+            project_name=secgroup.get('tenant_id'))
         nsx_name = utils.get_name_and_uuid(secgroup['name'] or 'securitygroup',
                                            sg_id)
         # Create the groups membership criteria for ports by scope & tag
@@ -1686,13 +1696,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self.nsxpolicy.group.delete(domain_id, sg_id)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-    def _get_rule_service_id(self, context, sg_rule):
+    def _get_rule_service_id(self, context, sg_rule, tags):
         """Return the NSX Policy service id matching the SG rule"""
         srv_id = None
         l4_protocol = nsxlib_utils.get_l4_protocol_name(sg_rule['protocol'])
         srv_name = 'Service for OS rule %s' % sg_rule['id']
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name, project_id=sg_rule.get('tenant_id'))
 
         if l4_protocol in [nsxlib_consts.TCP, nsxlib_consts.UDP]:
             # If port_range_min is not specified then we assume all ports are
@@ -1753,8 +1761,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._fix_sg_rule_dict_ips(sg_rule)
         source = None
         destination = this_group_id
-        tags = self.nsxpolicy.build_v3_api_version_project_tag(
-            context.tenant_name, project_id=sg_rule.get('tenant_id'))
+
+        tags = self.nsxpolicy.build_v3_tags_payload(
+            sg_rule, resource_type='os-neutron-secgr-id',
+            project_name=sg_rule.get('tenant_id'))
+
         if sg_rule.get('remote_group_id'):
             # This is the ID of a security group that already exists,
             # so it should be known to the policy manager
@@ -1786,7 +1797,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # Swap source and destination
             source, destination = destination, source
 
-        service = self._get_rule_service_id(context, sg_rule)
+        service = self._get_rule_service_id(context, sg_rule, tags)
         logging = (cfg.CONF.nsx_p.log_security_groups_allowed_traffic or
                    secgroup_logging)
         self.nsxpolicy.comm_map.create_entry(

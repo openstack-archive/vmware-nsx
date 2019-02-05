@@ -93,6 +93,12 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
 
         self.nsxlib = v3_utils.get_nsxlib_wrapper()
 
+    def _get_expected_tags(self):
+        policy_dict = {'id': self.policy.id, 'tenant_id': self.project_id}
+        return self.nsxlib.build_v3_tags_payload(
+            policy_dict, resource_type='os-neutron-qos-id',
+            project_name=self.ctxt.tenant_name)
+
     @mock.patch.object(QoSPolicy, 'create_rbac_policy')
     def test_policy_create_profile(self, *mocks):
         # test the profile creation when a QoS policy is created
@@ -103,9 +109,6 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                               return_value=self.policy),\
             mock.patch.object(QoSPolicy, 'create'):
             self.qos_plugin.create_policy(self.ctxt, self.policy_data)
-            expected_tags = self.nsxlib.build_v3_api_version_project_tag(
-                project_name=self.ctxt.tenant_name,
-                project_id=self.project_id)
             exp_name = utils.get_name_and_uuid(self.policy.name,
                                                self.policy.id)
 
@@ -115,7 +118,7 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                 description=self.policy_data["policy"]["description"],
                 dscp=None,
                 shaper_configurations=[],
-                tags=expected_tags)
+                tags=self._get_expected_tags())
 
     @mock.patch.object(QoSPolicy, '_reload_rules')
     def test_bw_rule_create_profile(self, *mocks):
@@ -139,9 +142,6 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                 rule_dict['max_kbps']) / 1024))
             expected_burst = rule_dict['max_burst_kbps'] * 128
             expected_peak = int(expected_bw * self.peak_bw_multiplier)
-            expected_tags = self.nsxlib.build_v3_api_version_project_tag(
-                project_name=self.ctxt.tenant_name,
-                project_id=self.project_id)
             exp_name = utils.get_name_and_uuid(self.policy.name,
                                                self.policy.id)
             # egress neutron rule -> ingress nsx args
@@ -158,7 +158,7 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                 description=self.policy_data["policy"]["description"],
                 dscp=None,
                 shaper_configurations=[mock.ANY],
-                tags=expected_tags)
+                tags=self._get_expected_tags())
             # Compare the shaper
             actual_shaper = create_profile.call_args[1][
                 'shaper_configurations'][0]
@@ -190,9 +190,6 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
             expected_peak = int(expected_bw * self.peak_bw_multiplier)
             exp_name = utils.get_name_and_uuid(self.policy.name,
                                                self.policy.id)
-            expected_tags = self.nsxlib.build_v3_api_version_project_tag(
-                project_name=self.ctxt.tenant_name,
-                project_id=self.project_id)
             # ingress neutron rule -> egress nsx args
             shaper_type = policy_defs.QoSRateLimiter.EGRESS_RATE_LIMITER_TYPE
             expected_shaper = policy_defs.QoSRateLimiter(
@@ -207,7 +204,7 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                 description=self.policy_data["policy"]["description"],
                 dscp=None,
                 shaper_configurations=[mock.ANY],
-                tags=expected_tags)
+                tags=self._get_expected_tags())
             # Compare the shaper
             actual_shaper = create_profile.call_args[1][
                 'shaper_configurations'][0]
@@ -287,9 +284,6 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
 
             exp_name = utils.get_name_and_uuid(self.policy.name,
                                                self.policy.id)
-            expected_tags = self.nsxlib.build_v3_api_version_project_tag(
-                project_name=self.ctxt.tenant_name,
-                project_id=self.project_id)
             expected_dscp = policy_defs.QoSDscp(
                 mode=policy_defs.QoSDscp.QOS_DSCP_UNTRUSTED,
                 priority=dscp_mark)
@@ -299,7 +293,7 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                 description=self.policy_data["policy"]["description"],
                 dscp=mock.ANY,
                 shaper_configurations=[],
-                tags=expected_tags)
+                tags=self._get_expected_tags())
             # Compare the dscp obj
             actual_dscp = create_profile.call_args[1]['dscp']
             self.assertEqual(expected_dscp.get_obj_dict(),
@@ -342,9 +336,6 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
             self.qos_plugin.delete_policy_bandwidth_limit_rule(
                 self.ctxt, self.rule.id, self.policy.id)
             # validate the data on the profile
-            expected_tags = self.nsxlib.build_v3_api_version_project_tag(
-                project_name=self.ctxt.tenant_name,
-                project_id=self.project_id)
             exp_name = utils.get_name_and_uuid(self.policy.name,
                                                self.policy.id)
 
@@ -354,7 +345,7 @@ class TestQosNsxPNotification(base.BaseQosTestCase,
                 description=self.policy_data["policy"]["description"],
                 dscp=None,
                 shaper_configurations=[],
-                tags=expected_tags)
+                tags=self._get_expected_tags())
 
     @mock.patch('neutron.objects.db.api.get_object', return_value=None)
     def test_policy_delete_profile(self, *mocks):
