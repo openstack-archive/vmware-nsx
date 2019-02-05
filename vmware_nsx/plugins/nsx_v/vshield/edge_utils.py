@@ -1590,8 +1590,11 @@ class EdgeManager(object):
         raise nsx_exc.NsxPluginException(err_msg=error)
 
     def get_plr_by_tlr_id(self, context, router_id):
-        lswitch_id = nsxv_db.get_nsxv_router_binding(
-            context.session, router_id).lswitch_id
+        lswitch_id = None
+        binding = nsxv_db.get_nsxv_router_binding(
+            context.session, router_id)
+        if binding:
+            lswitch_id = binding.lswitch_id
         if lswitch_id:
             edge_vnic_bindings = nsxv_db.get_edge_vnic_bindings_by_int_lswitch(
                 context.session, lswitch_id)
