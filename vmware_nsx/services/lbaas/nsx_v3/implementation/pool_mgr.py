@@ -52,9 +52,13 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
     def _build_persistence_profile_tags(self, pool_tags, listener):
         tags = pool_tags[:]
-        tags.append({
-            'scope': 'os-lbaas-lb-name',
-            'tag': listener['loadbalancer']['name'][:utils.MAX_TAG_LEN]})
+        # With octavia loadbalancer name might not be among data passed
+        # down to the driver
+        lb_data = listener.get('loadbalancer')
+        if lb_data:
+            tags.append({
+                'scope': 'os-lbaas-lb-name',
+                'tag': lb_data['name'][:utils.MAX_TAG_LEN]})
         tags.append({
             'scope': 'os-lbaas-lb-id',
             'tag': listener['loadbalancer_id']})
