@@ -263,6 +263,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self.nsxpolicy.mac_discovery_profile.create_or_overwrite(
                 MAC_DISCOVERY_PROFILE_UUID,
                 profile_id=MAC_DISCOVERY_PROFILE_UUID,
+                mac_change_enabled=True,
                 mac_learning_enabled=True,
                 tags=self.nsxpolicy.build_v3_api_version_tag())
 
