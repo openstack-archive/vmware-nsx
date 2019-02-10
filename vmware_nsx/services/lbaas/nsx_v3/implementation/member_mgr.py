@@ -173,17 +173,18 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                     lb_service = self._create_lb_service(
                         context, service_client, member['tenant_id'],
                         router_id, nsx_router_id, loadbalancer['id'], lb_size)
-                if lb_service:
-                    lb_service_id = lb_service['id']
-                    self._add_loadbalancer_binding(
-                        context, loadbalancer['id'], lb_service_id,
-                        nsx_router_id, loadbalancer['vip_address'])
-                else:
-                    completor(success=False)
-                    msg = (_('Failed to get lb service to attach virtual '
-                             'server %(vs)s for member %(member)s') %
-                           {'vs': vs_id, 'member': member['id']})
-                    raise nsx_exc.NsxPluginException(err_msg=msg)
+                    if not lb_service:
+                        completor(success=False)
+                        msg = (_('Failed to create lb service to attach '
+                                 'virtual server %(vs)s for member '
+                                 '%(member)s') %
+                               {'vs': vs_id, 'member': member['id']})
+                        raise nsx_exc.NsxPluginException(err_msg=msg)
+
+                lb_service_id = lb_service['id']
+                self._add_loadbalancer_binding(
+                    context, loadbalancer['id'], lb_service_id,
+                    nsx_router_id, loadbalancer['vip_address'])
 
             with locking.LockManager.get_lock('pool-member-%s' % lb_pool_id):
                 lb_pool = pool_client.get(lb_pool_id)

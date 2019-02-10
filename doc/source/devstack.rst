@@ -115,6 +115,7 @@ Add octavia repo as an external repository and configure following flags in ``lo
     [[local|localrc]]
     OCTAVIA_NODE=api
     DISABLE_AMP_IMAGE_BUILD=True
+    LIBS_FROM_GIT=python-openstackclient,python-octaviaclient
     enable_plugin octavia https://git.openstack.org/openstack/octavia.git
     enable_plugin octavia-dashboard https://git.openstack.org/openstack/octavia-dashboard
     enable_service octavia
@@ -237,6 +238,7 @@ Add octavia repo as an external repository and configure following flags in ``lo
     [[local|localrc]]
     OCTAVIA_NODE=api
     DISABLE_AMP_IMAGE_BUILD=True
+    LIBS_FROM_GIT=python-openstackclient,python-octaviaclient
     enable_plugin octavia https://git.openstack.org/openstack/octavia.git
     enable_plugin octavia-dashboard https://git.openstack.org/openstack/octavia-dashboard
     enable_service octavia
