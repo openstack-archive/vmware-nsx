@@ -145,19 +145,27 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             try:
                 pool_client.remove_monitor_from_pool(lb_pool_id,
                                                      lb_monitor_id)
+            except nsxlib_exc.ResourceNotFound:
+                pass
             except nsxlib_exc.ManagerError as exc:
-                LOG.error('Failed to remove monitor %(monitor)s from pool '
-                          '%(pool)s with exception from nsx %(exc)s)',
-                          {'monitor': lb_monitor_id,
-                           'pool': lb_pool_id,
-                           'exc': exc})
+                completor(success=False)
+                msg = _('Failed to remove monitor %(monitor)s from pool '
+                        '%(pool)s with exception from nsx %(exc)s)') % {
+                    'monitor': lb_monitor_id,
+                    'pool': lb_pool_id,
+                    'exc': exc}
+                raise n_exc.BadRequest(resource='lbaas-hm', msg=msg)
             try:
                 monitor_client.delete(lb_monitor_id)
+            except nsxlib_exc.ResourceNotFound:
+                pass
             except nsxlib_exc.ManagerError as exc:
-                LOG.error('Failed to delete monitor %(monitor)s from '
-                          'backend with exception %(exc)s',
-                          {'monitor': lb_monitor_id,
-                           'exc': exc})
+                completor(success=False)
+                msg = _('Failed to delete monitor %(monitor)s from '
+                        'backend with exception %(exc)s') % {
+                          'monitor': lb_monitor_id,
+                          'exc': exc}
+                raise n_exc.BadRequest(resource='lbaas-hm', msg=msg)
 
             nsx_db.delete_nsx_lbaas_monitor_binding(context.session, lb_id,
                                                     pool_id, hm['id'])
