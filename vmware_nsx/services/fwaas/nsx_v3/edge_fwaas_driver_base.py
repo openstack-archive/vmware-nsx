@@ -204,28 +204,33 @@ class CommonEdgeFwaasV3Driver(fwaas_driver_base.EdgeFwaasDriverBaseV2):
                 nsx_rule['notes'] = rule['description']
             nsx_rule['action'] = self._translate_action(
                 rule['action'], rule['id'])
-            if replace_dest:
-                # set this value as the destination logical switch,
-                # and set the rule to ingress
-                nsx_rule['destinations'] = [{'target_type': 'LogicalSwitch',
-                                             'target_id': replace_dest}]
-                nsx_rule['direction'] = 'IN'
-            elif rule.get('destination_ip_address'):
+            if (rule.get('destination_ip_address') and
+                not rule['destination_ip_address'].startswith('0.0.0.0/')):
                 nsx_rule['destinations'] = self.translate_addresses_to_target(
                     [rule['destination_ip_address']], rule['id'])
-            if replace_src:
-                # set this value as the source logical switch,
-                # and set the rule to egress
-                nsx_rule['sources'] = [{'target_type': 'LogicalSwitch',
-                                        'target_id': replace_src}]
-                nsx_rule['direction'] = 'OUT'
-            elif rule.get('source_ip_address'):
+            elif replace_dest:
+                # set this value as the destination logical switch
+                # (only if no dest IP)
+                nsx_rule['destinations'] = [{'target_type': 'LogicalSwitch',
+                                             'target_id': replace_dest}]
+            if (rule.get('source_ip_address') and
+                not rule['source_ip_address'].startswith('0.0.0.0/')):
                 nsx_rule['sources'] = self.translate_addresses_to_target(
                     [rule['source_ip_address']], rule['id'])
+            elif replace_src:
+                # set this value as the source logical switch,
+                # (only if no source IP)
+                nsx_rule['sources'] = [{'target_type': 'LogicalSwitch',
+                                        'target_id': replace_src}]
             if rule.get('protocol'):
                 nsx_rule['services'] = self._translate_services(rule)
             if logged:
                 nsx_rule['logged'] = logged
+            # Set rule direction
+            if replace_src:
+                nsx_rule['direction'] = 'OUT'
+            elif replace_dest:
+                nsx_rule['direction'] = 'IN'
             translated_rules.append(nsx_rule)
 
         return translated_rules

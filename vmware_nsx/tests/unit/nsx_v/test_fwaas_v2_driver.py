@@ -17,7 +17,6 @@ import copy
 
 import mock
 
-from neutron_lib.exceptions import firewall_v2 as exceptions
 from neutron_lib.plugins import directory
 
 from vmware_nsx.db import nsxv_models
@@ -69,7 +68,8 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
         mock.patch.object(self.plugin, '_get_nosnat_subnets_fw_rules',
                           return_value=[]).start()
 
-    def _fake_rules_v4(self, is_ingress=True, cidr='10.24.4.0/24'):
+    def _fake_rules_v4(self, is_ingress=True, is_conflict=False,
+                       cidr='10.24.4.0/24'):
         rule1 = {'enabled': True,
                  'action': 'allow',
                  'ip_version': 4,
@@ -98,11 +98,15 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                  'id': 'fake-fw-rule4',
                  'position': '3'}
         if is_ingress:
-            # source ips are allowed
-            rule1['source_ip_address'] = cidr
+            if not is_conflict:
+                rule1['source_ip_address'] = cidr
+            else:
+                rule1['destination_ip_address'] = cidr
         else:
-            # dest ips are allowed for egress rules
-            rule1['destination_ip_address'] = cidr
+            if not is_conflict:
+                rule1['destination_ip_address'] = cidr
+            else:
+                rule1['source_ip_address'] = cidr
 
         return [rule1, rule2, rule3, rule4]
 
@@ -115,9 +119,11 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
             if logged:
                 rule['logged'] = True
             if is_ingress:
-                rule['destination_vnic_groups'] = ['vnic-index-1']
+                if not rule.get('destination_ip_address'):
+                    rule['destination_vnic_groups'] = ['vnic-index-1']
             else:
-                rule['source_vnic_groups'] = ['vnic-index-1']
+                if not rule.get('source_ip_address'):
+                    rule['source_vnic_groups'] = ['vnic-index-1']
             if rule.get('destination_ip_address'):
                 rule['destination_ip_address'] = [
                     rule['destination_ip_address']]
@@ -203,9 +209,11 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
                 self.plugin.nsx_v, mock.ANY, FAKE_ROUTER_ID,
                 {'firewall_rule_list': expected_rules})
 
-    def _setup_firewall_with_rules(self, func, is_ingress=True):
+    def _setup_firewall_with_rules(self, func, is_ingress=True,
+                                   is_conflict=False):
         apply_list = self._fake_apply_list()
-        rule_list = self._fake_rules_v4(is_ingress=is_ingress)
+        rule_list = self._fake_rules_v4(is_ingress=is_ingress,
+                                        is_conflict=is_conflict)
         firewall = self._fake_firewall_group(rule_list, is_ingress=is_ingress)
         with mock.patch.object(self.plugin.fwaas_callbacks, 'get_port_fwg',
                               return_value=firewall),\
@@ -251,14 +259,13 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
         self._setup_firewall_with_rules(self.firewall.update_firewall_group,
                                         is_ingress=False)
 
-    def test_create_firewall_with_illegal_rules(self):
-        """Use ingress rules as the egress list and verify failure"""
-        apply_list = self._fake_apply_list()
-        rule_list = self._fake_rules_v4(is_ingress=True)
-        firewall = self._fake_firewall_group(rule_list, is_ingress=False)
-        self.assertRaises(exceptions.FirewallInternalDriverError,
-                          self.firewall.create_firewall_group, 'nsx',
-                          apply_list, firewall)
+    def test_update_firewall_with_egress_conflicting_rules(self):
+        self._setup_firewall_with_rules(self.firewall.update_firewall_group,
+                                        is_ingress=False, is_conflict=True)
+
+    def test_update_firewall_with_ingress_conflicting_rules(self):
+        self._setup_firewall_with_rules(self.firewall.update_firewall_group,
+                                        is_ingress=True, is_conflict=True)
 
     def test_delete_firewall(self):
         apply_list = self._fake_apply_list()
