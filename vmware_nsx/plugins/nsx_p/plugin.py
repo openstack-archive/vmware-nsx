@@ -34,6 +34,7 @@ from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
 from neutron_lib.api.definitions import l3 as l3_apidef
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
+from neutron_lib.api import extensions
 from neutron_lib.api import validators
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -128,7 +129,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                    "security-group-logging",
                                    "provider-security-group",
                                    "port-security-groups-filtering",
-                                   "vlan-transparent",
                                    'mac-learning']
 
     @resource_registry.tracked_resources(
@@ -169,6 +169,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
+
+        # Support transparent VLANS only if the global configuration flag
+        # vlan_transparent is True
+        if cfg.CONF.vlan_transparent:
+            self.supported_extension_aliases.append("vlan-transparent")
 
         nsxlib_utils.set_inject_headers_callback(v3_utils.inject_headers)
         self._validate_nsx_policy_version()
@@ -361,7 +366,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 net_data['id'], admin_state)
 
     def _tier0_validator(self, tier0_uuid):
-        # Fail of the tier0 uuid was not found on the BSX
+        # Fail if the tier0 uuid was not found on the NSX
         self.nsxpolicy.tier0.get(tier0_uuid)
 
     def _get_nsx_net_tz_id(self, nsx_net):
@@ -402,7 +407,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         az = self._validate_obj_az_on_creation(context, net_data, 'network')
 
         self._ensure_default_security_group(context, tenant_id)
-        vlt = vlan_apidef.get_vlan_transparent(net_data)
+
+        vlt = False
+        if extensions.is_extension_supported(self, 'vlan-transparent'):
+            vlt = vlan_apidef.get_vlan_transparent(net_data)
 
         self._validate_create_network(context, net_data)
         self._assert_on_resource_admin_state_down(net_data)
@@ -425,6 +433,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 self.nsxpolicy.transport_zone,
                 self.nsxpolicy.segment,
                 transparent_vlan=vlt)
+
+            # Vlan range is only supported with vlan transport zone
+            if (vlt and
+                provider_data['net_type'] != utils.NsxV3NetworkTypes.VLAN and
+                provider_data['net_type'] != utils.NsxV3NetworkTypes.FLAT):
+                err_msg = (_('vlan_transparent network can be configured only '
+                             'with network-type:vlan or flat'))
+                raise n_exc.InvalidInput(error_message=err_msg)
+
             if (provider_data['is_provider_net'] and
                 provider_data['net_type'] ==
                 utils.NsxV3NetworkTypes.NSX_NETWORK):
@@ -438,9 +455,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             created_net = super(NsxPolicyPlugin, self).create_network(
                 context, network)
             net_id = created_net['id']
-            super(NsxPolicyPlugin, self).update_network(
-                context, net_id,
-                {'network': {'vlan_transparent': vlt}})
+            if extensions.is_extension_supported(self, 'vlan-transparent'):
+                super(NsxPolicyPlugin, self).update_network(
+                    context, net_id,
+                    {'network': {'vlan_transparent': vlt}})
             self._extension_manager.process_create_network(
                 context, net_data, created_net)
             if psec.PORTSECURITY not in net_data:

@@ -227,6 +227,8 @@ class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None):
+        # add vlan transparent to the configuration
+        cfg.CONF.set_override('vlan_transparent', True)
         super(NsxPTestNetworks, self).setUp(plugin=plugin,
                                             ext_mgr=ext_mgr)
 
@@ -403,31 +405,50 @@ class NsxPTestNetworks(test_db_base_plugin_v2.TestNetworksV2,
             # should fail
             self.assertEqual('InvalidInput', data['NeutronError']['type'])
 
-    def test_create_transparent_vlan_network(self):
-        providernet_args = {vlan_apidef.VLANTRANSPARENT: True}
-        with mock.patch('vmware_nsxlib.v3.policy.core_resources.'
-                        'NsxPolicyTransportZoneApi.get_transport_type',
-                        return_value=nsx_constants.TRANSPORT_TYPE_OVERLAY), \
-            self.network(name='vt_net',
-                         providernet_args=providernet_args,
-                         arg_list=(vlan_apidef.VLANTRANSPARENT, )) as net:
-            self.assertTrue(net['network'].get(vlan_apidef.VLANTRANSPARENT))
-
-    def test_create_provider_vlan_network_with_transparent(self):
-        providernet_args = {pnet.NETWORK_TYPE: 'vlan',
+    def _test_transparent_vlan_net(self, net_type, tz_type, should_succeed):
+        providernet_args = {pnet.NETWORK_TYPE: net_type,
                             vlan_apidef.VLANTRANSPARENT: True}
         with mock.patch('vmware_nsxlib.v3.policy.core_resources.'
                         'NsxPolicyTransportZoneApi.get_transport_type',
-                        return_value=nsx_constants.TRANSPORT_TYPE_VLAN):
-            result = self._create_network(fmt='json', name='badvlan_net',
+                        return_value=tz_type):
+            result = self._create_network(fmt='json', name='vlan_net',
                                           admin_state_up=True,
                                           providernet_args=providernet_args,
                                           arg_list=(
                                               pnet.NETWORK_TYPE,
-                                              pnet.SEGMENTATION_ID,
                                               vlan_apidef.VLANTRANSPARENT))
             data = self.deserialize('json', result)
-            self.assertEqual('vlan', data['network'].get(pnet.NETWORK_TYPE))
+            if should_succeed:
+                self.assertEqual(net_type,
+                                 data['network'].get(pnet.NETWORK_TYPE))
+                self.assertTrue(
+                    data['network'].get(vlan_apidef.VLANTRANSPARENT))
+            else:
+                self.assertEqual('InvalidInput', data['NeutronError']['type'])
+
+    def test_create_non_provider_network_with_transparent(self):
+        self._test_transparent_vlan_net(
+            net_type="",
+            tz_type=nsx_constants.TRANSPORT_TYPE_OVERLAY,
+            should_succeed=False)
+
+    def test_create_provider_overlay_network_with_transparent(self):
+        self._test_transparent_vlan_net(
+            net_type=utils.NsxV3NetworkTypes.GENEVE,
+            tz_type=nsx_constants.TRANSPORT_TYPE_OVERLAY,
+            should_succeed=False)
+
+    def test_create_provider_flat_network_with_transparent(self):
+        self._test_transparent_vlan_net(
+            net_type=utils.NsxV3NetworkTypes.FLAT,
+            tz_type=nsx_constants.TRANSPORT_TYPE_VLAN,
+            should_succeed=True)
+
+    def test_create_provider_vlan_network_with_transparent(self):
+        self._test_transparent_vlan_net(
+            net_type=utils.NsxV3NetworkTypes.VLAN,
+            tz_type=nsx_constants.TRANSPORT_TYPE_VLAN,
+            should_succeed=True)
 
     def test_network_update_external_failure(self):
         data = {'network': {'name': 'net1',
