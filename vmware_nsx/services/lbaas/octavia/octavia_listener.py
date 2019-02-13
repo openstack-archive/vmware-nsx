@@ -166,165 +166,242 @@ class NSXOctaviaListenerEndpoint(object):
     @log_helpers.log_method_call
     def loadbalancer_create(self, ctxt, loadbalancer):
         ctx = neutron_context.Context(None, loadbalancer['project_id'])
-        self.loadbalancer.create(
-            ctx, loadbalancer,
-            self.get_completor_func(constants.LOADBALANCERS,
-                                    loadbalancer))
+        completor = self.get_completor_func(constants.LOADBALANCERS,
+                                            loadbalancer)
+        try:
+            self.loadbalancer.create(ctx, loadbalancer, completor)
+        except Exception as e:
+            LOG.error('NSX driver loadbalancer_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def loadbalancer_delete(self, ctxt, loadbalancer, cascade=False):
         ctx = neutron_context.Context(None, loadbalancer['project_id'])
+        completor = self.get_completor_func(constants.LOADBALANCERS,
+                                            loadbalancer, delete=True)
         # TODO(asarfaty): No support for cascade. It is blocked by the driver
-        self.loadbalancer.delete(
-            ctx, loadbalancer,
-            self.get_completor_func(constants.LOADBALANCERS,
-                                    loadbalancer,
-                                    delete=True))
+        try:
+            self.loadbalancer.delete(ctx, loadbalancer, completor)
+        except Exception as e:
+            LOG.error('NSX driver loadbalancer_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def loadbalancer_update(self, ctxt, old_loadbalancer, new_loadbalancer):
         ctx = neutron_context.Context(None, old_loadbalancer['project_id'])
-        self.loadbalancer.update(
-            ctx, old_loadbalancer, new_loadbalancer,
-            self.get_completor_func(constants.LOADBALANCERS,
-                                    new_loadbalancer))
+        completor = self.get_completor_func(constants.LOADBALANCERS,
+                                            new_loadbalancer)
+        try:
+            self.loadbalancer.update(ctx, old_loadbalancer, new_loadbalancer,
+                                     completor)
+        except Exception as e:
+            LOG.error('NSX driver loadbalancer_update failed %s', e)
+            completor(success=False)
 
     # Listener
     @log_helpers.log_method_call
     def listener_create(self, ctxt, listener, cert):
         ctx = neutron_context.Context(None, listener['project_id'])
-        self.listener.create(ctx, listener,
-                             self.get_completor_func(constants.LISTENERS,
-                                                     listener),
-                             certificate=cert)
+        completor = self.get_completor_func(constants.LISTENERS,
+                                            listener)
+        try:
+            self.listener.create(ctx, listener, completor,
+                                 certificate=cert)
+        except Exception as e:
+            LOG.error('NSX driver listener_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def listener_delete(self, ctxt, listener):
         ctx = neutron_context.Context(None, listener['project_id'])
-        self.listener.delete(ctx, listener,
-                             self.get_completor_func(constants.LISTENERS,
-                                                     listener,
-                                                     delete=True))
+        completor = self.get_completor_func(constants.LISTENERS,
+                                            listener, delete=True)
+        try:
+            self.listener.delete(ctx, listener, completor)
+        except Exception as e:
+            LOG.error('NSX driver listener_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def listener_update(self, ctxt, old_listener, new_listener, cert):
         ctx = neutron_context.Context(None, old_listener['project_id'])
-        self.listener.update(ctx, old_listener, new_listener,
-                             self.get_completor_func(constants.LISTENERS,
-                                                     new_listener),
-                             certificate=cert)
+        completor = self.get_completor_func(constants.LISTENERS,
+                                            new_listener)
+        try:
+            self.listener.update(ctx, old_listener, new_listener,
+                                 completor, certificate=cert)
+        except Exception as e:
+            LOG.error('NSX driver listener_update failed %s', e)
+            completor(success=False)
 
     # Pool
     @log_helpers.log_method_call
     def pool_create(self, ctxt, pool):
         ctx = neutron_context.Context(None, pool['project_id'])
-        self.pool.create(ctx, pool, self.get_completor_func(constants.POOLS,
-                                                            pool))
+        completor = self.get_completor_func(constants.POOLS,
+                                            pool)
+        try:
+            self.pool.create(ctx, pool, completor)
+        except Exception as e:
+            LOG.error('NSX driver pool_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def pool_delete(self, ctxt, pool):
         ctx = neutron_context.Context(None, pool['project_id'])
-        self.pool.delete(ctx, pool, self.get_completor_func(constants.POOLS,
-                                                            pool,
-                                                            delete=True))
+        completor = self.get_completor_func(constants.POOLS,
+                                            pool, delete=True)
+        try:
+            self.pool.delete(ctx, pool, completor)
+        except Exception as e:
+            LOG.error('NSX driver pool_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def pool_update(self, ctxt, old_pool, new_pool):
         ctx = neutron_context.Context(None, old_pool['project_id'])
-        self.pool.update(ctx, old_pool, new_pool,
-                         self.get_completor_func(constants.POOLS, new_pool))
+        completor = self.get_completor_func(constants.POOLS,
+                                            new_pool)
+        try:
+            self.pool.update(ctx, old_pool, new_pool, completor)
+        except Exception as e:
+            LOG.error('NSX driver pool_update failed %s', e)
+            completor(success=False)
 
     # Member
     @log_helpers.log_method_call
     def member_create(self, ctxt, member):
         ctx = neutron_context.Context(None, member['project_id'])
-        self.member.create(ctx, member,
-                           self.get_completor_func(constants.MEMBERS,
-                                                   member))
+        completor = self.get_completor_func(constants.MEMBERS,
+                                            member)
+        try:
+            self.member.create(ctx, member, completor)
+        except Exception as e:
+            LOG.error('NSX driver member_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def member_delete(self, ctxt, member):
         ctx = neutron_context.Context(None, member['project_id'])
-        self.member.delete(ctx, member,
-                           self.get_completor_func(constants.MEMBERS,
-                                                   member,
-                                                   delete=True))
+        completor = self.get_completor_func(constants.MEMBERS,
+                                            member, delete=True)
+        try:
+            self.member.delete(ctx, member, completor)
+        except Exception as e:
+            LOG.error('NSX driver member_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def member_update(self, ctxt, old_member, new_member):
         ctx = neutron_context.Context(None, old_member['project_id'])
-        self.member.update(ctx, old_member, new_member,
-                           self.get_completor_func(constants.MEMBERS,
-                                                   new_member))
+        completor = self.get_completor_func(constants.MEMBERS,
+                                            new_member)
+        try:
+            self.member.update(ctx, old_member, new_member, completor)
+        except Exception as e:
+            LOG.error('NSX driver member_update failed %s', e)
+            completor(success=False)
 
     # Health Monitor
     @log_helpers.log_method_call
     def healthmonitor_create(self, ctxt, healthmonitor):
         ctx = neutron_context.Context(None, healthmonitor['project_id'])
-        self.healthmonitor.create(ctx, healthmonitor,
-                                  self.get_completor_func(
-                                      constants.HEALTHMONITORS, healthmonitor))
+        completor = self.get_completor_func(constants.HEALTHMONITORS,
+                                            healthmonitor)
+        try:
+            self.healthmonitor.create(ctx, healthmonitor, completor)
+        except Exception as e:
+            LOG.error('NSX driver healthmonitor_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def healthmonitor_delete(self, ctxt, healthmonitor):
         ctx = neutron_context.Context(None, healthmonitor['project_id'])
-        self.healthmonitor.delete(ctx, healthmonitor,
-                                  self.get_completor_func(
-                                      constants.HEALTHMONITORS, healthmonitor,
-                                      delete=True))
+        completor = self.get_completor_func(constants.HEALTHMONITORS,
+                                            healthmonitor, delete=True)
+        try:
+            self.healthmonitor.delete(ctx, healthmonitor, completor)
+        except Exception as e:
+            LOG.error('NSX driver healthmonitor_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def healthmonitor_update(self, ctxt, old_healthmonitor, new_healthmonitor):
         ctx = neutron_context.Context(None, old_healthmonitor['project_id'])
-        self.healthmonitor.update(ctx, old_healthmonitor, new_healthmonitor,
-                                  self.get_completor_func(
-                                      constants.HEALTHMONITORS,
-                                      new_healthmonitor))
+        completor = self.get_completor_func(constants.HEALTHMONITORS,
+                                            new_healthmonitor)
+        try:
+            self.healthmonitor.update(ctx, old_healthmonitor,
+                                      new_healthmonitor, completor)
+        except Exception as e:
+            LOG.error('NSX driver healthmonitor_update failed %s', e)
+            completor(success=False)
 
     # L7 Policy
     @log_helpers.log_method_call
     def l7policy_create(self, ctxt, l7policy):
         ctx = neutron_context.Context(None, l7policy['project_id'])
-        self.l7policy.create(ctx, l7policy,
-                             self.get_completor_func(constants.L7POLICIES,
-                                                     l7policy))
+        completor = self.get_completor_func(constants.L7POLICIES,
+                                            l7policy)
+        try:
+            self.l7policy.create(ctx, l7policy, completor)
+        except Exception as e:
+            LOG.error('NSX driver l7policy_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def l7policy_delete(self, ctxt, l7policy):
         ctx = neutron_context.Context(None, l7policy['project_id'])
-        self.l7policy.delete(ctx, l7policy,
-                             self.get_completor_func(constants.L7POLICIES,
-                                                     l7policy,
-                                                     delete=True))
+        completor = self.get_completor_func(constants.L7POLICIES,
+                                            l7policy, delete=True)
+        try:
+            self.l7policy.delete(ctx, l7policy, completor)
+        except Exception as e:
+            LOG.error('NSX driver l7policy_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def l7policy_update(self, ctxt, old_l7policy, new_l7policy):
         ctx = neutron_context.Context(None, old_l7policy['project_id'])
-        self.l7policy.update(ctx, old_l7policy, new_l7policy,
-                             self.get_completor_func(constants.L7POLICIES,
-                                                     new_l7policy))
+        completor = self.get_completor_func(constants.L7POLICIES,
+                                            new_l7policy)
+        try:
+            self.l7policy.update(ctx, old_l7policy, new_l7policy, completor)
+        except Exception as e:
+            LOG.error('NSX driver l7policy_update failed %s', e)
+            completor(success=False)
 
     # L7 Rule
     @log_helpers.log_method_call
     def l7rule_create(self, ctxt, l7rule):
         ctx = neutron_context.Context(None, l7rule['project_id'])
-        self.l7rule.create(ctx, l7rule,
-                           self.get_completor_func(constants.L7RULES, l7rule))
+        completor = self.get_completor_func(constants.L7RULES, l7rule)
+        try:
+            self.l7rule.create(ctx, l7rule, completor)
+        except Exception as e:
+            LOG.error('NSX driver l7rule_create failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def l7rule_delete(self, ctxt, l7rule):
         ctx = neutron_context.Context(None, l7rule['project_id'])
-        self.l7rule.delete(ctx, l7rule,
-                           self.get_completor_func(constants.L7RULES,
-                                                   l7rule,
-                                                   delete=True))
+        completor = self.get_completor_func(constants.L7RULES, l7rule,
+                                            delete=True)
+        try:
+            self.l7rule.delete(ctx, l7rule, completor)
+        except Exception as e:
+            LOG.error('NSX driver l7rule_delete failed %s', e)
+            completor(success=False)
 
     @log_helpers.log_method_call
     def l7rule_update(self, ctxt, old_l7rule, new_l7rule):
         ctx = neutron_context.Context(None, old_l7rule['project_id'])
-        self.l7rule.update(ctx, old_l7rule, new_l7rule,
-                           self.get_completor_func(constants.L7RULES,
-                                                   new_l7rule))
+        completor = self.get_completor_func(constants.L7RULES, new_l7rule)
+        try:
+            self.l7rule.update(ctx, old_l7rule, new_l7rule, completor)
+        except Exception as e:
+            LOG.error('NSX driver l7rule_update failed %s', e)
+            completor(success=False)
 
 
 class NSXOctaviaStatisticsCollector(object):
