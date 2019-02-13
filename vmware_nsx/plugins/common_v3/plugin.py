@@ -1278,6 +1278,8 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         is_ens_tz_port = self._is_ens_tz_port(context, port_data)
         self._create_port_preprocess_security(context, port, port_data,
                                               neutron_port, is_ens_tz_port)
+        self._process_portbindings_create_and_update(
+            context, port_data, neutron_port)
 
         server_data = self._build_dhcp_server_config(
             context, network, subnet, neutron_port, az)
