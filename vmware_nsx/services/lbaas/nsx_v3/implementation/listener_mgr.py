@@ -287,7 +287,6 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         completor(success=True)
 
 
-@log_helpers.log_method_call
 def stats_getter(context, core_plugin, ignore_list=None):
     """Update Octavia statistics for each listener (virtual server)"""
     stat_list = []
@@ -300,8 +299,6 @@ def stats_getter(context, core_plugin, ignore_list=None):
             continue
 
         lb_service_id = lb_binding.get('lb_service_id')
-        LOG.debug("Getting listeners statistics for NSX lb service %s",
-                  lb_service_id)
         try:
             # get the NSX statistics for this LB service
             rsp = lb_service_client.get_stats(lb_service_id)

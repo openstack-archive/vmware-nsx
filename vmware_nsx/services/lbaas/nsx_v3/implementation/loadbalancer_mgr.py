@@ -38,6 +38,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                                        lb['vip_subnet_id']):
             completor(success=True)
         else:
+            completor(success=False)
             msg = (_('Cannot create lb on subnet %(sub)s for '
                      'loadbalancer %(lb)s. The subnet needs to connect a '
                      'router which is already set gateway.') %

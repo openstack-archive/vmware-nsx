@@ -152,6 +152,8 @@ class NSXOctaviaListenerEndpoint(object):
                         constants.PROVISIONING_STATUS: parent_prov_status,
                         constants.OPERATING_STATUS: op_status}]
 
+            LOG.debug("Octavia transaction completed with statuses %s",
+                      status_dict)
             kw = {'status': status_dict}
             self.client.cast({}, 'update_loadbalancer_status', **kw)
 
@@ -333,7 +335,6 @@ class NSXOctaviaStatisticsCollector(object):
             eventlet.spawn_n(self.thread_runner,
                              cfg.CONF.octavia_stats_interval)
 
-    @log_helpers.log_method_call
     def thread_runner(self, interval):
         while True:
             time.sleep(interval)
@@ -353,7 +354,6 @@ class NSXOctaviaStatisticsCollector(object):
         nl_loadbalancers = context.session.query(models.LoadBalancer).all()
         return [lb.id for lb in nl_loadbalancers]
 
-    @log_helpers.log_method_call
     def collect(self):
         if not self.core_plugin.octavia_listener:
             return

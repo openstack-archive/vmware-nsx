@@ -45,7 +45,7 @@ unsupported_keys = {'Loadbalancer': ['vip_qos_policy_id'],
                                  'timeout_member_connect',
                                  'timeout_member_data',
                                  'timeout_tcp_inspect'],
-                    'HealthMonitor': ['expected_codes', 'max_retries_down'],
+                    'HealthMonitor': ['max_retries_down'],
                     'Member': ['monitor_address', 'monitor_port', 'backup']}
 
 
@@ -155,6 +155,12 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
                     recurse=False, render_unsets=True)
                 listener_dict['id'] = listener_dict['listener_id']
                 listener_dict['l7_policies'] = listener_dict['l7policies']
+                # Add the loadbalancer to the listener dict
+                if pool_dict.get('loadbalancer_id'):
+                    # Generate a loadbalancer object
+                    listener_dict['loadbalancer'] = (
+                        self._get_load_balancer_dict(
+                            pool_dict['loadbalancer_id']))
                 pool_dict['listener'] = listener_dict
                 if 'listeners' not in pool_dict:
                     # multiple listeners is not really supported yet
