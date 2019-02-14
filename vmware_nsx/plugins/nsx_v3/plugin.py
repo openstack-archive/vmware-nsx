@@ -2855,6 +2855,8 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         # update the load balancer virtual server's VIP with
         # floating ip, but don't add NAT rules
         device_id = port['device_id']
+        if device_id.startswith(oct_const.DEVICE_ID_PREFIX):
+            device_id = device_id[len(oct_const.DEVICE_ID_PREFIX):]
         lb_tag = [{'scope': 'os-lbaas-lb-id', 'tag': device_id}]
         vs_list = self.nsxlib.search_by_tags(
             tags=lb_tag, resource_type='LbVirtualServer')

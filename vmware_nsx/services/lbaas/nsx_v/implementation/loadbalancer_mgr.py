@@ -114,7 +114,7 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     def delete(self, context, lb, completor):
         # Discard any ports which are associated with LB
         filters = {
-            'device_id': [lb['id']],
+            'device_id': [lb['id'], oct_const.DEVICE_ID_PREFIX + lb['id']],
             'device_owner': [constants.DEVICE_OWNER_NEUTRON_PREFIX + 'LB']}
         lb_ports = self.core_plugin.get_ports(context.elevated(),
                                               filters=filters)
@@ -236,11 +236,12 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
         if lb_ports:
             for lb_port in lb_ports:
-                # TODO(asarfaty): for Octavia this code might need to change
-                # as the device_id is different
                 if lb_port['device_id']:
+                    device_id = lb_port['device_id']
+                    if device_id.startswith(oct_const.DEVICE_ID_PREFIX):
+                        device_id = device_id[len(oct_const.DEVICE_ID_PREFIX):]
                     edge_bind = nsxv_db.get_nsxv_lbaas_loadbalancer_binding(
-                        context.session, lb_port['device_id'])
+                        context.session, device_id)
                     edge_id = edge_bind['edge_id']
 
                     routes = [{'cidr': r['destination'],

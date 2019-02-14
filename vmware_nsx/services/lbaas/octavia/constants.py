@@ -43,3 +43,4 @@ OPERATING_STATUS = 'operating_status'
 PROVISIONING_STATUS = 'provisioning_status'
 
 DEVICE_OWNER_OCTAVIA = 'Octavia'
+DEVICE_ID_PREFIX = 'lb-'
