@@ -1134,10 +1134,20 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return self.nsxpolicy.tier0.get_edge_cluster_path(
             tier0_uuid)
 
-    def create_service_router(self, context, router_id):
+    def verify_sr_at_backend(self, router_id):
+        """Check if the backend Tier1 has a service router or not"""
+        if self.nsxpolicy.tier1.get_edge_cluster_path(router_id):
+            return True
+
+    def create_service_router(self, context, router_id, router=None):
         """Create a service router and enable standby relocation"""
-        router = self._get_router(context, router_id)
+        if not router:
+            router = self._get_router(context, router_id)
         tier0_uuid = self._get_tier0_uuid_by_router(context, router)
+        if not tier0_uuid:
+            err_msg = (_("Cannot create service router for %s without a "
+                         "gateway") % router_id)
+            raise n_exc.InvalidInput(error_message=err_msg)
         edge_cluster_path = self._get_edge_cluster_path(
             tier0_uuid, router)
         if edge_cluster_path:
@@ -1198,13 +1208,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                               router['id'])
         router_subnets = self._find_router_subnets(
             context.elevated(), router_id)
+        sr_currently_exists = self.verify_sr_at_backend(router_id)
+        lb_exist = False
+        fw_exist = False
         actions = self._get_update_router_gw_actions(
             org_tier0_uuid, orgaddr, org_enable_snat,
-            new_tier0_uuid, newaddr, new_enable_snat, fw_exist=False,
-            lb_exist=False)
+            new_tier0_uuid, newaddr, new_enable_snat,
+            lb_exist, fw_exist, sr_currently_exists)
 
         if actions['add_service_router']:
-            self.create_service_router(context, router_id)
+            self.create_service_router(context, router_id, router=router)
 
         if actions['remove_snat_rules']:
             for subnet in router_subnets:

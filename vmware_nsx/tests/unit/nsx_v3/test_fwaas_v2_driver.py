@@ -204,7 +204,7 @@ class Nsxv3FwaasTestCase(test_v3_plugin.NsxV3PluginTestCaseMixin):
             rule_list, is_ingress=is_ingress, admin_state_up=False)
 
     def _fake_apply_list(self):
-        router_inst = {'id': FAKE_ROUTER_ID}
+        router_inst = {'id': FAKE_ROUTER_ID, 'external_gateway_info': 'dummy'}
         router_info_inst = mock.Mock()
         router_info_inst.router = router_inst
         router_info_inst.router_id = FAKE_ROUTER_ID

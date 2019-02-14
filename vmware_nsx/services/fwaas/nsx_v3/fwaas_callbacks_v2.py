@@ -118,8 +118,8 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
             if with_fw:
                 # firewall exists in Neutron and not on backend - create
                 if not exists_on_backend:
-                    self.core_plugin.create_service_router(context, router_id)
-                    exists_on_backend = True
+                    self.core_plugin.create_service_router(
+                        context, router_id, update_firewall=False)
             else:
                 # First, check if other services exist and use the sr
                 sr_exists = self.core_plugin.service_router_has_services(

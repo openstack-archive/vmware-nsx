@@ -1811,6 +1811,9 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
             self.subnet(network=ext_net, cidr='10.0.1.0/24',
                         enable_dhcp=False) as s,\
             mock.patch("vmware_nsxlib.v3.policy.core_resources."
+                       "NsxPolicyTier1Api.get_edge_cluster_path",
+                       return_value=False),\
+            mock.patch("vmware_nsxlib.v3.policy.core_resources."
                        "NsxPolicyTier1Api.set_edge_cluster_path"
                        ) as add_srv_router:
                 self._add_external_gateway_to_router(

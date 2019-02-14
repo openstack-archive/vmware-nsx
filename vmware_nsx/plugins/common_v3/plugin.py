@@ -1067,7 +1067,8 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _get_update_router_gw_actions(
         self,
         org_tier0_uuid, orgaddr, org_enable_snat,
-        new_tier0_uuid, newaddr, new_enable_snat, lb_exist, fw_exist):
+        new_tier0_uuid, newaddr, new_enable_snat,
+        lb_exist, fw_exist, sr_currently_exists):
         """Return a dictionary of flags indicating which actions should be
            performed on this router GW update.
         """
@@ -1126,21 +1127,34 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         actions['advertise_route_connected_flag'] = (
             True if not new_enable_snat else False)
 
-        # the purpose of the two vars is to be able to differ between
+        # the purpose of this var is to be able to differ between
         # adding a gateway w/o snat and adding snat (when adding/removing gw
-        # the snat option is on by default.
+        # the snat option is on by default).
+        new_with_snat = True if (new_enable_snat and newaddr) else False
+        has_gw = True if newaddr else False
 
-        real_new_enable_snat = new_enable_snat and newaddr
-        real_org_enable_snat = org_enable_snat and orgaddr
-
-        actions['add_service_router'] = ((real_new_enable_snat and
-                                          not real_org_enable_snat) or
-                                         (real_new_enable_snat and not
-                                         orgaddr and newaddr)
-                                         ) and not (fw_exist or lb_exist)
-        actions['remove_service_router'] = ((not real_new_enable_snat and
-                                             real_org_enable_snat) or (
-                orgaddr and not newaddr)) and not (fw_exist or lb_exist)
+        if sr_currently_exists:
+            # currently there is a service router on the backend
+            actions['add_service_router'] = False
+            # Should remove the service router if the GW was removed,
+            # or no service needs it: SNAT, LBaaS or FWaaS
+            actions['remove_service_router'] = (
+                not has_gw or not (fw_exist or lb_exist or new_with_snat))
+            if actions['remove_service_router']:
+                LOG.info("Removing service router [has GW: %s, FW %s, LB %s, "
+                         "SNAT %s]",
+                         has_gw, fw_exist, lb_exist, new_with_snat)
+        else:
+            # currently there is no service router on the backend
+            actions['remove_service_router'] = False
+            # Should add service router if there is a GW
+            # and there is a service that needs it: SNAT, LB or FWaaS
+            actions['add_service_router'] = (
+                has_gw is not None and (new_with_snat or fw_exist or lb_exist))
+            if actions['add_service_router']:
+                LOG.info("Adding service router [has GW: %s, FW %s, LB %s, "
+                         "SNAT %s]",
+                         has_gw, fw_exist, lb_exist, new_with_snat)
 
         return actions
 

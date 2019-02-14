@@ -2663,7 +2663,9 @@ class TestL3NatTestCase(L3NatTest,
 
             # create a router with this gateway
             with self.router() as r, \
-                    self._mock_add_remove_service_router() as change_sr:
+                mock.patch("vmware_nsxlib.v3.router.RouterLib."
+                           "has_service_router", return_value=False),\
+                self._mock_add_remove_service_router() as change_sr:
                 router_id = r['router']['id']
                 self._add_external_gateway_to_router(
                     router_id, ext_subnet['network_id'])
@@ -2684,7 +2686,9 @@ class TestL3NatTestCase(L3NatTest,
                 self._add_external_gateway_to_router(
                     r['router']['id'],
                     ext_subnet['network_id'])
-                with self._mock_add_remove_service_router() as change_sr:
+                with mock.patch("vmware_nsxlib.v3.router.RouterLib."
+                                "has_service_router", return_value=True),\
+                    self._mock_add_remove_service_router() as change_sr:
                     self._update_router_enable_snat(
                         r['router']['id'],
                         ext_subnet['network_id'],
@@ -3025,7 +3029,9 @@ class TestL3NatTestCase(L3NatTest,
 
             # create a router with this gateway
             with self.router() as r, \
-                    self._mock_add_remove_service_router() as change_sr:
+                mock.patch("vmware_nsxlib.v3.router.RouterLib."
+                           "has_service_router", return_value=False),\
+                self._mock_add_remove_service_router() as change_sr:
                 router_id = r['router']['id']
                 self._add_external_gateway_to_router(
                     router_id, ext_subnet['network_id'])
