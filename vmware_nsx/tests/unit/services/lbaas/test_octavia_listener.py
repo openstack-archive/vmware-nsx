@@ -16,6 +16,7 @@
 import mock
 import testtools
 
+from neutron_lib import exceptions
 from oslo_utils import uuidutils
 
 from vmware_nsx.services.lbaas.octavia import octavia_listener
@@ -26,22 +27,35 @@ class DummyOctaviaResource(object):
     update_called = False
     delete_called = False
     delete_cascade_called = False
+    to_raise = False
 
     def create(self, ctx, lb_obj, completor_func, **args):
         self.create_called = True
-        completor_func(success=True)
+        if self.to_raise:
+            raise exceptions.InvalidInput(error_message='test')
+        else:
+            completor_func(success=True)
 
     def update(self, ctx, old_lb_obj, new_lb_obj, completor_func, **args):
         self.update_called = True
-        completor_func(success=True)
+        if self.to_raise:
+            raise exceptions.InvalidInput(error_message='test')
+        else:
+            completor_func(success=True)
 
     def delete(self, ctx, lb_obj, completor_func, **args):
         self.delete_called = True
-        completor_func(success=True)
+        if self.to_raise:
+            raise exceptions.InvalidInput(error_message='test')
+        else:
+            completor_func(success=True)
 
     def delete_cascade(self, ctx, lb_obj, completor_func, **args):
         self.delete_cascade_called = True
-        completor_func(success=True)
+        if self.to_raise:
+            raise exceptions.InvalidInput(error_message='test')
+        else:
+            completor_func(success=True)
 
 
 class TestNsxOctaviaListener(testtools.TestCase):
@@ -81,6 +95,19 @@ class TestNsxOctaviaListener(testtools.TestCase):
                 {'operating_status': 'ONLINE',
                  'provisioning_status': 'ACTIVE',
                  'id': mock.ANY}]})
+
+    def test_loadbalancer_create_failed(self):
+        self.dummyResource.create_called = False
+        self.dummyResource.to_raise = True
+        self.endpoint.loadbalancer_create(self.ctx, self.dummyObj)
+        self.assertTrue(self.dummyResource.create_called)
+        self.clientMock.cast.assert_called_once_with(
+            {}, 'update_loadbalancer_status',
+            status={'loadbalancers': [
+                {'operating_status': 'ERROR',
+                 'provisioning_status': 'ERROR',
+                 'id': mock.ANY}]})
+        self.dummyResource.to_raise = False
 
     def test_loadbalancer_delete(self):
         self.dummyResource.delete_called = False
@@ -192,14 +219,40 @@ class TestNsxOctaviaListener(testtools.TestCase):
 
     def test_member_create(self):
         self.dummyResource.create_called = False
-        self.endpoint.member_create(self.ctx, self.dummyObj)
+        lb_id = uuidutils.generate_uuid()
+        pool_id = uuidutils.generate_uuid()
+        listener_id = uuidutils.generate_uuid()
+        member_id = uuidutils.generate_uuid()
+        member_obj = {
+            'id': member_id,
+            'protocol_port': 80,
+            'name': 'dummy',
+            'pool_id': pool_id,
+            'project_id': uuidutils.generate_uuid(),
+            'pool': {'listener_id': listener_id,
+                     'id': pool_id,
+                     'loadbalancer_id': lb_id,
+                     'listener': {'protocol': 'HTTP',
+                                  'id': listener_id,
+                                  'default_pool_id': pool_id,
+                                  'loadbalancer': {'id': lb_id}}}}
+        self.endpoint.member_create(self.ctx, member_obj)
         self.assertTrue(self.dummyResource.create_called)
         self.clientMock.cast.assert_called_once_with(
             {}, 'update_loadbalancer_status',
-            status={'members': [
-                {'operating_status': 'ONLINE',
-                 'provisioning_status': 'ACTIVE',
-                 'id': mock.ANY}]})
+            status={'members': [{'operating_status': 'ONLINE',
+                                 'provisioning_status': 'ACTIVE',
+                                 'id': member_id}],
+                    'loadbalancers': [{'operating_status': 'ONLINE',
+                                       'provisioning_status': 'ACTIVE',
+                                       'id': lb_id}],
+                    'pools': [{'operating_status': 'ONLINE',
+                               'provisioning_status': 'ACTIVE',
+                               'id': pool_id}],
+                    'listeners': [{'operating_status': 'ONLINE',
+                                   'provisioning_status': 'ACTIVE',
+                                   'id': listener_id}],
+                    })
 
     def test_member_delete(self):
         self.dummyResource.delete_called = False

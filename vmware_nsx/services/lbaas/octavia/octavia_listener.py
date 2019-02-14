@@ -119,17 +119,27 @@ class NSXOctaviaListenerEndpoint(object):
                 loadbalancer_id = None
                 if obj.get('loadbalancer_id'):
                     loadbalancer_id = obj.get('loadbalancer_id')
-                elif obj.get('pool'):
+                if obj.get('pool'):
                     pool_id = obj['pool']['id']
-                    loadbalancer_id = obj['pool']['loadbalancer_id']
-                elif obj.get('listener'):
+                    listener_id = obj['pool'].get('listener_id')
+                    if not loadbalancer_id:
+                        loadbalancer_id = obj['pool'].get('loadbalancer_id')
+                elif obj.get('pool_id'):
+                    pool_id = obj['pool_id']
+                if obj.get('listener'):
                     listener_id = obj['listener']['id']
-                    loadbalancer_id = obj['listener']['loadbalancer_id']
-                elif obj.get('policy') and obj['policy'].get('listener'):
+                    if not loadbalancer_id:
+                        loadbalancer_id = obj['listener'].get(
+                            'loadbalancer_id')
+                elif obj.get('listener_id'):
+                    listener_id = obj['listener_id']
+                if obj.get('policy') and obj['policy'].get('listener'):
                     policy_id = obj['policy']['id']
-                    listener_id = obj['policy']['listener']['id']
-                    loadbalancer_id = obj['policy']['listener'][
-                        'loadbalancer_id']
+                    if not listener_id:
+                        listener_id = obj['policy']['listener']['id']
+                        if not loadbalancer_id:
+                            loadbalancer_id = obj['policy']['listener'].get(
+                                'loadbalancer_id')
 
                 if loadbalancer_id:
                     status_dict[constants.LOADBALANCERS] = [{
