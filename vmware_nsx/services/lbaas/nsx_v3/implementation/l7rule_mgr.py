@@ -68,3 +68,8 @@ class EdgeL7RuleManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
     @log_helpers.log_method_call
     def delete(self, context, rule, completor):
         self._update_l7rule_change(context, rule, completor, delete=True)
+
+    @log_helpers.log_method_call
+    def delete_cascade(self, context, rulle, completor):
+        # No action should be taken on rules delete cascade
+        pass

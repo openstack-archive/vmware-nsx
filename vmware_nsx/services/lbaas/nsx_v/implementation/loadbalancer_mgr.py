@@ -160,6 +160,10 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
                 context.session, lb['id'])
         completor(success=True)
 
+    def delete_cascade(self, context, lb, completor):
+        #TODO(asarfaty): implement a better delete cascade for NSX-V
+        self.delete(context, lb, completor)
+
     def refresh(self, context, lb):
         # TODO(kobis): implement
         pass

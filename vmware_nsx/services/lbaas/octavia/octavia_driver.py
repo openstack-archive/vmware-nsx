@@ -172,10 +172,10 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
 
     def _get_pool_dict(self, pool_id):
         if not pool_id:
-            return
+            return {}
         db_pool = self.repositories.pool.get(db_apis.get_session(), id=pool_id)
         if not db_pool:
-            return
+            return {}
         pool_obj = oct_utils.db_pool_to_provider_pool(db_pool)
         pool_dict = pool_obj.to_dict(recurse=True, render_unsets=True)
         pool_dict['id'] = pool_id
@@ -188,6 +188,22 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
             self._get_listener_in_pool_dict(pool_dict)
         return pool_dict
 
+    def _get_hm_dict(self, hm_id):
+        if not hm_id:
+            return {}
+        db_hm = self.repositories.health_monitor.get(
+            db_apis.get_session(), id=hm_id)
+        if not db_hm:
+            return {}
+        hm_obj = oct_utils.db_HM_to_provider_HM(db_hm)
+        hm_dict = hm_obj.to_dict(recurse=True, render_unsets=True)
+        hm_dict['id'] = hm_id
+        # Get the pol object
+        if hm_dict.get('pool_id'):
+            hm_dict['pool'] = self._get_pool_dict(
+                hm_dict['pool_id'])
+        return hm_dict
+
     def update_policy_dict(self, policy_dict, policy_obj, is_update=False):
         if policy_dict.get('listener_id'):
             db_list = self.repositories.listener.get(
@@ -199,7 +215,10 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
         if policy_obj.rules:
             policy_dict['rules'] = []
             for rule in policy_obj.rules:
-                rule_dict = rule.to_dict(recurse=False, render_unsets=True)
+                if isinstance(rule, dict):
+                    rule_dict = rule
+                else:
+                    rule_dict = rule.to_dict(recurse=False, render_unsets=True)
                 rule_dict['id'] = rule_dict['l7rule_id']
                 policy_dict['rules'].append(rule_dict)
         elif not is_update:
@@ -244,6 +263,10 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
                         obj_dict['listeners'] = []
                     for listener in obj_dict['listeners']:
                         listener['id'] = listener['listener_id']
+                        for policy in listener.get('l7policies', []):
+                            policy['id'] = policy['l7policy_id']
+                            for rule in policy.get('rules', []):
+                                rule['id'] = rule['l7rule_id']
             if 'pools' in obj_dict:
                 if is_update and not obj_dict['pools']:
                     del obj_dict['pools']
@@ -252,6 +275,11 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
                         obj_dict['pools'] = []
                     for pool in obj_dict['pools']:
                         pool['id'] = pool['pool_id']
+                        for member in pool.get('members', []):
+                            member['id'] = member['member_id']
+                        if pool.get('healthmonitor'):
+                            pool['healthmonitor'] = self._get_hm_dict(
+                                pool['healthmonitor']['healthmonitor_id'])
 
         elif obj_type == 'Listener':
             if 'l7policies' in obj_dict:
@@ -319,11 +347,6 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
 
     @log_helpers.log_method_call
     def loadbalancer_delete(self, loadbalancer, cascade=False):
-        if cascade:
-            # TODO(asarfaty) add support for cascade
-            LOG.warning("The NSX Octavia driver does not support loadbalancer "
-                        "delete cascade")
-            raise exceptions.NotImplementedError()
         kw = {'loadbalancer': self.obj_to_dict(loadbalancer),
               'cascade': cascade}
         self.client.cast({}, 'loadbalancer_delete', **kw)

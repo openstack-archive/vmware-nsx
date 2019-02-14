@@ -135,3 +135,7 @@ class EdgeL7PolicyManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 context.session, policy['id'])
 
         completor(success=True)
+
+    @log_helpers.log_method_call
+    def delete_cascade(self, context, policy, completor):
+        self.delete(context, policy, completor)

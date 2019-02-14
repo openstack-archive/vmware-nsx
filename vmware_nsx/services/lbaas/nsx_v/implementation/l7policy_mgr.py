@@ -321,3 +321,6 @@ class EdgeL7PolicyManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
 
         # complete the transaction
         completor(success=True)
+
+    def delete_cascade(self, context, policy, completor):
+        self.delete(context, policy, completor)

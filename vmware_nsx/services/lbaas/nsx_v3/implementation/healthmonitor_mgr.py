@@ -174,3 +174,7 @@ class EdgeHealthMonitorManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             pass
 
         completor(success=True)
+
+    @log_helpers.log_method_call
+    def delete_cascade(self, context, hm, completor):
+        self.delete(context, hm, completor)

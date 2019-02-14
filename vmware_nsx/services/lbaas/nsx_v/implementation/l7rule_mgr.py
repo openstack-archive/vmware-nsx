@@ -62,3 +62,6 @@ class EdgeL7RuleManagerFromDict(base_mgr.EdgeLoadbalancerBaseManager):
     def delete(self, context, rule, completor):
         self._handle_l7policy_rules_change(context, rule, completor,
                                            delete=True)
+
+    def delete_cascade(self, context, rule, completor):
+        self.delete(context, rule, completor)

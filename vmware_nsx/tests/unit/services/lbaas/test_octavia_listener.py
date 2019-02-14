@@ -25,6 +25,7 @@ class DummyOctaviaResource(object):
     create_called = False
     update_called = False
     delete_called = False
+    delete_cascade_called = False
 
     def create(self, ctx, lb_obj, completor_func, **args):
         self.create_called = True
@@ -36,6 +37,10 @@ class DummyOctaviaResource(object):
 
     def delete(self, ctx, lb_obj, completor_func, **args):
         self.delete_called = True
+        completor_func(success=True)
+
+    def delete_cascade(self, ctx, lb_obj, completor_func, **args):
+        self.delete_cascade_called = True
         completor_func(success=True)
 
 
@@ -87,6 +92,24 @@ class TestNsxOctaviaListener(testtools.TestCase):
                 {'operating_status': 'ONLINE',
                  'provisioning_status': 'DELETED',
                  'id': mock.ANY}]})
+
+    def test_loadbalancer_delete_cascade(self):
+        self.dummyResource.delete_called = False
+        self.endpoint.loadbalancer_delete(self.ctx, self.dummyObj,
+                                          cascade=True)
+        self.assertTrue(self.dummyResource.delete_cascade_called)
+        self.clientMock.cast.assert_called_once_with(
+            {}, 'update_loadbalancer_status',
+            status={
+                'loadbalancers': [{'operating_status': 'ONLINE',
+                                   'provisioning_status': 'DELETED',
+                 'id': mock.ANY}],
+                 'l7policies': [],
+                 'pools': [],
+                 'listeners': [],
+                 'l7rules': [],
+                 'members': [],
+                 'healthmonitors': []})
 
     def test_loadbalancer_update(self):
         self.dummyResource.update_called = False

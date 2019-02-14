@@ -288,3 +288,8 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 raise n_exc.BadRequest(resource='lbaas-member', msg=msg)
 
         completor(success=True)
+
+    @log_helpers.log_method_call
+    def delete_cascade(self, context, member, completor):
+        # No action should be taken on members delete cascade
+        pass
