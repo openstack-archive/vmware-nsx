@@ -23,6 +23,7 @@ from neutron.services.trunk.drivers import base
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 
 from vmware_nsx.common import nsx_constants as nsx_consts
 from vmware_nsx.common import utils as nsx_utils
@@ -199,16 +200,16 @@ class NsxV3TrunkDriver(base.DriverBase):
                    SUPPORTED_SEGMENTATION_TYPES,
                    agent_type=None, can_trunk_bound_port=True)
 
-    @registry.receives(trunk_consts.TRUNK_PLUGIN, [events.AFTER_INIT])
+    @registry.receives(resources.TRUNK_PLUGIN, [events.AFTER_INIT])
     def register(self, resource, event, trigger, payload=None):
         super(NsxV3TrunkDriver, self).register(
             resource, event, trigger, payload=payload)
         self._handler = NsxV3TrunkHandler(self.plugin_driver)
         for event in (events.AFTER_CREATE, events.AFTER_DELETE):
             registry.subscribe(self._handler.trunk_event,
-                               trunk_consts.TRUNK,
+                               resources.TRUNK,
                                event)
             registry.subscribe(self._handler.subport_event,
-                               trunk_consts.SUBPORTS,
+                               resources.SUBPORTS,
                                event)
         LOG.debug("VMware NSXv3 trunk driver initialized.")
