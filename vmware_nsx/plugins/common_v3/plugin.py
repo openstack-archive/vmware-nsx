@@ -166,6 +166,8 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                                  webob.exc.HTTPBadRequest,
                                  nsx_exc.NsxENSPortSecurity:
                                  webob.exc.HTTPBadRequest,
+                                 nsx_exc.NsxPluginTemporaryError:
+                                 webob.exc.HTTPServiceUnavailable
                                  })
 
     def _get_conf_attr(self, attr):
