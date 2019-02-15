@@ -22,6 +22,8 @@ from vmware_nsxlib import v3 as nsxlib
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants as consts
 
+from webob import exc
+
 
 # Pool of fake ns-groups uuids
 NSG_IDS = ['11111111-1111-1111-1111-111111111111',
@@ -83,6 +85,26 @@ class TestSecurityGroups(test_nsxv3.NsxV3PluginTestCaseMixin,
                                           remote_ip_prefix) as rule:
                 for k, v, in keys:
                     self.assertEqual(rule['security_group_rule'][k], v)
+
+    def test_create_security_group_with_manager_error(self):
+        '''Reboot in multi-cluster environment may cause temporary 404 in
+        firewall section APIs. We should return 503 and not 404 to the user
+        '''
+
+        name = 'webservers'
+        description = 'my webservers'
+
+        with mock.patch("vmware_nsxlib.v3.security.NsxLibFirewallSection."
+                        "create_section_rules",
+                        side_effect=nsxlib_exc.ResourceNotFound):
+            try:
+                with self.security_group(name, description):
+                    # This should not succeed
+                    # (assertRaises would not work with generators)
+                    self.assertTrue(False)
+
+            except exc.HTTPClientError:
+                pass
 
 
 class TestSecurityGroupsNoDynamicCriteria(test_nsxv3.NsxV3PluginTestCaseMixin,
