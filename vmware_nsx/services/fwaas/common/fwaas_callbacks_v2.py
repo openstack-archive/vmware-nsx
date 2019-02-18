@@ -41,14 +41,21 @@ class DummyAgentApi(object):
 
 class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
     """Common NSX RPC callbacks for Firewall As A Service - V2."""
-    def __init__(self):
+    def __init__(self, with_rpc):
         # The super code needs a configuration object with the neutron host
         # and an agent_mode, which our driver doesn't use.
         neutron_conf = cfg.CONF
         neutron_conf.agent_mode = 'nsx'
+        self.with_rpc = with_rpc
         super(NsxFwaasCallbacksV2, self).__init__(conf=neutron_conf)
         self.agent_api = DummyAgentApi()
         self.core_plugin = self._get_core_plugin()
+
+    def start_rpc_listeners(self, host, conf):
+        # Make sure RPC queue will be created only when needed
+        if not self.with_rpc:
+            return
+        return super(NsxFwaasCallbacksV2, self).start_rpc_listeners(host, conf)
 
     @property
     def plugin_type(self):

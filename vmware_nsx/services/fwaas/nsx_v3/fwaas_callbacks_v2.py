@@ -29,8 +29,8 @@ LOG = logging.getLogger(__name__)
 class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
     """NSX-V3 RPC callbacks for Firewall As A Service - V2."""
 
-    def __init__(self):
-        super(Nsxv3FwaasCallbacksV2, self).__init__()
+    def __init__(self, with_rpc):
+        super(Nsxv3FwaasCallbacksV2, self).__init__(with_rpc)
         # update the fwaas driver in case of TV plugin
         self.internal_driver = None
         if self.fwaas_enabled:

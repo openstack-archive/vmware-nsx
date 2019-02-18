@@ -40,7 +40,7 @@ class NsxvFwaasTestCase(test_v_plugin.NsxVPluginV2TestCase):
 
         self.plugin = directory.get_plugin()
         self.plugin.fwaas_callbacks = fwaas_callbacks_v2.\
-            NsxvFwaasCallbacksV2()
+            NsxvFwaasCallbacksV2(False)
         self.plugin.fwaas_callbacks.fwaas_enabled = True
         self.plugin.fwaas_callbacks.fwaas_driver = self.firewall
         self.plugin.fwaas_callbacks.internal_driver = self.firewall

@@ -399,7 +399,10 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         return False
 
     def spawn_complete(self, resource, event, trigger, payload=None):
-        # This method should run only once, but after init_complete
+        # Init the FWaaS support with RPC listeners for the original process
+        self._init_fwaas(with_rpc=True)
+
+        # The rest of this method should run only once, but after init_complete
         if not self.init_is_complete:
             self.init_complete(None, None, None)
 
@@ -408,9 +411,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                 octavia_listener.NSXOctaviaStatisticsCollector(
                     self,
                     self._get_octavia_stats_getter()))
-
-        # Init the FWaaS support
-        self._init_fwaas()
 
     def init_complete(self, resource, event, trigger, payload=None):
         with locking.LockManager.get_lock('plugin-init-complete'):
@@ -432,6 +432,10 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
 
             # Init octavia listener and endpoints
             self._init_octavia()
+
+            # Init the FWaaS support without RPC listeners
+            # for the spawn workers
+            self._init_fwaas(with_rpc=False)
 
             self.init_is_complete = True
 
@@ -462,10 +466,15 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _get_octavia_stats_getter(self):
         return listener_mgr.stats_getter
 
-    def _init_fwaas(self):
+    def _init_fwaas(self, with_rpc):
+        if self.fwaas_callbacks:
+            # already initialized
+            return
+
         if fwaas_utils.is_fwaas_v2_plugin_enabled():
             LOG.info("NSXv3 FWaaS v2 plugin enabled")
-            self.fwaas_callbacks = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2()
+            self.fwaas_callbacks = fwaas_callbacks_v2.Nsxv3FwaasCallbacksV2(
+                with_rpc)
 
     def _init_lbv2_driver(self):
         # Get LBaaSv2 driver during plugin initialization. If the platform

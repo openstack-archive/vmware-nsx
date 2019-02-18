@@ -29,8 +29,8 @@ RULE_NAME_PREFIX = 'Fwaas-'
 class NsxvFwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
     """NSX-V RPC callbacks for Firewall As A Service - V2."""
 
-    def __init__(self):
-        super(NsxvFwaasCallbacksV2, self).__init__()
+    def __init__(self, with_rpc):
+        super(NsxvFwaasCallbacksV2, self).__init__(with_rpc)
         # update the fwaas driver in case of TV plugin
         self.internal_driver = None
         if self.fwaas_enabled:

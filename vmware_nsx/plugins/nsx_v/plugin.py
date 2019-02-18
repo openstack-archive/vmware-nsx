@@ -376,7 +376,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         return False
 
     def spawn_complete(self, resource, event, trigger, payload=None):
-        # This method should run only once, but after init_complete
+        # Init the FWaaS support with RPC listeners for the original process
+        self._init_fwaas(with_rpc=True)
+
+        # The rest of this method should run only once, but after init_complete
         if not self.init_is_complete:
             self.init_complete(None, None, None)
 
@@ -419,8 +422,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                 self.octavia_listener = octavia_listener.NSXOctaviaListener(
                     **octavia_objects)
 
-            # Init the FWaaS support
-            self._init_fwaas()
+            # Init the FWaaS support without RPC listeners
+            # for the spawn workers
+            self._init_fwaas(with_rpc=False)
 
             self.init_is_complete = True
 
@@ -505,11 +509,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self.start_rpc_listeners_called = True
         return self.conn.consume_in_threads()
 
-    def _init_fwaas(self):
+    def _init_fwaas(self, with_rpc):
         # Bind FWaaS callbacks to the driver
         if fwaas_utils.is_fwaas_v2_plugin_enabled():
             LOG.info("NSXv FWaaS v2 plugin enabled")
-            self.fwaas_callbacks = fwaas_callbacks_v2.NsxvFwaasCallbacksV2()
+            self.fwaas_callbacks = fwaas_callbacks_v2.NsxvFwaasCallbacksV2(
+                with_rpc)
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
