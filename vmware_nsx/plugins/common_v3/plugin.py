@@ -23,6 +23,7 @@ from sqlalchemy import exc as sql_exc
 import webob.exc
 
 from six import moves
+from six import string_types
 
 from neutron.db import agentschedulers_db
 from neutron.db import allowedaddresspairs_db as addr_pair_db
@@ -1212,7 +1213,13 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             network, resource_type='os-neutron-net-id',
             project_name=context.tenant_name)
 
-        dns_domain = network.get('dns_domain')
+        dns_domain = None
+        if network.get('dns_domain'):
+            net_dns = network['dns_domain']
+            if isinstance(net_dns, string_types):
+                dns_domain = net_dns
+            elif hasattr(net_dns, "dns_domain"):
+                dns_domain = net_dns.dns_domain
         if not dns_domain or not validators.is_attr_set(dns_domain):
             dns_domain = az.dns_domain
 
