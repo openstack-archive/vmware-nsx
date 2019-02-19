@@ -80,6 +80,12 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
                 fwg_port_ids = firewall_group['del-port-ids']
             else:
                 fwg_port_ids = firewall_group['add-port-ids']
+            if (not firewall_group.get('del-port-ids') and
+                not firewall_group.get('add-port-ids') and
+                firewall_group.get('ports')):
+                # No change in ports, but policy changed so all ports are
+                # relevant
+                fwg_port_ids = firewall_group['ports']
         elif not require_new_plugin:
             routers = self._get_routers_in_project(
                     context, firewall_group['tenant_id'])
