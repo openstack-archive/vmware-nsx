@@ -18,6 +18,8 @@
 import weakref
 
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import agent as agent_apidef
+from neutron_lib.api.definitions import dhcpagentscheduler
 from neutron_lib import constants as const
 from neutron_lib import rpc as n_rpc
 from oslo_concurrency import lockutils
@@ -101,7 +103,7 @@ class DhcpMetadataAccess(object):
             cfg.CONF.network_scheduler_driver
         )
         self.supported_extension_aliases.extend(
-            ['agent', 'dhcp_agent_scheduler'])
+            [agent_apidef.ALIAS, dhcpagentscheduler.ALIAS])
 
     def _setup_nsx_dhcp_metadata(self):
         self._check_services_requirements()
@@ -134,7 +136,8 @@ class DhcpMetadataAccess(object):
         return notifier
 
     def _init_extensions(self):
-        extensions = (lsn.EXT_ALIAS, 'agent', 'dhcp_agent_scheduler')
+        extensions = (lsn.EXT_ALIAS, agent_apidef.ALIAS,
+                      dhcpagentscheduler.ALIAS)
         for ext in extensions:
             if ext in self.supported_extension_aliases:
                 self.supported_extension_aliases.remove(ext)

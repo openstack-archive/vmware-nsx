@@ -18,14 +18,32 @@ import time
 import mock
 import netaddr
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
+from neutron_lib.api.definitions import availability_zone
+from neutron_lib.api.definitions import dhcpagentscheduler
 from neutron_lib.api.definitions import external_net as extnet_apidef
+from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
+from neutron_lib.api.definitions import extraroute
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import network_availability_zone
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import portbindings as pbin_apidef
+from neutron_lib.api.definitions import provider_net
+from neutron_lib.api.definitions import router_availability_zone
+from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import extensions
+from neutron_lib.api import validators
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import exceptions as callback_exc
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
+from neutron_lib import constants as const
+from neutron_lib import context as q_context
 from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
+from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
@@ -43,16 +61,7 @@ from neutron.db import models_v2
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
-from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
-from neutron_lib.api.definitions import vlantransparent as vlan_apidef
-from neutron_lib.api import validators
-from neutron_lib.callbacks import events
-from neutron_lib.callbacks import exceptions as callback_exc
-from neutron_lib.callbacks import registry
-from neutron_lib.callbacks import resources
-from neutron_lib import constants as const
-from neutron_lib import context as q_context
-from neutron_lib import exceptions as n_exc
+
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -129,24 +138,24 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     __native_pagination_support = True
     __native_sorting_support = True
 
-    supported_extension_aliases = ["allowed-address-pairs",
+    supported_extension_aliases = [addr_apidef.ALIAS,
                                    "address-scope",
                                    "quotas",
-                                   "binding",
-                                   "extra_dhcp_opt",
-                                   "agent",
-                                   "dhcp_agent_scheduler",
+                                   pbin_apidef.ALIAS,
+                                   ext_edo.ALIAS,
+                                   agent_apidef.ALIAS,
+                                   dhcpagentscheduler.ALIAS,
                                    "ext-gw-mode",
                                    "security-group",
                                    "secgroup-rule-local-ip-prefix",
-                                   "port-security",
-                                   "provider",
-                                   "external-net",
-                                   "extraroute",
-                                   "router",
-                                   "availability_zone",
-                                   "network_availability_zone",
-                                   "router_availability_zone",
+                                   psec.ALIAS,
+                                   provider_net.ALIAS,
+                                   extnet_apidef.ALIAS,
+                                   extraroute.ALIAS,
+                                   l3_apidef.ALIAS,
+                                   availability_zone.ALIAS,
+                                   network_availability_zone.ALIAS,
+                                   router_availability_zone.ALIAS,
                                    "subnet_allocation",
                                    "security-group-logging",
                                    "provider-security-group",
@@ -240,7 +249,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         # True
         if cfg.CONF.vlan_transparent:
             if self.nsxlib.feature_supported(nsxlib_consts.FEATURE_TRUNK_VLAN):
-                self.supported_extension_aliases.append("vlan-transparent")
+                self.supported_extension_aliases.append(vlan_apidef.ALIAS)
             else:
                 LOG.warning("Current NSX version %s doesn't support "
                             "transparent vlans", self.nsxlib.get_version())

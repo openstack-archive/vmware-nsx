@@ -14,10 +14,22 @@
 #    under the License.
 
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
+from neutron_lib.api.definitions import external_net as enet_apidef
+from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import portbindings as pbin
+from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api.definitions import vlantransparent as vlan_apidef
+from neutron_lib.api import validators
+from neutron_lib import constants
+from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
+from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
 from neutron_lib.exceptions import port_security as psec_exc
+from neutron_lib.plugins import utils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -38,16 +50,7 @@ from neutron.db import vlantransparent_db as vlan_ext_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
-from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
-from neutron_lib.api.definitions import portbindings as pbin
-from neutron_lib.api.definitions import provider_net as pnet
-from neutron_lib.api.definitions import vlantransparent as vlan_apidef
-from neutron_lib.api import validators
-from neutron_lib import constants
-from neutron_lib.db import api as db_api
-from neutron_lib.db import resource_extend
-from neutron_lib import exceptions as n_exc
-from neutron_lib.plugins import utils
+
 
 import vmware_nsx
 from vmware_nsx._i18n import _
@@ -80,16 +83,16 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
                dns_db.DNSDbMixin,
                vlan_ext_db.Vlantransparent_db_mixin):
 
-    supported_extension_aliases = ["allowed-address-pairs",
-                                   "binding",
-                                   "external-net",
-                                   "multi-provider",
-                                   "port-security",
-                                   "provider",
+    supported_extension_aliases = [addr_apidef.ALIAS,
+                                   pbin.ALIAS,
+                                   enet_apidef.ALIAS,
+                                   mpnet_apidef.ALIAS,
+                                   psec.ALIAS,
+                                   pnet.ALIAS,
                                    "quotas",
-                                   "router",
+                                   l3_apidef.ALIAS,
                                    "security-group",
-                                   "vlan-transparent"]
+                                   vlan_apidef.ALIAS]
 
     __native_bulk_support = True
     __native_pagination_support = True

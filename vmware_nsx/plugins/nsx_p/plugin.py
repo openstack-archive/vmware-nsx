@@ -30,11 +30,19 @@ from neutron.db import models_v2
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
+from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
+from neutron_lib.api.definitions import availability_zone as az_apidef
+from neutron_lib.api.definitions import dhcpagentscheduler
 from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
+from neutron_lib.api.definitions import extraroute
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import network_availability_zone
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import portbindings as pbin_apidef
+from neutron_lib.api.definitions import provider_net as pnet_apidef
+from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import extensions
 from neutron_lib.api import validators
@@ -112,24 +120,24 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     __native_pagination_support = True
     __native_sorting_support = True
 
-    supported_extension_aliases = ["allowed-address-pairs",
+    supported_extension_aliases = [addr_apidef.ALIAS,
                                    "address-scope",
                                    "quotas",
-                                   "binding",
-                                   "extra_dhcp_opt",
-                                   "agent",
-                                   "dhcp_agent_scheduler",
+                                   pbin_apidef.ALIAS,
+                                   ext_edo.ALIAS,
+                                   agent_apidef.ALIAS,
+                                   dhcpagentscheduler.ALIAS,
                                    "ext-gw-mode",
                                    "security-group",
                                    "secgroup-rule-local-ip-prefix",
-                                   "port-security",
-                                   "provider",
-                                   "external-net",
-                                   "extraroute",
-                                   "router",
-                                   "availability_zone",
-                                   "network_availability_zone",
-                                   "router_availability_zone",
+                                   psec.ALIAS,
+                                   pnet_apidef.ALIAS,
+                                   external_net.ALIAS,
+                                   extraroute.ALIAS,
+                                   l3_apidef.ALIAS,
+                                   az_apidef.ALIAS,
+                                   network_availability_zone.ALIAS,
+                                   router_availability_zone.ALIAS,
                                    "subnet_allocation",
                                    "security-group-logging",
                                    "provider-security-group",
@@ -178,7 +186,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # Support transparent VLANS only if the global configuration flag
         # vlan_transparent is True
         if cfg.CONF.vlan_transparent:
-            self.supported_extension_aliases.append("vlan-transparent")
+            self.supported_extension_aliases.append(vlan_apidef.ALIAS)
 
         nsxlib_utils.set_inject_headers_callback(v3_utils.inject_headers)
         self._validate_nsx_policy_version()
