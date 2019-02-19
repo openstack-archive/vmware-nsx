@@ -229,7 +229,8 @@ def update_rule_in_policy(rule):
 def update_router_lb_vip_advertisement(context, core_plugin, router,
                                        nsx_router_id):
     # Add a rule to advertise external vips on the router
-    external_subnets = core_plugin._find_router_gw_subnets(context, router)
+    external_subnets = core_plugin._find_router_gw_subnets(
+        context.elevated(), router)
     external_cidrs = [s['cidr'] for s in external_subnets]
     if external_cidrs:
         adv_rule = {
