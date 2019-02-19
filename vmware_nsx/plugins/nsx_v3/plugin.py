@@ -4878,9 +4878,16 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return secgroup_db
 
+    def _prevent_nsx_internal_sg_modification(self, sg_id):
+        if sg_id == NSX_V3_OS_DFW_UUID:
+            msg = _("Cannot modify NSX internal security group")
+            raise n_exc.InvalidInput(error_message=msg)
+
     def update_security_group(self, context, id, security_group):
         orig_secgroup = self.get_security_group(
             context, id, fields=['id', 'name', 'description'])
+
+        self._prevent_nsx_internal_sg_modification(id)
         with db_api.context_manager.writer.using(context):
             secgroup_res = (
                 super(NsxV3Plugin, self).update_security_group(context, id,
@@ -4905,6 +4912,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
     def delete_security_group(self, context, id):
         self._prevent_non_admin_delete_provider_sg(context, id)
+        self._prevent_nsx_internal_sg_modification(id)
         nsgroup_id, section_id = nsx_db.get_sg_mappings(
             context.session, id)
         super(NsxV3Plugin, self).delete_security_group(context, id)
@@ -4940,6 +4948,7 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             # group. We should be validating that this is the case though...
             sg_id = sg_rules[0]['security_group_rule']['security_group_id']
             self._prevent_non_admin_delete_provider_sg(context, sg_id)
+            self._prevent_nsx_internal_sg_modification(sg_id)
 
             security_group = self.get_security_group(
                 context, sg_id)
@@ -4969,6 +4978,8 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         rule_db = self._get_security_group_rule(context, id)
         sg_id = rule_db['security_group_id']
         self._prevent_non_admin_delete_provider_sg(context, sg_id)
+        self._prevent_nsx_internal_sg_modification(sg_id)
+
         nsgroup_id, section_id = nsx_db.get_sg_mappings(context.session, sg_id)
         fw_rule_id = nsx_db.get_sg_rule_mapping(context.session, id)
         self.nsxlib.firewall_section.delete_rule(section_id, fw_rule_id)
