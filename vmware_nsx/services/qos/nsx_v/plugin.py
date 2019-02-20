@@ -15,7 +15,7 @@
 #    under the License.
 
 from neutron.services.qos import qos_plugin
-
+from neutron_lib.api.definitions import qos as qos_apidef
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -29,7 +29,7 @@ class NsxVQosPlugin(qos_plugin.QoSPlugin):
 
     """Service plugin for VMware NSX-v to implement Neutron's Qos API."""
 
-    supported_extension_aliases = ["qos"]
+    supported_extension_aliases = [qos_apidef.ALIAS]
 
     def __init__(self):
         LOG.info("Loading VMware NSX-V Qos Service Plugin")

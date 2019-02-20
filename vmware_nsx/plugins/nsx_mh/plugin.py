@@ -16,17 +16,30 @@
 import weakref
 
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
+from neutron_lib.api.definitions import dvr as dvr_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
+from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
+from neutron_lib.api.definitions import extraroute as xroute_apidef
+from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
 from neutron_lib.api.definitions import port_security as psec
+from neutron_lib.api.definitions import portbindings as pbin
+from neutron_lib.api.definitions import provider_net as pnet
 from neutron_lib.api import faults
 from neutron_lib.api import validators
 from neutron_lib import constants
 from neutron_lib import context as q_context
+from neutron_lib.db import api as db_api
+from neutron_lib.db import model_query
+from neutron_lib.db import resource_extend
 from neutron_lib.db import utils as db_utils
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import allowedaddresspairs as addr_exc
+from neutron_lib.exceptions import extraroute as xroute_exc
 from neutron_lib.exceptions import l3 as l3_exc
+from neutron_lib.exceptions import multiprovidernet as mpnet_exc
 from neutron_lib.exceptions import port_security as psec_exc
+from neutron_lib.plugins import utils
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -60,17 +73,6 @@ from neutron.db import securitygroups_db
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
-from neutron_lib.api.definitions import extra_dhcp_opt as edo_ext
-from neutron_lib.api.definitions import extraroute as xroute_apidef
-from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
-from neutron_lib.api.definitions import portbindings as pbin
-from neutron_lib.api.definitions import provider_net as pnet
-from neutron_lib.db import api as db_api
-from neutron_lib.db import model_query
-from neutron_lib.db import resource_extend
-from neutron_lib.exceptions import extraroute as xroute_exc
-from neutron_lib.exceptions import multiprovidernet as mpnet_exc
-from neutron_lib.plugins import utils
 
 import vmware_nsx
 from vmware_nsx._i18n import _
@@ -121,21 +123,21 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                   securitygroups_db.SecurityGroupDbMixin,
                   dns_db.DNSDbMixin):
 
-    supported_extension_aliases = ["allowed-address-pairs",
-                                   "binding",
-                                   "dvr",
+    supported_extension_aliases = [addr_apidef.ALIAS,
+                                   pbin.ALIAS,
+                                   dvr_apidef.ALIAS,
                                    "ext-gw-mode",
                                    xroute_apidef.ALIAS,
                                    "mac-learning",
                                    "multi-provider",
                                    "network-gateway",
-                                   "port-security",
-                                   "provider",
+                                   psec.ALIAS,
+                                   pnet.ALIAS,
                                    "qos-queue",
                                    "quotas",
-                                   "external-net",
-                                   "extra_dhcp_opt",
-                                   "router",
+                                   extnet_apidef.ALIAS,
+                                   edo_ext.ALIAS,
+                                   l3_apidef.ALIAS,
                                    "security-group",
                                    constants.SUBNET_ALLOCATION_EXT_ALIAS]
 

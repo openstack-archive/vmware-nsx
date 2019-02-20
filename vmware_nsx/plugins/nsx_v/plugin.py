@@ -19,16 +19,23 @@ import xml.etree.ElementTree as et
 import netaddr
 
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
+from neutron_lib.api.definitions import dvr as dvr_apidef
 from neutron_lib.api.definitions import external_net as extnet_apidef
 from neutron_lib.api.definitions import extra_dhcp_opt as ext_edo
+from neutron_lib.api.definitions import extraroute
+from neutron_lib.api.definitions import flavors as flavors_apidef
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import l3_flavors
 from neutron_lib.api.definitions import multiprovidernet as mpnet_apidef
+from neutron_lib.api.definitions import network_availability_zone
 from neutron_lib.api.definitions import port as port_def
 from neutron_lib.api.definitions import port_security as psec
 from neutron_lib.api.definitions import portbindings as pbin
 from neutron_lib.api.definitions import provider_net as pnet
+from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib.api.definitions import subnet as subnet_def
 from neutron_lib.api.definitions import vlantransparent as vlan_apidef
 from neutron_lib.api import extensions
@@ -206,21 +213,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                    mac_db.MacLearningDbMixin,
                    hk_ext.Housekeeper):
 
-    supported_extension_aliases = ["agent",
-                                   "allowed-address-pairs",
+    supported_extension_aliases = [agent_apidef.ALIAS,
+                                   addr_apidef.ALIAS,
                                    "address-scope",
-                                   "binding",
+                                   pbin.ALIAS,
                                    "dns-search-domain",
-                                   "dvr",
+                                   dvr_apidef.ALIAS,
                                    "ext-gw-mode",
-                                   "multi-provider",
-                                   "port-security",
-                                   "provider",
+                                   mpnet_apidef.ALIAS,
+                                   psec.ALIAS,
+                                   pnet.ALIAS,
                                    "quotas",
-                                   "external-net",
-                                   "extra_dhcp_opt",
-                                   "extraroute",
-                                   "router",
+                                   extnet_apidef.ALIAS,
+                                   ext_edo.ALIAS,
+                                   extraroute.ALIAS,
+                                   l3_apidef.ALIAS,
                                    "security-group",
                                    "secgroup-rule-local-ip-prefix",
                                    "security-group-logging",
@@ -229,11 +236,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    "vnic-index",
                                    "advanced-service-providers",
                                    "subnet_allocation",
-                                   "availability_zone",
-                                   "network_availability_zone",
-                                   "router_availability_zone",
-                                   "l3-flavors",
-                                   "flavors",
+                                   az_def.ALIAS,
+                                   network_availability_zone.ALIAS,
+                                   router_availability_zone.ALIAS,
+                                   l3_flavors.ALIAS,
+                                   flavors_apidef.ALIAS,
                                    "dhcp-mtu",
                                    "mac-learning",
                                    "housekeeper",
@@ -319,7 +326,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # True
         if cfg.CONF.vlan_transparent:
             if c_utils.is_nsxv_version_6_3(self.nsx_v.vcns.get_version()):
-                self.supported_extension_aliases.append("vlan-transparent")
+                self.supported_extension_aliases.append(vlan_apidef.ALIAS)
             else:
                 LOG.warning("Transparent support only from "
                             "NSX 6.3 onwards")
