@@ -188,7 +188,7 @@ class ExtendedSecurityGroupPropertiesMixin(object):
         # security-group belongs to the same tenant this request is made for.
         sg = self.get_security_group(context, security_group_id)
         if not sg[provider_sg.PROVIDER]:
-            raise provider_sg.SecurityGroupNotProvider(id=sg)
+            raise provider_sg.SecurityGroupNotProvider(id=security_group_id)
 
     def _check_invalid_security_groups_specified(self, context, port,
                                                  only_warn=False):
