@@ -1116,6 +1116,11 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     res = self.plugin.get_port(self.ctx, port['id'])
                     self.assertEqual(policy_id, res['qos_policy_id'])
 
+                # now remove the qos from the port
+                data['port']['qos_policy_id'] = None
+                res = self.plugin.update_port(self.ctx, port['id'], data)
+                self.assertIsNone(res['qos_policy_id'])
+
     def test_create_ext_port_with_qos_fail(self):
         with self._create_l3_ext_network() as network:
             with self.subnet(network=network, cidr='10.0.0.0/24'),\

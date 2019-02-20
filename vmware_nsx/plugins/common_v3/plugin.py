@@ -684,7 +684,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         is_new_compute = updated_compute and not orig_compute
 
         qos_policy_id = None
-        if validators.is_attr_set(updated_port.get(qos_consts.QOS_POLICY_ID)):
+        if qos_consts.QOS_POLICY_ID in updated_port:
             qos_policy_id = updated_port[qos_consts.QOS_POLICY_ID]
         elif original_port:
             # Look for the original QoS policy of this port
