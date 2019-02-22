@@ -128,7 +128,7 @@ class DhcpMetadataAccess(object):
             LOG.warning('network_auto_schedule has been disabled')
             notifier = combined.DhcpAgentNotifyAPI(weakref.proxy(self),
                                                    lsn_manager)
-            self.supported_extension_aliases.append(lsn.EXT_ALIAS)
+            self.supported_extension_aliases.append(lsn.ALIAS)
             # Add the capability to migrate dhcp and metadata services over
             self.migration_manager = (
                 migration.MigrationManager(
@@ -136,7 +136,7 @@ class DhcpMetadataAccess(object):
         return notifier
 
     def _init_extensions(self):
-        extensions = (lsn.EXT_ALIAS, agent_apidef.ALIAS,
+        extensions = (lsn.ALIAS, agent_apidef.ALIAS,
                       dhcpagentscheduler.ALIAS)
         for ext in extensions:
             if ext in self.supported_extension_aliases:

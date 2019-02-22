@@ -20,12 +20,15 @@ from openstackclient.tests.unit.network.v2 import fakes as network_fakes
 from openstackclient.tests.unit.network.v2 import test_port
 from openstackclient.tests.unit import utils as tests_utils
 
+from vmware_nsx.extensions import maclearning
+from vmware_nsx.extensions import providersecuritygroup
+from vmware_nsx.extensions import vnicindex
 from vmware_nsx.osc.v2 import port
 
 
-supported_extensions = ('vnic-index',
-                        'provider-security-group',
-                        'mac-learning')
+supported_extensions = (vnicindex.ALIAS,
+                        providersecuritygroup.ALIAS,
+                        maclearning.ALIAS)
 
 
 class TestCreatePort(test_port.TestCreatePort):

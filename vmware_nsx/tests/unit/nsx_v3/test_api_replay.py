@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from vmware_nsx.extensions import api_replay
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin
 
 from neutron_lib.api import attributes
@@ -34,7 +35,7 @@ class TestApiReplay(test_plugin.NsxV3PluginTestCaseMixin):
 
         # remove the extension from the plugin
         directory.get_plugin().supported_extension_aliases.remove(
-            'api-replay')
+            api_replay.ALIAS)
 
         # Revert the attributes map back to normal
         for attr_name in ('ports', 'networks', 'security_groups',

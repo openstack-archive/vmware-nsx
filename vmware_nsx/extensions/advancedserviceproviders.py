@@ -16,7 +16,7 @@ from neutron_lib.api import extensions
 
 # Attribute Map
 ADV_SERVICE_PROVIDERS = 'advanced_service_providers'
-
+ALIAS = 'advanced-service-providers'
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
@@ -34,7 +34,7 @@ class Advancedserviceproviders(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "advanced-service-providers"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

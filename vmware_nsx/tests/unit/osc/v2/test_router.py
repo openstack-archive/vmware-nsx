@@ -24,7 +24,7 @@ from vmware_nsx.extensions import routertype
 from vmware_nsx.osc.v2 import router
 
 
-supported_extensions = ('nsxv-router-size', 'nsxv-router-type')
+supported_extensions = (routersize.ALIAS, routertype.ALIAS)
 
 
 class TestCreateRouter(test_router.TestCreateRouter):

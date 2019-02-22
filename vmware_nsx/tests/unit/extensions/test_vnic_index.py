@@ -38,7 +38,7 @@ _uuid = uuidutils.generate_uuid
 class VnicIndexTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                           vnic_index_db.VnicIndexDbMixin):
 
-    supported_extension_aliases = ["vnic-index"]
+    supported_extension_aliases = [vnicidx.ALIAS]
 
     def update_port(self, context, id, port):
         p = port['port']

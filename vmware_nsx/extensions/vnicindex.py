@@ -17,7 +17,7 @@ from neutron_lib.api import extensions
 
 # Attribute Map
 VNIC_INDEX = 'vnic_index'
-
+ALIAS = 'vnic-index'
 
 EXTENDED_ATTRIBUTES_2_0 = {
     'ports': {
@@ -36,7 +36,7 @@ class Vnicindex(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "vnic-index"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

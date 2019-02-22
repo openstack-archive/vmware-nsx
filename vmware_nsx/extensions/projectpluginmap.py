@@ -24,7 +24,7 @@ from vmware_nsx._i18n import _
 
 PROJECT_PLUGIN_RESOURCE_NAME = "project_plugin_map"
 # Use dash for alias and collection name
-EXT_ALIAS = PROJECT_PLUGIN_RESOURCE_NAME.replace('_', '-')
+ALIAS = PROJECT_PLUGIN_RESOURCE_NAME.replace('_', '-')
 PROJECT_PLUGINS = "project_plugin_maps"
 
 
@@ -69,7 +69,7 @@ class Projectpluginmap(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return EXT_ALIAS
+        return ALIAS
 
     @classmethod
     def get_description(cls):

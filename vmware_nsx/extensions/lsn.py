@@ -21,8 +21,8 @@ from neutron_lib.api import extensions as api_extensions
 from neutron_lib.plugins import directory
 
 
-EXT_ALIAS = 'lsn'
-COLLECTION_NAME = "%ss" % EXT_ALIAS
+ALIAS = 'lsn'
+COLLECTION_NAME = "%ss" % ALIAS
 
 RESOURCE_ATTRIBUTE_MAP = {
     COLLECTION_NAME: {
@@ -47,7 +47,7 @@ class Lsn(api_extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return EXT_ALIAS
+        return ALIAS
 
     @classmethod
     def get_description(cls):
@@ -62,7 +62,7 @@ class Lsn(api_extensions.ExtensionDescriptor):
         """Returns Ext Resources."""
         exts = []
         plugin = directory.get_plugin()
-        resource_name = EXT_ALIAS
+        resource_name = ALIAS
         collection_name = resource_name.replace('_', '-') + "s"
         params = RESOURCE_ATTRIBUTE_MAP.get(COLLECTION_NAME, dict())
         controller = base.create_resource(collection_name,

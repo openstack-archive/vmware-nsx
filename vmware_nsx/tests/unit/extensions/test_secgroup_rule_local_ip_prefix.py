@@ -45,7 +45,7 @@ class ExtendedRuleTestPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                              securitygroups_db.SecurityGroupDbMixin):
 
     supported_extension_aliases = ["security-group",
-                                   "secgroup-rule-local-ip-prefix"]
+                                   ext_loip.ALIAS]
 
     def create_security_group_rule(self, context, security_group_rule):
         rule = security_group_rule['security_group_rule']

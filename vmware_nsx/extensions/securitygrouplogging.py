@@ -15,6 +15,7 @@
 from neutron_lib.api import converters
 from neutron_lib.api import extensions
 
+ALIAS = 'security-group-logging'
 LOGGING = 'logging'
 
 RESOURCE_ATTRIBUTE_MAP = {
@@ -39,7 +40,7 @@ class Securitygrouplogging(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "security-group-logging"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

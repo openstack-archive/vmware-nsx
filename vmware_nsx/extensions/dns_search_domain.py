@@ -66,6 +66,7 @@ def _validate_dns_search_domain(data, max_len=db_const.NAME_FIELD_SIZE):
 validators.add_validator('dns_search_domain', _validate_dns_search_domain)
 
 
+ALIAS = 'dns-search-domain'
 DNS_SEARCH_DOMAIN = 'dns_search_domain'
 EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
@@ -87,7 +88,7 @@ class Dns_search_domain(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "dns-search-domain"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

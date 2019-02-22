@@ -20,6 +20,7 @@ from neutron_lib import exceptions as nexception
 from vmware_nsx._i18n import _
 
 
+ALIAS = 'provider-security-group'
 PROVIDER = 'provider'
 PROVIDER_SECURITYGROUPS = 'provider_security_groups'
 
@@ -75,7 +76,7 @@ class Providersecuritygroup(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "provider-security-group"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

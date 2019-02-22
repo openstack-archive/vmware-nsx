@@ -17,6 +17,7 @@ from neutron_lib.api import extensions
 from neutron_lib import constants
 
 
+ALIAS = 'mac-learning'
 MAC_LEARNING = 'mac_learning_enabled'
 EXTENDED_ATTRIBUTES_2_0 = {
     'ports': {
@@ -37,7 +38,7 @@ class Maclearning(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "mac-learning"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

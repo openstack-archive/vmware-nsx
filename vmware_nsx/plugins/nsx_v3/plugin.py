@@ -18,6 +18,7 @@ import time
 import mock
 import netaddr
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import address_scope
 from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone
@@ -80,10 +81,12 @@ from vmware_nsx.common import nsx_constants
 from vmware_nsx.common import utils
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.dhcp_meta import rpc as nsx_rpc
+from vmware_nsx.extensions import api_replay
 from vmware_nsx.extensions import housekeeper as hk_ext
 from vmware_nsx.extensions import maclearning as mac_ext
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
+from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.plugins.common.housekeeper import housekeeper
 from vmware_nsx.plugins.common_v3 import plugin as nsx_plugin_common
@@ -139,7 +142,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     __native_sorting_support = True
 
     supported_extension_aliases = [addr_apidef.ALIAS,
-                                   "address-scope",
+                                   address_scope.ALIAS,
                                    "quotas",
                                    pbin_apidef.ALIAS,
                                    ext_edo.ALIAS,
@@ -147,7 +150,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                                    dhcpagentscheduler.ALIAS,
                                    "ext-gw-mode",
                                    "security-group",
-                                   "secgroup-rule-local-ip-prefix",
+                                   secgroup_rule_local_ip_prefix.ALIAS,
                                    psec.ALIAS,
                                    provider_net.ALIAS,
                                    extnet_apidef.ALIAS,
@@ -157,9 +160,9 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                                    network_availability_zone.ALIAS,
                                    router_availability_zone.ALIAS,
                                    "subnet_allocation",
-                                   "security-group-logging",
-                                   "provider-security-group",
-                                   "housekeeper",
+                                   sg_logging.ALIAS,
+                                   provider_sg.ALIAS,
+                                   hk_ext.ALIAS,
                                    "port-security-groups-filtering"]
 
     @resource_registry.tracked_resources(
@@ -242,7 +245,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
 
         self._unsubscribe_callback_events()
         if cfg.CONF.api_replay_mode:
-            self.supported_extension_aliases.append('api-replay')
+            self.supported_extension_aliases.append(api_replay.ALIAS)
 
         # Support transparent VLANS from 2.2.0 onwards. The feature is only
         # supported if the global configuration flag vlan_transparent is
@@ -512,7 +515,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             try:
                 self._init_mac_learning_profile()
                 # Only expose the extension if it is supported
-                self.supported_extension_aliases.append('mac-learning')
+                self.supported_extension_aliases.append(mac_ext.ALIAS)
             except Exception as e:
                 LOG.warning("Unable to initialize NSX v3 MAC Learning "
                             "profile: %(name)s. Reason: %(reason)s",

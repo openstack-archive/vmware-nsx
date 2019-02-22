@@ -17,6 +17,8 @@ from neutron_lib import exceptions as nexception
 
 from vmware_nsx._i18n import _
 
+
+ALIAS = 'security-group-policy'
 POLICY = 'policy'
 
 RESOURCE_ATTRIBUTE_MAP = {
@@ -45,7 +47,7 @@ class Securitygrouppolicy(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "security-group-policy"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

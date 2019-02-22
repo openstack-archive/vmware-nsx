@@ -18,6 +18,9 @@
 from neutron_lib.api import extensions
 from neutron_lib.db import constants as db_const
 
+
+ALIAS = 'api-replay'
+
 # The attributes map is here for 2 reasons:
 # 1) allow posting id for the different objects we are importing
 # 2) make sure security-group named 'default' is also copied
@@ -61,7 +64,7 @@ class Api_replay(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return 'api-replay'
+        return ALIAS
 
     @classmethod
     def get_description(cls):

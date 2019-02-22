@@ -89,7 +89,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                    nsx_com_az.NSXAvailabilityZonesPluginCommon,
                    projectpluginmap.ProjectPluginMapPluginBase):
 
-    supported_extension_aliases = ['project-plugin-map']
+    supported_extension_aliases = [projectpluginmap.ALIAS]
 
     __native_bulk_support = True
     __native_pagination_support = True
@@ -173,7 +173,7 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         for k, val in self.plugins.items():
-            if "advanced-service-providers" in val.supported_extension_aliases:
+            if as_providers.ALIAS in val.supported_extension_aliases:
                 self.as_providers[k] = val
         LOG.info("NSX-TVD plugin will use %s as the default plugin",
             self.default_plugin)

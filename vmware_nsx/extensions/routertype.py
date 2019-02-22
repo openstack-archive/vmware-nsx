@@ -16,6 +16,7 @@ from neutron_lib.api import extensions
 from neutron_lib import constants
 
 
+ALIAS = 'nsxv-router-type'
 ROUTER_TYPE = 'router_type'
 VALID_TYPES = ['shared', 'exclusive']
 EXTENDED_ATTRIBUTES_2_0 = {
@@ -37,7 +38,7 @@ class Routertype(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "nsxv-router-type"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

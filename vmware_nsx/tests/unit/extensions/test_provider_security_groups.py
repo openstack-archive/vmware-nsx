@@ -42,7 +42,7 @@ class ProviderSecurityGroupTestPlugin(
     securitygroups_db.SecurityGroupDbMixin):
 
     supported_extension_aliases = ["security-group",
-                                   "provider-security-group"]
+                                   provider_sg.ALIAS]
 
     def create_security_group(self, context, security_group, default_sg=False):
         secgroup = security_group['security_group']
