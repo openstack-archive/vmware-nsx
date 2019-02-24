@@ -124,18 +124,16 @@ class EdgeFwaasV3DriverV2(base_driver.CommonEdgeFwaasV3Driver):
     def _validate_firewall_group(self, firewall_group):
         """Validate the rules in the firewall group"""
         for rule in firewall_group['egress_rule_list']:
-            if rule.get('source_ip_address'):
-                # this rule cannot be used as egress rule
-                LOG.error("Rule %(id)s cannot be used in an egress "
-                          "policy because it has a source",
-                          {'id': rule['id']})
-                raise exceptions.FirewallInternalDriverError(
-                    driver=FWAAS_DRIVER_NAME)
+            if (rule.get('source_ip_address') and
+                not rule['source_ip_address'].startswith('0.0.0.0/')):
+                # Ignoring interface port as we cannot set it with the ip
+                LOG.info("Rule %(id)s with source ips used in an egress "
+                         "policy: interface port will be ignored in the NSX "
+                         "rule", {'id': rule['id']})
         for rule in firewall_group['ingress_rule_list']:
-            if rule.get('destination_ip_address'):
-                # this rule cannot be used as ingress rule
-                LOG.error("Rule %(id)s cannot be used in an ingress "
-                          "policy because it has a destination",
-                          {'id': rule['id']})
-                raise exceptions.FirewallInternalDriverError(
-                    driver=FWAAS_DRIVER_NAME)
+            if (rule.get('destination_ip_address') and
+                not rule['destination_ip_address'].startswith('0.0.0.0/')):
+                # Ignoring interface port as we cannot set it with the ip
+                LOG.info("Rule %(id)s with destination ips used in an "
+                         "ingress policy: interface port will be ignored "
+                         "in the NSX rule", {'id': rule['id']})
