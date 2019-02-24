@@ -16,6 +16,7 @@ from neutron_lib.api import extensions
 from neutron_lib import constants
 
 DHCP_MTU = 'dhcp_mtu'
+ALIAS = 'dhcp-mtu'
 EXTENDED_ATTRIBUTES_2_0 = {
     'subnets': {
         DHCP_MTU: {
@@ -37,7 +38,7 @@ class Dhcp_mtu(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "dhcp-mtu"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

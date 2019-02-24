@@ -43,7 +43,7 @@ class NSXBgpPlugin(service_base.ServicePluginBase, bgp_db.BgpDbMixin):
     """
 
     supported_extension_aliases = [bgp_ext.BGP_EXT_ALIAS,
-                                   ext_esg.ESG_BGP_PEER_EXT_ALIAS]
+                                   ext_esg.ALIAS]
 
     def __init__(self):
         super(NSXBgpPlugin, self).__init__()

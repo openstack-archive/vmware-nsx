@@ -83,7 +83,7 @@ class NetworkGatewayExtensionTestCase(base.BaseTestCase):
 
         # Instantiate mock plugin and enable extensions
         self.plugin.return_value.supported_extension_aliases = (
-            [networkgw.EXT_ALIAS])
+            [networkgw.ALIAS])
         directory.add_plugin(constants.CORE, self.plugin.return_value)
         ext_mgr = TestExtensionManager()
         extensions.PluginAwareExtensionManager._instance = ext_mgr
@@ -1096,7 +1096,7 @@ class TestNetworkGatewayPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                networkgw_db.NetworkGatewayMixin):
     """Simple plugin class for testing db support for network gateway ext."""
 
-    supported_extension_aliases = ["network-gateway"]
+    supported_extension_aliases = [networkgw.ALIAS]
 
     def __init__(self, **args):
         super(TestNetworkGatewayPlugin, self).__init__(**args)

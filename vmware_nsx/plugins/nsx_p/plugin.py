@@ -30,6 +30,7 @@ from neutron.db import models_v2
 from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
+from neutron_lib.api.definitions import address_scope
 from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_apidef
@@ -121,7 +122,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     __native_sorting_support = True
 
     supported_extension_aliases = [addr_apidef.ALIAS,
-                                   "address-scope",
+                                   address_scope.ALIAS,
                                    "quotas",
                                    pbin_apidef.ALIAS,
                                    ext_edo.ALIAS,
@@ -129,7 +130,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                    dhcpagentscheduler.ALIAS,
                                    "ext-gw-mode",
                                    "security-group",
-                                   "secgroup-rule-local-ip-prefix",
+                                   sg_prefix.ALIAS,
                                    psec.ALIAS,
                                    pnet_apidef.ALIAS,
                                    external_net.ALIAS,
@@ -139,10 +140,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                    network_availability_zone.ALIAS,
                                    router_availability_zone.ALIAS,
                                    "subnet_allocation",
-                                   "security-group-logging",
-                                   "provider-security-group",
+                                   sg_logging.ALIAS,
+                                   provider_sg.ALIAS,
                                    "port-security-groups-filtering",
-                                   'mac-learning']
+                                   mac_ext.ALIAS]
 
     @resource_registry.tracked_resources(
         network=models_v2.Network,

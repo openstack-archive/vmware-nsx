@@ -17,6 +17,8 @@ from neutron.extensions import securitygroup
 from neutron_lib.api import extensions
 from neutron_lib import constants
 
+
+ALIAS = 'secgroup-rule-local-ip-prefix'
 LOCAL_IP_PREFIX = 'local_ip_prefix'
 
 RESOURCE_ATTRIBUTE_MAP = {
@@ -43,7 +45,7 @@ class Secgroup_rule_local_ip_prefix(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "secgroup-rule-local-ip-prefix"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

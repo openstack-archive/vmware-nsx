@@ -19,6 +19,7 @@ import xml.etree.ElementTree as et
 import netaddr
 
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import address_scope
 from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
 from neutron_lib.api.definitions import availability_zone as az_def
@@ -133,6 +134,7 @@ from vmware_nsx.extensions import nsxpolicy
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.extensions import routersize
+from vmware_nsx.extensions import routertype
 from vmware_nsx.extensions import secgroup_rule_local_ip_prefix
 from vmware_nsx.extensions import securitygrouplogging as sg_logging
 from vmware_nsx.extensions import securitygrouppolicy as sg_policy
@@ -215,9 +217,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     supported_extension_aliases = [agent_apidef.ALIAS,
                                    addr_apidef.ALIAS,
-                                   "address-scope",
+                                   address_scope.ALIAS,
                                    pbin.ALIAS,
-                                   "dns-search-domain",
+                                   ext_dns_search_domain.ALIAS,
                                    dvr_apidef.ALIAS,
                                    "ext-gw-mode",
                                    mpnet_apidef.ALIAS,
@@ -229,21 +231,21 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                    extraroute.ALIAS,
                                    l3_apidef.ALIAS,
                                    "security-group",
-                                   "secgroup-rule-local-ip-prefix",
-                                   "security-group-logging",
-                                   "nsxv-router-type",
-                                   "nsxv-router-size",
-                                   "vnic-index",
-                                   "advanced-service-providers",
+                                   secgroup_rule_local_ip_prefix.ALIAS,
+                                   sg_logging.ALIAS,
+                                   routertype.ALIAS,
+                                   routersize.ALIAS,
+                                   ext_vnic_idx.ALIAS,
+                                   as_providers.ALIAS,
                                    "subnet_allocation",
                                    az_def.ALIAS,
                                    network_availability_zone.ALIAS,
                                    router_availability_zone.ALIAS,
                                    l3_flavors.ALIAS,
                                    flavors_apidef.ALIAS,
-                                   "dhcp-mtu",
-                                   "mac-learning",
-                                   "housekeeper",
+                                   ext_dhcp_mtu.ALIAS,
+                                   mac_ext.ALIAS,
+                                   hk_ext.ALIAS,
                                    "port-security-groups-filtering"]
 
     __native_bulk_support = True
@@ -318,8 +320,8 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             # Support NSX policies in default security groups
             self._use_nsx_policies = True
             # enable the extension
-            self.supported_extension_aliases.append("security-group-policy")
-            self.supported_extension_aliases.append("nsx-policy")
+            self.supported_extension_aliases.append(sg_policy.ALIAS)
+            self.supported_extension_aliases.append(nsxpolicy.ALIAS)
 
         # Support transparent VLANS from 6.3.0 onwards. The feature is only
         # supported if the global configuration flag vlan_transparent is
@@ -352,7 +354,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             resources.SUBNETPOOL_ADDRESS_SCOPE, events.AFTER_UPDATE)
 
         if c_utils.is_nsxv_version_6_2(self.nsx_v.vcns.get_version()):
-            self.supported_extension_aliases.append("provider-security-group")
+            self.supported_extension_aliases.append(provider_sg.ALIAS)
 
         # Bind QoS notifications
         qos_driver.register(self)

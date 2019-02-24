@@ -29,8 +29,8 @@ from vmware_nsx._i18n import _
 GATEWAY_RESOURCE_NAME = "network_gateway"
 DEVICE_RESOURCE_NAME = "gateway_device"
 # Use dash for alias and collection name
-EXT_ALIAS = GATEWAY_RESOURCE_NAME.replace('_', '-')
-NETWORK_GATEWAYS = "%ss" % EXT_ALIAS
+ALIAS = GATEWAY_RESOURCE_NAME.replace('_', '-')
+NETWORK_GATEWAYS = "%ss" % ALIAS
 GATEWAY_DEVICES = "%ss" % DEVICE_RESOURCE_NAME.replace('_', '-')
 DEVICE_ID_ATTR = 'id'
 IFACE_NAME_ATTR = 'interface_name'
@@ -173,7 +173,7 @@ class Networkgw(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return EXT_ALIAS
+        return ALIAS
 
     @classmethod
     def get_description(cls):

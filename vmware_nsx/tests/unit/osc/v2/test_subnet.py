@@ -19,10 +19,12 @@ import mock
 from openstackclient.tests.unit.network.v2 import test_subnet
 from openstackclient.tests.unit import utils as tests_utils
 
+from vmware_nsx.extensions import dhcp_mtu
+from vmware_nsx.extensions import dns_search_domain
 from vmware_nsx.osc.v2 import subnet
 
 
-supported_extensions = ('dhcp-mtu', 'dns-search-domain')
+supported_extensions = (dhcp_mtu.ALIAS, dns_search_domain.ALIAS)
 
 
 class TestCreateSubnet(test_subnet.TestCreateSubnet):

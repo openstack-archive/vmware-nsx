@@ -16,6 +16,7 @@ from neutron_lib.api import extensions
 from neutron_lib import constants
 
 
+ALIAS = 'nsxv-router-size'
 ROUTER_SIZE = 'router_size'
 VALID_EDGE_SIZES = ['compact', 'large', 'xlarge', 'quadlarge']
 EXTENDED_ATTRIBUTES_2_0 = {
@@ -37,7 +38,7 @@ class Routersize(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "nsxv-router-size"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

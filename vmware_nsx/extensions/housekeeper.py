@@ -24,6 +24,7 @@ from vmware_nsx._i18n import _
 
 HOUSEKEEPER_RESOURCE_NAME = "housekeeper"
 HOUSEKEEPERS = "housekeepers"
+ALIAS = 'housekeeper'
 
 # The housekeeper tasks table is read only
 RESOURCE_ATTRIBUTE_MAP = {
@@ -53,7 +54,7 @@ class Housekeeper(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return HOUSEKEEPER_RESOURCE_NAME
+        return ALIAS
 
     @classmethod
     def get_description(cls):

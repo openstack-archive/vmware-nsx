@@ -23,7 +23,7 @@ from vmware_nsx._i18n import _
 
 POLICY_RESOURCE_NAME = "nsx_policy"
 # Use dash for alias and collection name
-EXT_ALIAS = POLICY_RESOURCE_NAME.replace('_', '-')
+ALIAS = POLICY_RESOURCE_NAME.replace('_', '-')
 NSX_POLICIES = "nsx_policies"
 
 # The nsx-policies table is read only
@@ -48,7 +48,7 @@ class Nsxpolicy(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return EXT_ALIAS
+        return ALIAS
 
     @classmethod
     def get_description(cls):

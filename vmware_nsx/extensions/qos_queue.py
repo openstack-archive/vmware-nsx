@@ -27,6 +27,7 @@ from neutron_lib.plugins import directory
 
 from vmware_nsx._i18n import _
 
+ALIAS = 'qos-queue'
 # For policy.json/Auth
 qos_queue_create = "create_qos_queue"
 qos_queue_delete = "delete_qos_queue"
@@ -176,7 +177,7 @@ class Qos_queue(api_extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "qos-queue"
+        return ALIAS
 
     @classmethod
     def get_description(cls):

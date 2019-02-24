@@ -22,7 +22,7 @@ from vmware_nsx._i18n import _
 
 EDGE_SERVICE_GW = 'esg_id'
 EDGE_ID_MAX_LEN = 15
-ESG_BGP_PEER_EXT_ALIAS = 'edge-service-gateway-bgp-peer'
+ALIAS = 'edge-service-gateway-bgp-peer'
 
 
 def _validate_edge_service_gw_id(esg_id, valid_values=None):
@@ -87,7 +87,7 @@ class Edge_service_gateway_bgp_peer(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return ESG_BGP_PEER_EXT_ALIAS
+        return ALIAS
 
     @classmethod
     def get_description(cls):

@@ -20,12 +20,16 @@ from openstackclient.tests.unit.network.v2 import (
     test_security_group_network as test_security_group)
 from openstackclient.tests.unit import utils as tests_utils
 
+
+from vmware_nsx.extensions import providersecuritygroup
+from vmware_nsx.extensions import securitygrouplogging
+from vmware_nsx.extensions import securitygrouppolicy
 from vmware_nsx.osc.v2 import security_group
 
 
-supported_extensions = ('security-group-logging',
-                        'provider-security-group',
-                        'security-group-policy')
+supported_extensions = (securitygrouplogging.ALIAS,
+                        providersecuritygroup.ALIAS,
+                        securitygrouppolicy.ALIAS)
 
 
 class TestCreateSecurityGroup(

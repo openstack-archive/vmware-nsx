@@ -44,7 +44,7 @@ def _dotted_domain(dns_domain):
 
 # TODO(asarfaty) use dns-domain/nameserver from network az instead of global
 class DNSExtensionDriver(driver_api.ExtensionDriver):
-    _supported_extension_alias = 'dns-integration'
+    _supported_extension_alias = dns.ALIAS
 
     @property
     def extension_alias(self):
