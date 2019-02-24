@@ -91,6 +91,8 @@ class NsxFwaasCallbacksV2(firewall_l3_agent_v2.L3WithFWaaS):
                 # No change in ports, but policy changed so all ports are
                 # relevant
                 fwg_port_ids = firewall_group['ports']
+                # Mark to the driver that this is not port deletion
+                firewall_group['last-port'] = False
         elif not require_new_plugin:
             routers = self._get_routers_in_project(
                     context, firewall_group['tenant_id'])
