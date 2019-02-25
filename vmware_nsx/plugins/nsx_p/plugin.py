@@ -1437,22 +1437,31 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # and not all
             self._validate_router_tz(context.elevated(), tier0_uuid, subnets)
 
-            #TODO(asarfaty): adding the segment name even though it was not
-            # changed because otherwise the NSX will set it to default.
-            # This code should be removed once NSX supports it.
-            net = self._get_network(context, network_id)
-            net_name = utils.get_name_and_uuid(
-                net['name'] or 'network', network_id)
             segment_id = self._get_network_nsx_segment_id(context, network_id)
             subnet = self.get_subnet(context, info['subnet_ids'][0])
             cidr_prefix = int(subnet['cidr'].split('/')[1])
-            gw_addr = "%s/%s" % (subnet['gateway_ip'], cidr_prefix)
-            pol_subnet = policy_defs.Subnet(
-                gateway_address=gw_addr)
-            self.nsxpolicy.segment.update(segment_id,
-                                          name=net_name,
-                                          tier1_id=router_id,
-                                          subnets=[pol_subnet])
+            if overlay_net:
+                # overlay interface
+                #TODO(asarfaty): adding the segment name even though it was not
+                # changed because otherwise the NSX will set it to default.
+                # This code should be removed once NSX supports it.
+                net = self._get_network(context, network_id)
+                net_name = utils.get_name_and_uuid(
+                    net['name'] or 'network', network_id)
+                gw_addr = "%s/%s" % (subnet['gateway_ip'], cidr_prefix)
+                pol_subnet = policy_defs.Subnet(gateway_address=gw_addr)
+                self.nsxpolicy.segment.update(segment_id,
+                                             name=net_name,
+                                             tier1_id=router_id,
+                                             subnets=[pol_subnet])
+            else:
+                # Vlan interface
+                pol_subnet = policy_defs.InterfaceSubnet(
+                    ip_addresses=[subnet['gateway_ip']],
+                    prefix_len=cidr_prefix)
+                self.nsxpolicy.tier1.add_segment_interface(
+                    router_id, segment_id,
+                    segment_id, [pol_subnet])
 
             # add the SNAT/NO_DNAT rules for this interface
             if router_db.enable_snat and gw_network_id:
@@ -1493,11 +1502,18 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         info = super(NsxPolicyPlugin, self).remove_router_interface(
             context, router_id, interface_info)
         network_id = info['network_id']
+        overlay_net = self._is_overlay_network(context, network_id)
+        segment_id = self._get_network_nsx_segment_id(context, network_id)
 
-        # Remove the tier1 router from this segment on the nSX
         try:
-            segment_id = self._get_network_nsx_segment_id(context, network_id)
-            self.nsxpolicy.segment.remove_connectivity_and_subnets(segment_id)
+            if overlay_net:
+                # Remove the tier1 router from this segment on the NSX
+                self.nsxpolicy.segment.remove_connectivity_and_subnets(
+                    segment_id)
+            else:
+                # VLAN interface
+                self.nsxpolicy.tier1.delete_segment_interface(
+                    router_id, segment_id)
 
             # try to delete the SNAT/NO_DNAT rules of this subnet
             router_db = self._get_router(context, router_id)
@@ -1510,6 +1526,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             LOG.error('Failed to remove router interface for network '
                       '%(id)s on NSX backend. Exception: %(e)s',
                       {'id': network_id, 'e': ex})
+
         return info
 
     def _get_fip_snat_rule_id(self, fip_id):
