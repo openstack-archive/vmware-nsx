@@ -211,6 +211,9 @@ class NsxV3PluginTestCaseMixin(test_plugin.NeutronDbPluginV2TestCase,
             'neutron_lib.rpc.Connection.consume_in_threads',
             return_value=[]).start()
 
+        mock.patch.object(nsx_plugin.NsxV3Plugin,
+                          '_cleanup_duplicates').start()
+
     def setUp(self, plugin=PLUGIN_NAME,
               ext_mgr=None,
               service_plugins=None, **kwargs):
