@@ -1297,6 +1297,18 @@ class NsxPTestSecurityGroup(common_v3.FixExternalNetBaseTest,
         return super(NsxPTestSecurityGroup,
                      self).test_list_ports_security_group()
 
+    @mock.patch.object(nsx_plugin.NsxPolicyPlugin, 'get_security_group')
+    def test_create_security_group_rule_with_invalid_tcp_or_udp_protocol(
+        self, get_mock):
+        super(NsxPTestSecurityGroup, self).\
+            test_create_security_group_rule_with_invalid_tcp_or_udp_protocol()
+
+    @mock.patch.object(nsx_plugin.NsxPolicyPlugin, 'get_security_group')
+    def test_create_security_group_source_group_ip_and_ip_prefix(
+        self, get_mock):
+        super(NsxPTestSecurityGroup, self).\
+            test_create_security_group_source_group_ip_and_ip_prefix()
+
 
 class NsxPTestL3ExtensionManager(object):
 

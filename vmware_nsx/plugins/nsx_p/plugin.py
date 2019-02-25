@@ -2031,6 +2031,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # Tenant & security group are the same for all rules in the bulk
         example_rule = sg_rules[0]['security_group_rule']
         sg_id = example_rule['security_group_id']
+        sg = self.get_security_group(context, sg_id)
         self._prevent_non_admin_edit_provider_sg(context, sg_id)
 
         with db_api.CONTEXT_WRITER.using(context):
@@ -2041,7 +2042,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 self._process_security_group_rule_properties(
                     context, rules_db[i], r['security_group_rule'])
 
-        domain_id = example_rule['tenant_id']
+        domain_id = sg['tenant_id']
         secgroup_logging = self._is_security_group_logged(context, sg_id)
         for rule_data in rules_db:
             # create the NSX backend rule
