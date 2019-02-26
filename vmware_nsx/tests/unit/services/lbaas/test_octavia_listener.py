@@ -197,14 +197,33 @@ class TestNsxOctaviaListener(testtools.TestCase):
 
     def test_pool_delete(self):
         self.dummyResource.delete_called = False
-        self.endpoint.pool_delete(self.ctx, self.dummyObj)
+        lb_id = uuidutils.generate_uuid()
+        listener_id = uuidutils.generate_uuid()
+        pool_id = uuidutils.generate_uuid()
+        pool_obj = {
+            'id': pool_id,
+            'pool_id': pool_id,
+            'project_id': uuidutils.generate_uuid(),
+            'listener_id': listener_id,
+            'loadbalancer_id': lb_id,
+            'listener': {'protocol': 'HTTP',
+                         'id': listener_id,
+                         'default_pool_id': pool_id,
+                         'loadbalancer': {'id': lb_id}}}
+        self.endpoint.pool_delete(self.ctx, pool_obj)
         self.assertTrue(self.dummyResource.delete_called)
         self.clientMock.cast.assert_called_once_with(
             {}, 'update_loadbalancer_status',
-            status={'pools': [
-                {'operating_status': 'ONLINE',
-                 'provisioning_status': 'DELETED',
-                 'id': mock.ANY}]})
+            status={'loadbalancers': [{'operating_status': 'ONLINE',
+                                       'provisioning_status': 'ACTIVE',
+                                       'id': lb_id}],
+                    'pools': [{'operating_status': 'ONLINE',
+                               'provisioning_status': 'DELETED',
+                               'id': pool_id}],
+                    'listeners': [{'operating_status': 'ONLINE',
+                                   'provisioning_status': 'ACTIVE',
+                                   'id': listener_id}],
+                    })
 
     def test_pool_update(self):
         self.dummyResource.update_called = False
