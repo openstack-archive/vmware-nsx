@@ -763,6 +763,9 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         net_data[pnet.SEGMENTATION_ID] = free_ids[0]
         return net_data[pnet.SEGMENTATION_ID]
 
+    def _default_physical_net(self, physical_net):
+        return physical_net is None or physical_net == 'default'
+
     def _validate_provider_create(self, context, network_data,
                                   default_vlan_tz_uuid,
                                   default_overlay_tz_uuid,
@@ -811,11 +814,11 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     if not transparent_vlan:
                         # Set VLAN id to 0 for flat networks
                         vlan_id = '0'
-                    if physical_net is None:
+                    if self._default_physical_net(physical_net):
                         physical_net = default_vlan_tz_uuid
             elif net_type == utils.NsxV3NetworkTypes.VLAN:
                 # Use default VLAN transport zone if physical network not given
-                if physical_net is None:
+                if self._default_physical_net(physical_net):
                     physical_net = default_vlan_tz_uuid
 
                 if not transparent_vlan:
