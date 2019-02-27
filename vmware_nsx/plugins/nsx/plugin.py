@@ -215,6 +215,13 @@ class NsxTVDPlugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             msg = _("Cannot use the same availability zones in NSX-V and T")
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
+    def start_rpc_listeners(self):
+        # Run the start_rpc_listeners of one of the sub-plugins
+        for plugin_type in self.plugins:
+            plugin = self.plugins[plugin_type]
+            if plugin.rpc_workers_supported():
+                return plugin.start_rpc_listeners()
+
     def _unsubscribe_callback_events(self):
         # unsubscribe the callback that should be called on all plugins
         # other that NSX-T.
