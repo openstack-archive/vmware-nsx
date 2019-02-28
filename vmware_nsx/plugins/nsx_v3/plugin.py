@@ -1253,11 +1253,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
     def _build_address_bindings(self, port):
         address_bindings = []
         for fixed_ip in port['fixed_ips']:
-            # NOTE(arosen): nsx-v3 doesn't seem to handle ipv6 addresses
-            # currently so for now we remove them here and do not pass
-            # them to the backend which would raise an error.
-            if netaddr.IPNetwork(fixed_ip['ip_address']).version == 6:
-                continue
             address_bindings.append(nsx_resources.PacketAddressClassifier(
                 fixed_ip['ip_address'], port['mac_address'], None))
 
@@ -1466,31 +1461,35 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
 
         # get the subnet id from the fixed ips of the port
         if 'fixed_ips' in port_data and port_data['fixed_ips']:
-            subnet_id = port_data['fixed_ips'][0]['subnet_id']
+            subnets = self._get_subnets_for_fixed_ips_on_port(context,
+                                                              port_data)
         elif 'fixed_ips' in original_port and original_port['fixed_ips']:
-            subnet_id = original_port['fixed_ips'][0]['subnet_id']
+            subnets = self._get_subnets_for_fixed_ips_on_port(context,
+                                                              original_port)
         else:
             return
 
         # check only dhcp enabled subnets
-        subnet = self.get_subnet(context.elevated(), subnet_id)
-        if not subnet['enable_dhcp']:
+        subnets = (subnet for subnet in subnets if subnet['enable_dhcp'])
+        if not subnets:
             return
+        subnet_ids = (subnet['id'] for subnet in subnets)
 
         # check if the subnet is attached to a router
         port_filters = {'device_owner': [l3_db.DEVICE_OWNER_ROUTER_INTF],
                         'network_id': [original_port['network_id']]}
         interfaces = self.get_ports(context.elevated(), filters=port_filters)
-        router_found = False
         for interface in interfaces:
-            if interface['fixed_ips'][0]['subnet_id'] == subnet_id:
-                router_found = True
-                break
-        if not router_found:
-            err_msg = _("Neutron is configured with DHCP_Relay but no router "
-                        "connected to the subnet")
-            LOG.warning(err_msg)
-            raise n_exc.InvalidInput(error_message=err_msg)
+            for subnet in subnets:
+                for fixed_ip in interface['fixed_ips']:
+                    if fixed_ip['subnet_id'] in subnet_ids:
+                        # Router exists - validation passed
+                        return
+
+        err_msg = _("Neutron is configured with DHCP_Relay but no router "
+                    "connected to the subnet")
+        LOG.warning(err_msg)
+        raise n_exc.InvalidInput(error_message=err_msg)
 
     def _update_lport_with_security_groups(self, context, lport_id,
                                            original, updated):
@@ -2248,6 +2247,8 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                                             bypass_firewall=False)
 
     def _add_subnet_no_dnat_rule(self, context, nsx_router_id, subnet):
+        if not self._need_router_no_dnat_rules(subnet):
+            return
         # Add NO-DNAT rule to allow internal traffic between VMs, even if
         # they have floating ips (Only for routers with snat enabled)
         if self.nsxlib.feature_supported(
@@ -2630,20 +2631,29 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                                       exclude_sub_ids=None):
         exclude_sub_ids = [] if not exclude_sub_ids else exclude_sub_ids
         address_groups = []
-        ports = self._get_router_interface_ports_by_network(
+        network_ports = self._get_router_interface_ports_by_network(
             context, router_id, network_id)
-        ports = [port for port in ports
-                 if port['fixed_ips'] and
-                 port['fixed_ips'][0]['subnet_id'] not in exclude_sub_ids]
+        ports = []
+        for port in network_ports:
+            if port['fixed_ips']:
+                add_port = False
+                for fip in port['fixed_ips']:
+                    if fip['subnet_id'] not in exclude_sub_ids:
+                        add_port = True
+
+            if add_port:
+                ports.append(port)
+
         for port in ports:
-            address_group = {}
-            gateway_ip = port['fixed_ips'][0]['ip_address']
-            subnet = self.get_subnet(context,
-                                     port['fixed_ips'][0]['subnet_id'])
-            prefixlen = str(netaddr.IPNetwork(subnet['cidr']).prefixlen)
-            address_group['ip_addresses'] = [gateway_ip]
-            address_group['prefix_length'] = prefixlen
-            address_groups.append(address_group)
+            for fip in port['fixed_ips']:
+                address_group = {}
+                gateway_ip = fip['ip_address']
+                subnet = self.get_subnet(context, fip['subnet_id'])
+                prefixlen = str(netaddr.IPNetwork(subnet['cidr']).prefixlen)
+                address_group['ip_addresses'] = [gateway_ip]
+                address_group['prefix_length'] = prefixlen
+                address_groups.append(address_group)
+
         return (ports, address_groups)
 
     def _add_router_interface_wrapper(self, context, router_id,
@@ -2665,11 +2675,15 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         router_db = self._get_router(context, router_id)
         gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
                          else None)
+        # In case on dual stack, neutron creates a separate interface per
+        # IP version
+        subnet = self._get_interface_subnet(context, interface_info)
+
         with locking.LockManager.get_lock(str(network_id)):
             # disallow more than one subnets belong to same network being
             # attached to routers
             self._validate_multiple_subnets_routers(
-                context, router_id, network_id)
+                context, router_id, network_id, subnet)
 
             # A router interface cannot be an external network
             if extern_net:
@@ -2749,12 +2763,14 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             # add the SNAT/NO_DNAT rules for this interface
             if router_db.enable_snat and gw_network_id:
                 if router_db.gw_port.get('fixed_ips'):
-                    gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
                     gw_address_scope = self._get_network_address_scope(
                         context, gw_network_id)
-                    self._add_subnet_snat_rule(
-                        context, router_id, nsx_router_id,
-                        subnet, gw_address_scope, gw_ip)
+                    for fip in router_db.gw_port['fixed_ips']:
+                        gw_ip = fip['ip_address']
+                        self._add_subnet_snat_rule(
+                            context, router_id, nsx_router_id,
+                            subnet, gw_address_scope, gw_ip)
+
                 self._add_subnet_no_dnat_rule(context, nsx_router_id, subnet)
 
             # update firewall rules
@@ -2783,9 +2799,10 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             # find subnet_id - it is need for removing the SNAT rule
             port = self._get_port(context, port_id)
             if port.get('fixed_ips'):
-                subnet_id = port['fixed_ips'][0]['subnet_id']
-                self._confirm_router_interface_not_in_use(
-                    context, router_id, subnet_id)
+                for fip in port['fixed_ips']:
+                    subnet_id = fip['subnet_id']
+                    self._confirm_router_interface_not_in_use(
+                        context, router_id, subnet_id)
             if not (port['device_owner'] in const.ROUTER_INTERFACE_OWNERS and
                     port['device_id'] == router_id):
                 raise l3_exc.RouterInterfaceNotFound(
@@ -2801,7 +2818,9 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                 device_owner=l3_db.DEVICE_OWNER_ROUTER_INTF,
                 network_id=subnet['network_id'])
             for p in ports:
-                if p['fixed_ips'][0]['subnet_id'] == subnet_id:
+                fip_subnet_ids = [fixed_ip['subnet_id']
+                                  for fixed_ip in p['fixed_ips']]
+                if subnet_id in fip_subnet_ids:
                     port_id = p['id']
                     break
             else:
@@ -2837,10 +2856,11 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             # try to delete the SNAT/NO_DNAT rules of this subnet
             if router_db.gw_port and router_db.enable_snat:
                 if router_db.gw_port.get('fixed_ips'):
-                    gw_ip = router_db.gw_port['fixed_ips'][0]['ip_address']
-                    self.nsxlib.router.delete_gw_snat_rule_by_source(
-                        nsx_router_id, gw_ip, subnet['cidr'],
-                        skip_not_found=True)
+                    for fixed_ip in router_db.gw_port['fixed_ips']:
+                        gw_ip = fixed_ip['ip_address']
+                        self.nsxlib.router.delete_gw_snat_rule_by_source(
+                            nsx_router_id, gw_ip, subnet['cidr'],
+                            skip_not_found=True)
                 self._del_subnet_no_dnat_rule(context, nsx_router_id, subnet)
 
         except nsx_lib_exc.ResourceNotFound:
@@ -3366,8 +3386,8 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             return
 
         LOG.info("Recalculating snat rules for router %s", router['id'])
-        fip = router['external_gateway_info']['external_fixed_ips'][0]
-        ext_addr = fip['ip_address']
+        fips = router['external_gateway_info']['external_fixed_ips']
+        ext_addrs = [fip['ip_address'] for fip in fips]
         gw_address_scope = self._get_network_address_scope(
             context, router['external_gateway_info']['network_id'])
 
@@ -3383,20 +3403,21 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                           'subnet': subnet['id']})
 
                 # Delete rule for this router/subnet pair if it exists
-                self.nsxlib.router.delete_gw_snat_rule_by_source(
-                    nsx_router_id, ext_addr, subnet['cidr'],
-                    skip_not_found=True)
+                for ext_addr in ext_addrs:
+                    self.nsxlib.router.delete_gw_snat_rule_by_source(
+                        nsx_router_id, ext_addr, subnet['cidr'],
+                        skip_not_found=True)
 
-                if (gw_address_scope != subnet_address_scope):
-                    # subnet is no longer under same address scope with GW
-                    LOG.info("Adding SNAT rule for %(router)s "
-                             "and subnet %(subnet)s",
-                             {'router': router['id'],
-                              'subnet': subnet['id']})
-                    self.nsxlib.router.add_gw_snat_rule(
-                        nsx_router_id, ext_addr,
-                        source_net=subnet['cidr'],
-                        bypass_firewall=False)
+                    if (gw_address_scope != subnet_address_scope):
+                        # subnet is no longer under same address scope with GW
+                        LOG.info("Adding SNAT rule for %(router)s "
+                                 "and subnet %(subnet)s",
+                                 {'router': router['id'],
+                                  'subnet': subnet['id']})
+                        self.nsxlib.router.add_gw_snat_rule(
+                            nsx_router_id, ext_addr,
+                            source_net=subnet['cidr'],
+                            bypass_firewall=False)
 
     def _get_tier0_uplink_cidrs(self, tier0_id):
         # return a list of tier0 uplink ip/prefix addresses

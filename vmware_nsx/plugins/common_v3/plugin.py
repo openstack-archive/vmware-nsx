@@ -198,6 +198,26 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
 
         return self.conn.consume_in_threads()
 
+    def _get_interface_subnet(self, context, interface_info):
+        is_port, is_sub = self._validate_interface_info(interface_info)
+
+        subnet_id = None
+        if is_sub:
+            subnet_id = interface_info.get('subnet_id')
+
+        if not subnet_id:
+            port_id = interface_info['port_id']
+            port = self.get_port(context, port_id)
+            if 'fixed_ips' in port and port['fixed_ips']:
+                if len(port['fixed_ips'][0]) > 1:
+                    # This should never happen since router interface is per
+                    # IP version, and we allow single fixed ip per ip version
+                    return
+                subnet_id = port['fixed_ips'][0]['subnet_id']
+
+        if subnet_id:
+            return self.get_subnet(context, subnet_id)
+
     def _get_interface_network(self, context, interface_info):
         is_port, is_sub = self._validate_interface_info(interface_info)
         if is_port:
@@ -462,8 +482,56 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.warning(err_msg)
                 raise n_exc.InvalidInput(error_message=err_msg)
 
+    def _validate_max_ips_per_port(self, context, fixed_ip_list, device_owner):
+        """Validate the number of fixed ips on a port
+
+        Do not allow multiple ip addresses on a port since the nsx backend
+        cannot add multiple static dhcp bindings with the same port
+        """
+        if (device_owner and
+            nl_net_utils.is_port_trusted({'device_owner': device_owner})):
+            return
+
+        if not validators.is_attr_set(fixed_ip_list):
+            return
+
+        msg = _('Exceeded maximum amount of fixed ips per port and ip version')
+        if len(fixed_ip_list) > 2:
+            raise n_exc.InvalidInput(error_message=msg)
+
+        if len(fixed_ip_list) < 2:
+            return
+
+        def get_fixed_ip_version(i):
+            if 'ip_address' in fixed_ip_list[i]:
+                return netaddr.IPAddress(
+                    fixed_ip_list[i]['ip_address']).version
+            if 'subnet_id' in fixed_ip_list[i]:
+                subnet = self.get_subnet(context.elevated(),
+                                         fixed_ip_list[i]['subnet_id'])
+                return subnet['ip_version']
+
+        ipver1 = get_fixed_ip_version(0)
+        ipver2 = get_fixed_ip_version(1)
+        if ipver1 and ipver2 and ipver1 != ipver2:
+            # One fixed IP is allowed for each IP version
+            return
+
+        raise n_exc.InvalidInput(error_message=msg)
+
+    def _get_subnets_for_fixed_ips_on_port(self, context, port_data):
+        # get the subnet id from the fixed ips of the port
+        if 'fixed_ips' in port_data and port_data['fixed_ips']:
+            subnet_ids = (fixed_ip['subnet_id']
+                          for fixed_ip in port_data['fixed_ips'])
+
+        # check only dhcp enabled subnets
+        return (self.get_subnet(context.elevated(), subnet_id)
+                for subnet_id in subnet_ids)
+
     def _validate_create_port(self, context, port_data):
-        self._validate_max_ips_per_port(port_data.get('fixed_ips', []),
+        self._validate_max_ips_per_port(context,
+                                        port_data.get('fixed_ips', []),
                                         port_data.get('device_owner'))
 
         is_external_net = self._network_is_external(
@@ -582,8 +650,9 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         self._assert_on_device_owner_change(port_data, orig_dev_owner)
         self._assert_on_port_admin_state(port_data, device_owner)
         self._assert_on_port_sec_change(port_data, device_owner)
-        self._validate_max_ips_per_port(
-            port_data.get('fixed_ips', []), device_owner)
+        self._validate_max_ips_per_port(context,
+                                        port_data.get('fixed_ips', []),
+                                        device_owner)
         self._assert_on_vpn_port_change(original_port)
         self._assert_on_lb_port_fixed_ip_change(port_data, orig_dev_owner)
         self._validate_extra_dhcp_options(port_data.get(ext_edo.EXTRADHCPOPTS))
@@ -2369,8 +2438,16 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                         LOG.error(msg)
                         raise n_exc.InvalidInput(error_message=msg)
 
+    def _need_router_no_dnat_rules(self, subnet):
+        # NAT is not supported for IPv6
+        return (subnet['ip_version'] == 4)
+
     def _need_router_snat_rules(self, context, router_id, subnet,
                                 gw_address_scope):
+        # NAT is not supported for IPv6
+        if subnet['ip_version'] != 4:
+            return False
+
         # if the subnets address scope is the same as the gateways:
         # no need for SNAT
         if gw_address_scope:
@@ -2426,7 +2503,8 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """Should be implemented by each plugin"""
         pass
 
-    def _validate_multiple_subnets_routers(self, context, router_id, net_id):
+    def _validate_multiple_subnets_routers(self, context, router_id,
+                                           net_id, subnet):
         network = self.get_network(context, net_id)
         net_type = network.get(pnet.NETWORK_TYPE)
         if (net_type and
@@ -2450,17 +2528,31 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         router_ids = [port['device_id']
                       for port in intf_ports if port['device_id']]
         if len(router_ids) > 0:
-            err_msg = _("Only one subnet of network %(net_id)s can be "
-                        "attached to router, one subnet is already attached "
-                        "to router %(router_id)s") % {
+            err_msg = _("Only one subnet of each IP version in a network "
+                        "%(net_id)s can be attached to router, one subnet "
+                        "is already attached to router %(router_id)s") % {
                 'net_id': net_id,
                 'router_id': router_ids[0]}
-            LOG.error(err_msg)
             if router_id in router_ids:
-                # attach to the same router again
-                raise n_exc.InvalidInput(error_message=err_msg)
+                # We support 2 subnets from same net only for dual stack case
+                if not subnet:
+                    # No IP provided on connected port
+                    LOG.error(err_msg)
+                    raise n_exc.InvalidInput(error_message=err_msg)
+                for port in intf_ports:
+                    if port['device_id'] != router_id:
+                        continue
+                    if 'fixed_ips' in port and port['fixed_ips']:
+                        ex_subnet = self.get_subnet(
+                            context.elevated(),
+                            port['fixed_ips'][0]['subnet_id'])
+                        if ex_subnet['ip_version'] == subnet['ip_version']:
+                            # attach to the same router with same IP version
+                            LOG.error(err_msg)
+                            raise n_exc.InvalidInput(error_message=err_msg)
             else:
                 # attach to multiple routers
+                LOG.error(err_msg)
                 raise l3_exc.RouterInterfaceAttachmentConflict(reason=err_msg)
 
     def _router_has_edge_fw_rules(self, context, router):

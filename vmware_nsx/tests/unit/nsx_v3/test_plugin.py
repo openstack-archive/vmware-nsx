@@ -1727,9 +1727,6 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
     def test_update_port_mac_v6_slaac(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
-    def test_requested_subnet_id_v4_and_v6(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
     def test_requested_invalid_fixed_ips(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
@@ -2122,7 +2119,7 @@ class TestL3NatTestCase(L3NatTest,
         self.skipTest('not supported')
 
     def test_router_add_gateway_multiple_subnets_ipv6(self):
-        self.skipTest('not supported')
+        self.skipTest('multiple ipv6 subnets not supported')
 
     def test__notify_gateway_port_ip_changed(self):
         self.skipTest('not supported')
@@ -2274,7 +2271,7 @@ class TestL3NatTestCase(L3NatTest,
         self.skipTest('not supported')
 
     def test_router_add_interface_ipv6_port_existing_network_returns_400(self):
-        self.skipTest('not supported')
+        self.skipTest('multiple ipv6 subnets not supported')
 
     def test_routes_update_for_multiple_routers(self):
         self.skipTest('not supported')
