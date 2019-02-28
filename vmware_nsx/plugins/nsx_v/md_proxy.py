@@ -113,6 +113,8 @@ def get_db_internal_edge_ips(context, az_name):
 class NsxVMetadataProxyHandler(object):
     """A metadata proxy handler for a specific availability zone"""
     def __init__(self, nsxv_plugin, availability_zone):
+        LOG.debug('Initializing metadata for availability zone %s',
+                  availability_zone.name)
         self.nsxv_plugin = nsxv_plugin
         context = neutron_context.get_admin_context()
         self.az = availability_zone
@@ -135,7 +137,15 @@ class NsxVMetadataProxyHandler(object):
             self.internal_net, self.internal_subnet = (
                 self._get_internal_network_and_subnet(context))
 
+            LOG.debug('Metadata internal net for AZ %(az)s is %(net)s, '
+                      'subnet is %(sub)s',
+                      {'az': availability_zone.name,
+                       'net': self.internal_net,
+                       'sub': self.internal_subnet})
             self.proxy_edge_ips = self._get_proxy_edges(context)
+            LOG.debug('Metadata proxy internal IPs for AZ %(az)s is '
+                      '%(addresses)s', {'az': availability_zone.name,
+                                        'addresses': self.proxy_edge_ips})
 
     def _create_metadata_internal_network(self, context, cidr):
         # Neutron requires a network to have some tenant_id
@@ -704,6 +714,7 @@ class NsxVMetadataProxyHandler(object):
         lb_obj.submit_to_backend(self.nsxv_plugin.nsx_v.vcns, edge_id)
 
     def configure_router_edge(self, context, rtr_id):
+        LOG.debug('Configuring metadata infrastructure for %s', rtr_id)
         ctx = neutron_context.get_admin_context()
         # Connect router interface to inter-edge network
         port_data = {
