@@ -90,8 +90,8 @@ class NSXOctaviaListenerEndpoint(object):
     def get_completor_func(self, obj_type, obj, delete=False, cascade=False):
         # return a method that will be called on success/failure completion
         def completor_func(success=True):
-            LOG.debug("Octavia transaction completed. status %s",
-                      'success' if success else 'failure')
+            LOG.debug("Octavia transaction completed. delete %s, status %s",
+                      delete, 'success' if success else 'failure')
 
             # calculate the provisioning and operating statuses
             main_prov_status = constants.ACTIVE
@@ -141,22 +141,26 @@ class NSXOctaviaListenerEndpoint(object):
                             loadbalancer_id = obj['policy']['listener'].get(
                                 'loadbalancer_id')
 
-                if loadbalancer_id:
+                if (loadbalancer_id and
+                    not status_dict.get(constants.LOADBALANCERS)):
                     status_dict[constants.LOADBALANCERS] = [{
                         'id': loadbalancer_id,
                         constants.PROVISIONING_STATUS: parent_prov_status,
                         constants.OPERATING_STATUS: op_status}]
-                if listener_id:
+                if (listener_id and
+                    not status_dict.get(constants.LISTENERS)):
                     status_dict[constants.LISTENERS] = [{
                         'id': listener_id,
                         constants.PROVISIONING_STATUS: parent_prov_status,
                         constants.OPERATING_STATUS: op_status}]
-                if pool_id:
+                if (pool_id and
+                    not status_dict.get(constants.POOLS)):
                     status_dict[constants.POOLS] = [{
                         'id': pool_id,
                         constants.PROVISIONING_STATUS: parent_prov_status,
                         constants.OPERATING_STATUS: op_status}]
-                if policy_id:
+                if (policy_id and
+                    not status_dict.get(constants.L7POLICIES)):
                     status_dict[constants.L7POLICIES] = [{
                         'id': policy_id,
                         constants.PROVISIONING_STATUS: parent_prov_status,
