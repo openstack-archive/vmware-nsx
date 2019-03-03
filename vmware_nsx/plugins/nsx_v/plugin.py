@@ -4681,7 +4681,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _remove_vnic_from_spoofguard_policy(self, session, net_id, vnic_id):
         policy_id = nsxv_db.get_spoofguard_policy_id(session, net_id)
-        self.nsx_v.vcns.inactivate_vnic_assigned_addresses(policy_id, vnic_id)
+        with locking.LockManager.get_lock(
+            'neutron-spoofguard-ops' + str(policy_id)):
+            self.nsx_v.vcns.inactivate_vnic_assigned_addresses(
+                policy_id, vnic_id)
 
     def _update_vnic_assigned_addresses(self, session, port, vnic_id):
         sg_policy_id = nsxv_db.get_spoofguard_policy_id(
@@ -4700,18 +4703,25 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             lla = str(netutils.get_ipv6_addr_by_EUI64(
                       constants.IPv6_LLA_PREFIX, mac_addr))
             approved_addrs.append(lla)
-        try:
-            self.nsx_v.vcns.approve_assigned_addresses(
-                sg_policy_id, vnic_id, mac_addr, approved_addrs)
-        except vsh_exc.AlreadyExists:
-            # Entry already configured on the NSX
-            pass
-        try:
-            self.nsx_v.vcns.publish_assigned_addresses(sg_policy_id, vnic_id)
-        except Exception as e:
-            LOG.warning("Failed to publish entry for port %(port)s "
-                        "for vnic %(vnic)s: %(exc)s",
-                        {'port': port['id'], 'vnic': vnic_id, 'exc': str(e)})
+
+        with locking.LockManager.get_lock(
+            'neutron-spoofguard-ops' + str(sg_policy_id)):
+            try:
+                self.nsx_v.vcns.approve_assigned_addresses(
+                    sg_policy_id, vnic_id, mac_addr, approved_addrs)
+            except vsh_exc.AlreadyExists:
+                # Entry already configured on the NSX
+                LOG.info("Spoofguard entry for port %(port)s already "
+                         "exists for vnic %(vnic)s",
+                         {'port': port['id'], 'vnic': vnic_id})
+            try:
+                self.nsx_v.vcns.publish_assigned_addresses(
+                    sg_policy_id, vnic_id)
+            except Exception as e:
+                LOG.warning("Failed to publish entry for port %(port)s "
+                            "for vnic %(vnic)s: %(exc)s",
+                            {'port': port['id'], 'vnic': vnic_id,
+                             'exc': str(e)})
 
     def _is_compute_port(self, port):
         try:
