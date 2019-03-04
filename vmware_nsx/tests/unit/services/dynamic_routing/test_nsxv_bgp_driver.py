@@ -120,6 +120,24 @@ class TestNSXvBgpPlugin(test_plugin.NsxVPluginV2TestCase,
 
         yield self.bgp_plugin.get_bgp_speaker(self.context, bgp_speaker_id)
 
+    def test_get_external_networks_for_port_same_address_scope_v6(self):
+        self.skipTest("IPv6 not supported by this plugin.")
+
+    def test_get_external_networks_for_port_different_address_scope_v6(self):
+        self.skipTest("IPv6 not supported by this plugin.")
+
+    def test__get_dvr_fixed_ip_routes_by_bgp_speaker_same_scope(self):
+        self.skipTest("DVR specific.")
+
+    def test_get_external_networks_for_port_different_address_scope_v4(self):
+        self.skipTest("DVR specific.")
+
+    def test__get_dvr_fixed_ip_routes_by_bgp_speaker_different_scope(self):
+        self.skipTest("DVR specific.")
+
+    def test__get_dvr_fixed_ip_routes_by_bgp_speaker_no_scope(self):
+        self.skipTest("DVR specific.")
+
     def test_create_v6_bgp_speaker(self):
         fake_bgp_speaker = {
             "bgp_speaker": {
