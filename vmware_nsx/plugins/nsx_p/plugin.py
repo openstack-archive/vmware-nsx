@@ -1512,7 +1512,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     segment_id)
             else:
                 # VLAN interface
-                self.nsxpolicy.tier1.delete_segment_interface(
+                self.nsxpolicy.tier1.remove_segment_interface(
                     router_id, segment_id)
 
             # try to delete the SNAT/NO_DNAT rules of this subnet
