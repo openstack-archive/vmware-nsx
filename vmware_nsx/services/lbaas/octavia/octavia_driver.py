@@ -144,7 +144,7 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
             lb_dict['vip_subnet_id'] = db_lb.vip.subnet_id
         return lb_dict
 
-    def _get_listener_in_pool_dict(self, pool_dict):
+    def _get_listener_in_pool_dict(self, pool_dict, is_update):
         if 'listener' not in pool_dict:
             if pool_dict.get('listener_id'):
                 db_listener = self.repositories.listener.get(
@@ -165,12 +165,14 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
                 if 'listeners' not in pool_dict:
                     # multiple listeners is not really supported yet
                     pool_dict['listeners'] = [listener_dict]
-            else:
+            # Do not add listener in update situation, as we want to use
+            # the original listener of this pool
+            elif not is_update:
                 pool_dict['listener'] = None
                 if 'listeners' not in pool_dict:
                     pool_dict['listeners'] = []
 
-    def _get_pool_dict(self, pool_id):
+    def _get_pool_dict(self, pool_id, is_update):
         if not pool_id:
             return {}
         db_pool = self.repositories.pool.get(db_apis.get_session(), id=pool_id)
@@ -185,10 +187,10 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
             pool_dict['loadbalancer'] = self._get_load_balancer_dict(
                 pool_dict['loadbalancer_id'])
         if 'listener' not in pool_dict:
-            self._get_listener_in_pool_dict(pool_dict)
+            self._get_listener_in_pool_dict(pool_dict, is_update)
         return pool_dict
 
-    def _get_hm_dict(self, hm_id):
+    def _get_hm_dict(self, hm_id, is_update):
         if not hm_id:
             return {}
         db_hm = self.repositories.health_monitor.get(
@@ -201,7 +203,7 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
         # Get the pol object
         if hm_dict.get('pool_id'):
             hm_dict['pool'] = self._get_pool_dict(
-                hm_dict['pool_id'])
+                hm_dict['pool_id'], is_update)
         return hm_dict
 
     def update_policy_dict(self, policy_dict, policy_obj, is_update=False):
@@ -279,7 +281,8 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
                             member['id'] = member['member_id']
                         if pool.get('healthmonitor'):
                             pool['healthmonitor'] = self._get_hm_dict(
-                                pool['healthmonitor']['healthmonitor_id'])
+                                pool['healthmonitor']['healthmonitor_id'],
+                                is_update)
 
         elif obj_type == 'Listener':
             if 'l7policies' in obj_dict:
@@ -292,12 +295,13 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
 
         elif obj_type == 'Pool':
             if 'listener' not in obj_dict:
-                self._get_listener_in_pool_dict(obj_dict)
+                self._get_listener_in_pool_dict(obj_dict, is_update)
 
         elif obj_type == 'Member':
             # Get the pool object
             if obj_dict.get('pool_id'):
-                obj_dict['pool'] = self._get_pool_dict(obj_dict['pool_id'])
+                obj_dict['pool'] = self._get_pool_dict(
+                    obj_dict['pool_id'], is_update)
                 obj_dict['loadbalancer'] = None
                 if 'loadbalancer' in obj_dict['pool']:
                     obj_dict['loadbalancer'] = obj_dict['pool']['loadbalancer']
@@ -312,7 +316,8 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
         elif obj_type == 'HealthMonitor':
             # Get the pool object
             if obj_dict.get('pool_id'):
-                obj_dict['pool'] = self._get_pool_dict(obj_dict['pool_id'])
+                obj_dict['pool'] = self._get_pool_dict(
+                    obj_dict['pool_id'], is_update)
 
         elif obj_type == 'L7Policy':
             self.update_policy_dict(obj_dict, obj, is_update=is_update)
@@ -416,8 +421,9 @@ class NSXOctaviaDriver(driver_base.ProviderDriver):
     def pool_update(self, old_pool, new_pool):
         old_dict = self.obj_to_dict(old_pool)
         new_dict = copy.deepcopy(old_dict)
-        new_dict.update(self.obj_to_dict(
-            new_pool, is_update=True, project_id=old_dict.get('project_id')))
+        new_pool_dict = self.obj_to_dict(
+            new_pool, is_update=True, project_id=old_dict.get('project_id'))
+        new_dict.update(new_pool_dict)
         kw = {'old_pool': old_dict,
               'new_pool': new_dict}
         self.client.cast({}, 'pool_update', **kw)

@@ -301,8 +301,9 @@ class EdgePoolManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         except IndexError:
             # If listeners is an empty list we hit this exception
             listener = None
-            # Perform additional validation for session persistence before
-            # operating on resources in the backend
+
+        # Perform additional validation for session persistence before
+        # operating on resources in the backend
         self._validate_session_persistence(new_pool, listener, completor,
                                            old_pool=old_pool)
 
