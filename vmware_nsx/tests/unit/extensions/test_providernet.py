@@ -25,11 +25,28 @@ from vmware_nsx.tests.unit.nsx_mh import test_plugin as test_nsx_plugin
 class TestProvidernet(test_nsx_plugin.NsxPluginV2TestCase):
 
     def test_create_delete_provider_network_default_physical_net(self):
+        '''Leaves physical_net unspecified'''
         data = {'network': {'name': 'net1',
                             'admin_state_up': True,
                             'tenant_id': 'admin',
                             pnet.NETWORK_TYPE: 'vlan',
                             pnet.SEGMENTATION_ID: 411}}
+        network_req = self.new_create_request('networks', data, self.fmt)
+        net = self.deserialize(self.fmt, network_req.get_response(self.api))
+        self.assertEqual(net['network'][pnet.NETWORK_TYPE], 'vlan')
+        self.assertEqual(net['network'][pnet.SEGMENTATION_ID], 411)
+        req = self.new_delete_request('networks', net['network']['id'])
+        res = req.get_response(self.api)
+        self.assertEqual(res.status_int, webob.exc.HTTPNoContent.code)
+
+    def test_create_delete_provider_network_default_physical_net_2(self):
+        '''Uses the 'default' keyword as physical_net'''
+        data = {'network': {'name': 'net1',
+                            'admin_state_up': True,
+                            'tenant_id': 'admin',
+                            pnet.NETWORK_TYPE: 'vlan',
+                            pnet.SEGMENTATION_ID: 411,
+                            pnet.PHYSICAL_NETWORK: 'default'}}
         network_req = self.new_create_request('networks', data, self.fmt)
         net = self.deserialize(self.fmt, network_req.get_response(self.api))
         self.assertEqual(net['network'][pnet.NETWORK_TYPE], 'vlan')
