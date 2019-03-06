@@ -663,6 +663,17 @@ def get_spoofguard_policy_id(session, network_id):
                   network_id)
 
 
+def get_spoofguard_policy_network_id(session, policy_id):
+    try:
+        mapping = (session.query(
+            nsxv_models.NsxvSpoofGuardPolicyNetworkMapping).
+            filter_by(policy_id=policy_id).one())
+        return mapping['network_id']
+    except exc.NoResultFound:
+        LOG.debug("SpoofGuard Policy %s was not found in Neutron DB",
+                  policy_id)
+
+
 def get_nsxv_spoofguard_policy_network_mappings(session, filters=None,
                                                 like_filters=None):
     session = db_api.get_reader_session()

@@ -279,9 +279,10 @@ Security Groups, Firewall and Spoofguard
 
 - Spoofguard support::
 
-    nsxadmin -r spoofguard-policy -o list-mismatches
     nsxadmin -r spoofguard-policy -o clean --property policy-id=spoofguardpolicy-10
     nsxadmin -r spoofguard-policy -o list --property reverse (entries defined on NSXv and not in Neutron)
+    nsxadmin -r spoofguard-policy -o list-mismatches (--property network=<neutron net id>) - List spoofguard policies with mismatching ips or mac, globally or for a specific network
+    nsxadmin -r spoofguard-policy -o fix-mismatch --property port=<neutron port id> - Fix the spoofgurad ips of a neutron port
 
 Metadata
 ~~~~~~~~
