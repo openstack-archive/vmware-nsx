@@ -604,10 +604,13 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
         providernet_args = {extnet_apidef.EXTERNAL: True}
         router_db = namedtuple("Router", FAKE_ROUTER.keys())(
             *FAKE_ROUTER.values())
+        tier0_uuid = 'tier-0'
         with self.network(name='ext-net',
                           providernet_args=providernet_args,
                           arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
             self.subnet(ext_net),\
+            mock.patch.object(self.plugin, '_get_tier0_uuid_by_router',
+                              return_value=tier0_uuid),\
             self.router(external_gateway_info={'network_id':
                         ext_net['network']['id']}) as router,\
             self.subnet() as sub:
@@ -620,7 +623,6 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
             dummy_port = {'id': 'dummy_port',
                           'fixed_ips': [{'ip_address': '1.1.1.1'}]}
             tier0_rtr = {'high_availability_mode': 'ACTIVE_STANDBY'}
-            tier0_uuid = 'tier-0'
             with mock.patch.object(self.service_plugin, '_get_vpnservice',
                                    return_value=FAKE_VPNSERVICE),\
                 mock.patch.object(self.nsxlib_vpn.service,
@@ -631,8 +633,6 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
                                   return_value=FAKE_ROUTER),\
                 mock.patch.object(self.plugin, 'get_ports',
                                   return_value=[dummy_port]),\
-                mock.patch.object(self.plugin, '_get_tier0_uuid_by_router',
-                                  return_value=tier0_uuid),\
                 mock.patch.object(self.plugin.nsxlib.logical_router, 'get',
                                   return_value=tier0_rtr):
                 self.driver.create_vpnservice(self.context, FAKE_VPNSERVICE)
@@ -656,10 +656,13 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
         providernet_args = {extnet_apidef.EXTERNAL: True}
         router_db = namedtuple("Router", FAKE_ROUTER.keys())(
             *FAKE_ROUTER.values())
+        tier0_rtr_id = _uuid()
         with self.network(name='ext-net',
                           providernet_args=providernet_args,
                           arg_list=(extnet_apidef.EXTERNAL, )) as ext_net,\
             self.subnet(ext_net),\
+            mock.patch.object(self.plugin, '_get_tier0_uuid_by_router',
+                              return_value=tier0_rtr_id),\
             self.router(external_gateway_info={'network_id':
                         ext_net['network']['id']}) as router,\
             self.subnet() as sub:
@@ -671,7 +674,6 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
             # create the service
             dummy_port = {'id': 'dummy_port',
                           'fixed_ips': [{'ip_address': '1.1.1.1'}]}
-            tier0_rtr_id = _uuid()
             tier0_rtr = {'id': tier0_rtr_id,
                          'high_availability_mode': 'ACTIVE_STANDBY'}
             nsx_srv = {'logical_router_id': tier0_rtr_id,
@@ -690,8 +692,6 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
                                   return_value=FAKE_ROUTER),\
                 mock.patch.object(self.plugin, 'get_ports',
                                   return_value=[dummy_port]),\
-                mock.patch.object(self.plugin, '_get_tier0_uuid_by_router',
-                                  return_value=tier0_rtr_id),\
                 mock.patch.object(self.plugin.nsxlib.logical_router, 'get',
                                   return_value=tier0_rtr):
                 self.driver.create_vpnservice(self.context, FAKE_VPNSERVICE)

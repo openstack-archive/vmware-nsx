@@ -83,10 +83,12 @@ class CommonEdgeFwaasV3Driver(fwaas_driver_base.EdgeFwaasDriverBaseV2):
             self.backend_support = False
 
     def should_apply_firewall_to_router(self, router_data):
-        """Return True if the firewall rules should be added the router
+        """Return True if the firewall rules should be added the router"""
+        if not router_data.get('external_gateway_info'):
+            LOG.info("Cannot apply firewall to router %s with no gateway",
+                     router_data['id'])
+            return False
 
-        Right now the driver supports for all routers.
-        """
         return True
 
     def _translate_action(self, fwaas_action, fwaas_rule_id):
