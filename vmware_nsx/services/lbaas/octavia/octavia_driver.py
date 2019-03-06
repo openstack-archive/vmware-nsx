@@ -527,10 +527,18 @@ class NSXOctaviaDriverEndpoint(driver_lib.DriverLibrary):
 
     @log_helpers.log_method_call
     def update_loadbalancer_status(self, ctxt, status):
-        return super(NSXOctaviaDriverEndpoint,
-                     self).update_loadbalancer_status(status)
+        try:
+            return super(NSXOctaviaDriverEndpoint,
+                         self).update_loadbalancer_status(status)
+        except exceptions.UpdateStatusError as e:
+            LOG.error("Failed to update Octavia loadbalancer status. "
+                      "Status %s, Error %s", status, e)
 
     @log_helpers.log_method_call
     def update_listener_statistics(self, ctxt, statistics):
-        return super(NSXOctaviaDriverEndpoint,
-                     self).update_listener_statistics(statistics)
+        try:
+            return super(NSXOctaviaDriverEndpoint,
+                         self).update_listener_statistics(statistics)
+        except exceptions.UpdateStatisticsError as e:
+            LOG.error("Failed to update Octavia listener statistics. "
+                      "Stats %s, Error %s", statistics, e)
