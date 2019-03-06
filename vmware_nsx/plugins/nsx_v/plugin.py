@@ -346,6 +346,12 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                            resources.PROCESS,
                            events.AFTER_INIT)
 
+        # For the main Neutron context, AFTER_INIT event is not called, so
+        # completing initialization via AFTER_SPAWN event
+        registry.subscribe(self.init_complete,
+                           resources.PROCESS,
+                           events.AFTER_SPAWN)
+
     @staticmethod
     def plugin_type():
         return projectpluginmap.NsxPlugins.NSX_V
