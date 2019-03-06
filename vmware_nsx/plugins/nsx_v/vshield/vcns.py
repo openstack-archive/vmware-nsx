@@ -812,6 +812,10 @@ class Vcns(object):
         uri = '%s/policies/%s' % (SPOOFGUARD_PREFIX, policy_id)
         return self.do_request(HTTP_GET, uri, decode=True)
 
+    def get_spoofguard_policy_data(self, policy_id, list_type='ALL'):
+        uri = '%s/%s?list=%s' % (SPOOFGUARD_PREFIX, policy_id, list_type)
+        return self.do_request(HTTP_GET, uri, decode=True)
+
     def get_spoofguard_policies(self):
         uri = '%s/policies/' % SPOOFGUARD_PREFIX
         return self.do_request(HTTP_GET, uri, decode=True)
