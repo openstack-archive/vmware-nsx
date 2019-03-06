@@ -52,6 +52,7 @@ from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.common_plugin import common_v3
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 from vmware_nsxlib.v3.policy import constants as policy_constants
 
@@ -104,6 +105,8 @@ class NsxPPluginTestCaseMixin(
         mock.patch(
             "vmware_nsxlib.v3.client.RESTClient.patch").start()
         mock.patch(
+            "vmware_nsxlib.v3.client.RESTClient.update").start()
+        mock.patch(
             "vmware_nsxlib.v3.client.RESTClient.delete").start()
         mock.patch("vmware_nsxlib.v3.policy.core_resources."
                    "NsxPolicyCommunicationMapApi._get_last_seq_num",
@@ -126,6 +129,13 @@ class NsxPPluginTestCaseMixin(
                    "NsxPolicySegmentApi.set_admin_state").start()
         mock.patch("vmware_nsxlib.v3.policy.core_resources."
                    "NsxPolicySegmentPortApi.set_admin_state").start()
+        mock.patch("vmware_nsxlib.v3.NsxLib.get_tag_limits",
+                   return_value=nsxlib_utils.TagLimits(20, 40, 15)).start()
+        # Add some nsxlib mocks for the passthrough apis
+        mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
+                   return_value=nsx_constants.NSX_VERSION_2_4_0).start()
+        mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
+                   "update").start()
 
     def _mock_nsxlib_backend_calls(self):
         """Mock nsxlib backend calls used as passthrough
