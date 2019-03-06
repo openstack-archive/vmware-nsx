@@ -615,6 +615,33 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxVPluginV2TestCase):
             # Assert neutron name is not truncated
             self.assertEqual(net['network']['name'], name)
 
+    def test_create_update_network_allow_multiple_addresses_spoofguard(self):
+        # allow_multiple_addresses flag is True, first step is to check that
+        # when port-security-allowed is false - spoofguard policy is not
+        # created.
+        # next step is to update port-security-allowed to true - spoofguard
+        # policy is now created for this network.
+        q_context = context.Context('', 'tenant_1')
+        providernet_args = {psec.PORTSECURITY: False}
+        cfg.CONF.set_default('allow_multiple_ip_addresses', True, 'nsxv')
+        res = self._create_network(fmt='json', name='net-1',
+                                   admin_state_up=True,
+                                   providernet_args=providernet_args,
+                                   arg_list=(psec.PORTSECURITY,))
+        network1 = self.deserialize(self.fmt, res)
+        net1_id = network1['network']['id']
+        # not creating spoofguard policy
+        self.assertIsNone(nsxv_db.get_spoofguard_policy_id(q_context.session,
+                                                           net1_id))
+        args = {'network': {psec.PORTSECURITY: True}}
+        req = self.new_update_request('networks', args,
+                                      network1['network']['id'], fmt='json')
+        res = self.deserialize('json', req.get_response(self.api))
+        net1_id = res['network']['id']
+        # creating spoofguard policy
+        self.assertIsNotNone(nsxv_db.get_spoofguard_policy_id(
+            q_context.session, net1_id))
+
     def test_update_network_with_admin_false(self):
         data = {'network': {'admin_state_up': False}}
         with self.network() as net:
@@ -1768,6 +1795,93 @@ class TestPortsV2(NsxVPluginV2TestCase,
                 res = self.deserialize('json', req.get_response(self.api))
         self.assertEqual("PortSecurityAndIPRequiredForSecurityGroups",
                          res['NeutronError']['type'])
+
+    def test_port_add_to_spoofguard_allow_multiple_addresses(self):
+        # allow_multiple_addresses flag is True, first step is to check that
+        # when port-security-allowed is false - spoofguard policy is not
+        # created.
+        # next step is to update port-security-allowed to true - spoofguard
+        # policy is now created for this network.
+        providernet_args = {psec.PORTSECURITY: False}
+        cfg.CONF.set_default('allow_multiple_ip_addresses', True, 'nsxv')
+        res = self._create_network(fmt='json', name='net-1',
+                                   admin_state_up=True,
+                                   providernet_args=providernet_args,
+                                   arg_list=(psec.PORTSECURITY,))
+        network1 = self.deserialize(self.fmt, res)
+        net1_id = network1['network']['id']
+        with self.subnet(network=network1, cidr='10.0.0.0/24'):
+            # create a compute port with port security
+            address_pairs = [{'ip_address': '192.168.1.1'}]
+            device_id = _uuid()
+            vnic_index = 3
+            compute_port_create = self._create_port(
+                'json', net1_id,
+                arg_list=(
+                        'port_security_enabled',
+                        'device_id',
+                        'device_owner',
+                        'allowed_address_pairs',),
+                port_security_enabled=True,
+                device_id=device_id,
+                device_owner='compute:None',
+                allowed_address_pairs=address_pairs)
+            port = self.deserialize('json', compute_port_create)
+            port = self._update_port_index(
+                port['port']['id'], device_id, vnic_index)
+            # Verify the port is added to the spoofguard policy
+            with mock.patch.object(
+                    self.plugin, '_update_vnic_assigned_addresses') as \
+                    update_approved_port:
+                args = {'network': {psec.PORTSECURITY: True}}
+                req = self.new_update_request('networks', args, net1_id,
+                                              fmt='json')
+                req.get_response(self.api)
+                # The expected vnic-id format by NsxV
+                update_approved_port.assert_called_once_with(
+                    mock.ANY, mock.ANY, '%s.%03d' % (device_id, vnic_index))
+
+    def test_port_add_to_spoofguard_allow_multiple_addresses_fail(self):
+        # allow_multiple_addresses flag is True, first step is to check that
+        # when port-security-allowed is false - spoofguard policy is not
+        # created.
+        # next step is to update port-security-allowed to true but the port
+        # has CIDR defined as a address pair - action is aborted.
+        # policy is now created for this network.
+        providernet_args = {psec.PORTSECURITY: False}
+        cfg.CONF.set_default('allow_multiple_ip_addresses', True, 'nsxv')
+        res = self._create_network(fmt='json', name='net-1',
+                                   admin_state_up=True,
+                                   providernet_args=providernet_args,
+                                   arg_list=(psec.PORTSECURITY,))
+        network1 = self.deserialize(self.fmt, res)
+        net1_id = network1['network']['id']
+        with self.subnet(network=network1, cidr='10.0.0.0/24'):
+            # create a compute port with port security
+            address_pairs = [{'ip_address': '192.168.1.0/24'}]
+            device_id = _uuid()
+            vnic_index = 3
+            compute_port_create = self._create_port(
+                'json', net1_id,
+                arg_list=(
+                        'port_security_enabled',
+                        'device_id',
+                        'device_owner',
+                        'allowed_address_pairs',),
+                port_security_enabled=True,
+                device_id=device_id,
+                device_owner='compute:None',
+                allowed_address_pairs=address_pairs)
+            port = self.deserialize('json', compute_port_create)
+            port = self._update_port_index(
+                port['port']['id'], device_id, vnic_index)
+            # Action is failed due to CIDR defined in the port.
+            args = {'network': {psec.PORTSECURITY: True}}
+            plugin = directory.get_plugin()
+            self.assertRaises(n_exc.BadRequest,
+                              plugin.update_network,
+                              context.get_admin_context(),
+                              net1_id, args)
 
 
 class TestSubnetsV2(NsxVPluginV2TestCase,
