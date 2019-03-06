@@ -3226,18 +3226,26 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                     context, firewall_section['id'], ns_group['id'],
                     logging, action, sg_rules)
                 self.save_security_group_rule_mappings(context, rules['rules'])
-        except nsx_lib_exc.ManagerError:
-            with excutils.save_and_reraise_exception():
-                LOG.exception("Failed to create backend firewall rules "
-                              "for security-group %(name)s (%(id)s), "
-                              "rolling back changes.", secgroup_db)
-                # default security group deletion requires admin context
-                if default_sg:
-                    context = context.elevated()
-                super(NsxV3Plugin, self).delete_security_group(
-                    context, secgroup_db['id'])
-                self.nsxlib.ns_group.delete(ns_group['id'])
-                self.nsxlib.firewall_section.delete(firewall_section['id'])
+        except nsx_lib_exc.ManagerError as ex:
+            msg = ("Failed to create backend firewall rules "
+                   "for security-group %(name)s (%(id)s), "
+                   "rolling back changes." % secgroup_db)
+            LOG.exception(msg)
+            # default security group deletion requires admin context
+            if default_sg:
+                context = context.elevated()
+            super(NsxV3Plugin, self).delete_security_group(
+                context, secgroup_db['id'])
+            self.nsxlib.ns_group.delete(ns_group['id'])
+            self.nsxlib.firewall_section.delete(firewall_section['id'])
+
+            if ex.__class__ is nsx_lib_exc.ResourceNotFound:
+                # This may happen due to race condition during
+                # backend reboot. The exception raised should reflect
+                # short-term availability issue (500) rather than 404
+                raise nsx_exc.NsxPluginTemporaryError(err_msg=msg)
+            else:
+                raise ex
 
         return secgroup_db
 

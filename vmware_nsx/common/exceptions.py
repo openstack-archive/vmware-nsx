@@ -23,6 +23,11 @@ class NsxPluginException(n_exc.NeutronException):
     message = _("An unexpected error occurred in the NSX Plugin: %(err_msg)s")
 
 
+class NsxPluginTemporaryError(n_exc.ServiceUnavailable):
+    message = _("Temporary error occurred in the NSX Plugin: %(err_msg)s."
+                " Please try again later")
+
+
 class ClientCertificateException(NsxPluginException):
     message = _("Client certificate error: %(err_msg)s")
 
