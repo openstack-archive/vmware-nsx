@@ -1136,6 +1136,9 @@ class FakeVcns(object):
             raise exceptions.VcnsGeneralException(
                 _("Spoofguard policy not found"))
 
+    def get_spoofguard_policy_data(self, policy_id, list_type='INACTIVE'):
+        return None, {'spoofguardList': []}
+
     def get_spoofguard_policies(self):
         return None, {'policies': self._spoofguard_policies}
 
