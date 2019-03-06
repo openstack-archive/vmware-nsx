@@ -225,6 +225,9 @@ class NsxV3Plugin(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         registry.subscribe(
             self.nsxlib.reinitialize_cluster,
             resources.PROCESS, events.AFTER_INIT)
+        registry.subscribe(
+            self.nsxlib.reinitialize_cluster,
+            resources.PROCESS, events.AFTER_SPAWN)
 
         registry.subscribe(
             self.on_subnetpool_address_scope_updated,

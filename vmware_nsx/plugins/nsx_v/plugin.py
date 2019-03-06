@@ -219,6 +219,11 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         registry.subscribe(self.init_complete,
                            resources.PROCESS,
                            events.AFTER_INIT)
+        # For the main Neutron context, AFTER_INIT event is not called, so
+        # completing initialization via AFTER_SPAWN event
+        registry.subscribe(self.init_complete,
+                           resources.PROCESS,
+                           events.AFTER_SPAWN)
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
