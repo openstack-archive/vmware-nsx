@@ -1,0 +1,7 @@
+---
+prelude: >
+    NSXv3 plugin will mark unused loadbalancers in ERROR state.
+features:
+  - |
+    Upon upgrade to Stein, unused LBaaS-v2 loadbalancers, which have no members
+    will be marked in ERROR state, and cannot be used.

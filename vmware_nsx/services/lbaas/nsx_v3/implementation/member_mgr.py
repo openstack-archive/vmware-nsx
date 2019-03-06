@@ -23,10 +23,8 @@ from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.common import locking
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
-from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
-from vmware_nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -46,37 +44,6 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='lbaas-vip', msg=msg)
 
     @log_helpers.log_method_call
-    def _create_lb_service(self, context, service_client, tenant_id,
-                           router_id, nsx_router_id, lb_id, lb_size):
-        router = self.core_plugin.get_router(context, router_id)
-        if not router.get('external_gateway_info'):
-            msg = (_('Tenant router %(router)s does not connect to '
-                     'external gateway') % {'router': router['id']})
-            raise n_exc.BadRequest(resource='lbaas-lbservice-create',
-                                   msg=msg)
-        lb_name = utils.get_name_and_uuid(router['name'] or 'router',
-                                          router_id)
-        tags = lb_utils.get_tags(self.core_plugin, router_id,
-                                 lb_const.LR_ROUTER_TYPE,
-                                 tenant_id, context.project_name)
-        attachment = {'target_id': nsx_router_id,
-                      'target_type': 'LogicalRouter'}
-        try:
-            lb_service = service_client.create(display_name=lb_name,
-                                               tags=tags,
-                                               attachment=attachment,
-                                               size=lb_size)
-        except nsxlib_exc.ManagerError as e:
-            LOG.error("Failed to create LB service: %s", e)
-            return
-
-        # Add rule to advertise external vips
-        lb_utils.update_router_lb_vip_advertisement(
-            context, self.core_plugin, router, nsx_router_id)
-
-        return lb_service
-
-    @log_helpers.log_method_call
     def _get_updated_pool_members(self, context, lb_pool, member):
         network = lb_utils.get_network_from_subnet(
             context, self.core_plugin, member['subnet_id'])
@@ -90,21 +57,6 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 m['display_name'] = member['name'][:219] + '_' + member['id']
                 m['weight'] = member['weight']
         return lb_pool['members']
-
-    @log_helpers.log_method_call
-    def _add_loadbalancer_binding(self, context, lb_id, lbs_id,
-                                  nsx_router_id, vip_address):
-        # First check if there is already binding for the lb.
-        # If there is no binding for the lb, add the db binding.
-        binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
-            context.session, lb_id)
-        if not binding:
-            nsx_db.add_nsx_lbaas_loadbalancer_binding(
-                context.session, lb_id, lbs_id,
-                nsx_router_id, vip_address)
-        else:
-            LOG.debug("LB binding has already been added, and no need "
-                      "to add here.")
 
     @log_helpers.log_method_call
     def create(self, context, member, completor):
@@ -128,7 +80,6 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
 
         pool_client = self.core_plugin.nsxlib.load_balancer.pool
-        service_client = self.core_plugin.nsxlib.load_balancer.service
 
         network = lb_utils.get_network_from_subnet(
             context, self.core_plugin, member['subnet_id'])
@@ -148,43 +99,14 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         binding = nsx_db.get_nsx_lbaas_pool_binding(context.session,
                                                     lb_id, pool_id)
         if binding:
-            vs_id = binding.get('lb_vs_id')
             lb_pool_id = binding.get('lb_pool_id')
             lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
                 context.session, lb_id)
-            lb_service = None
             if not lb_binding:
-                nsx_router_id = nsx_db.get_nsx_router_id(context.session,
-                                                         router_id)
-                lb_service = service_client.get_router_lb_service(
-                    nsx_router_id)
-                virtual_server_ids = (
-                    lb_service and
-                    lb_service.get('virtual_server_ids', []) or [])
-                if not lb_service:
-                    lb_size = lb_utils.get_lb_flavor_size(
-                        self.flavor_plugin, context,
-                        loadbalancer.get('flavor_id'))
-                    if not self.core_plugin.service_router_has_services(
-                            context,
-                            router_id):
-                        self.core_plugin.create_service_router(context,
-                                                               router_id)
-                    lb_service = self._create_lb_service(
-                        context, service_client, member['tenant_id'],
-                        router_id, nsx_router_id, loadbalancer['id'], lb_size)
-                    if not lb_service:
-                        completor(success=False)
-                        msg = (_('Failed to create lb service to attach '
-                                 'virtual server %(vs)s for member '
-                                 '%(member)s') %
-                               {'vs': vs_id, 'member': member['id']})
-                        raise nsx_exc.NsxPluginException(err_msg=msg)
-
-                lb_service_id = lb_service['id']
-                self._add_loadbalancer_binding(
-                    context, loadbalancer['id'], lb_service_id,
-                    nsx_router_id, loadbalancer['vip_address'])
+                completor(success=False)
+                msg = (_('Failed to get LB binding for member %s') %
+                       member['id'])
+                raise nsx_exc.NsxPluginException(err_msg=msg)
 
             with locking.LockManager.get_lock('pool-member-%s' % lb_pool_id):
                 lb_pool = pool_client.get(lb_pool_id)
@@ -197,30 +119,6 @@ class EdgeMemberManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
                 members = (old_m + new_m) if old_m else new_m
                 pool_client.update_pool_with_members(lb_pool_id, members)
 
-            # Check whether the virtual server should be added to the load
-            # balancing server. It is safe to perform this operation after the
-            # member has been added to the pool. This allows us to skip this
-            # check if there is already a member in the pool
-            if vs_id and not old_m:
-                # load the LB service if not already loaded
-                if not lb_service:
-                    nsx_router_id = nsx_db.get_nsx_router_id(context.session,
-                                                             router_id)
-                    lb_service = service_client.get_router_lb_service(
-                        nsx_router_id)
-                    lb_service_id = lb_service['id']
-                    virtual_server_ids = lb_service.get('virtual_server_ids',
-                                                        [])
-                if vs_id not in virtual_server_ids:
-                    try:
-                        service_client.add_virtual_server(lb_service_id, vs_id)
-                    except nsxlib_exc.ManagerError:
-                        completor(success=False)
-                        msg = (_('Failed to attach virtual server %(vs)s '
-                                'to lb service %(service)s') %
-                                {'vs': vs_id, 'service': lb_service_id})
-                        raise n_exc.BadRequest(resource='lbaas-member',
-                                               msg=msg)
         else:
             completor(success=False)
             msg = (_('Failed to get pool binding to add member %s') %

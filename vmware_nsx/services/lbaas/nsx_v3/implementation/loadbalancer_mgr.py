@@ -20,6 +20,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from vmware_nsx._i18n import _
+from vmware_nsx.common import exceptions as nsx_exc
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import base_mgr
 from vmware_nsx.services.lbaas import lb_const
@@ -34,16 +35,88 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
 
     @log_helpers.log_method_call
     def create(self, context, lb, completor):
-        if lb_utils.validate_lb_subnet(context, self.core_plugin,
-                                       lb['vip_subnet_id']):
-            completor(success=True)
-        else:
+        if not lb_utils.validate_lb_subnet(context, self.core_plugin,
+                                           lb['vip_subnet_id']):
             completor(success=False)
             msg = (_('Cannot create lb on subnet %(sub)s for '
                      'loadbalancer %(lb)s. The subnet needs to connect a '
                      'router which is already set gateway.') %
                    {'sub': lb['vip_subnet_id'], 'lb': lb['id']})
             raise n_exc.BadRequest(resource='lbaas-subnet', msg=msg)
+
+        router_id = lb_utils.get_router_from_network(
+            context, self.core_plugin, lb['vip_subnet_id'])
+        nsx_router_id = nsx_db.get_nsx_router_id(context.session,
+                                                 router_id)
+        service_client = self.core_plugin.nsxlib.load_balancer.service
+        lb_service = service_client.get_router_lb_service(nsx_router_id)
+        if not lb_service:
+            lb_size = lb_utils.get_lb_flavor_size(
+                self.flavor_plugin, context, lb.get('flavor_id'))
+            # Make sure the NSX service router exists
+            if not self.core_plugin.service_router_has_services(
+                    context, router_id):
+                self.core_plugin.create_service_router(context, router_id)
+            lb_service = self._create_lb_service(
+                context, service_client, lb['tenant_id'],
+                router_id, nsx_router_id, lb['id'], lb_size)
+            if not lb_service:
+                completor(success=False)
+                msg = (_('Failed to create lb service for loadbalancer '
+                         '%s') % lb['id'])
+                raise nsx_exc.NsxPluginException(err_msg=msg)
+
+        self._add_loadbalancer_binding(
+            context, lb['id'], lb_service['id'],
+            nsx_router_id, lb['vip_address'])
+
+        completor(success=True)
+
+    @log_helpers.log_method_call
+    def _create_lb_service(self, context, service_client, tenant_id,
+                           router_id, nsx_router_id, lb_id, lb_size):
+        router = self.core_plugin.get_router(context, router_id)
+        if not router.get('external_gateway_info'):
+            msg = (_('Tenant router %(router)s does not connect to '
+                     'external gateway') % {'router': router['id']})
+            raise n_exc.BadRequest(resource='lbaas-lbservice-create',
+                                   msg=msg)
+        lb_name = utils.get_name_and_uuid(router['name'] or 'router',
+                                          router_id)
+        tags = lb_utils.get_tags(self.core_plugin, router_id,
+                                 lb_const.LR_ROUTER_TYPE,
+                                 tenant_id, context.project_name)
+        attachment = {'target_id': nsx_router_id,
+                      'target_type': 'LogicalRouter'}
+        try:
+            lb_service = service_client.create(display_name=lb_name,
+                                               tags=tags,
+                                               attachment=attachment,
+                                               size=lb_size)
+        except nsxlib_exc.ManagerError as e:
+            LOG.error("Failed to create LB service: %s", e)
+            return
+
+        # Add rule to advertise external vips
+        lb_utils.update_router_lb_vip_advertisement(
+            context, self.core_plugin, router, nsx_router_id)
+
+        return lb_service
+
+    @log_helpers.log_method_call
+    def _add_loadbalancer_binding(self, context, lb_id, lbs_id,
+                                  nsx_router_id, vip_address):
+        # First check if there is already binding for the lb.
+        # If there is no binding for the lb, add the db binding.
+        binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
+            context.session, lb_id)
+        if not binding:
+            nsx_db.add_nsx_lbaas_loadbalancer_binding(
+                context.session, lb_id, lbs_id,
+                nsx_router_id, vip_address)
+        else:
+            LOG.debug("LB binding has already been added, and no need to add "
+                      "here.")
 
     @log_helpers.log_method_call
     def update(self, context, old_lb, new_lb, completor):
@@ -189,7 +262,8 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
             context.session, id)
         if not lb_binding:
-            # No service yet
+            LOG.warning("Failed to get loadbalancer %s operating status. "
+                        "Mapping was not found", id)
             return {}
 
         lb_service_id = lb_binding['lb_service_id']
