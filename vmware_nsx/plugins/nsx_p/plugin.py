@@ -1705,6 +1705,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
             # create default section and rules
             logged = cfg.CONF.nsx_p.log_security_groups_blocked_traffic
+            scope = [self.nsxpolicy.group.get_path(
+                NSX_P_GLOBAL_DOMAIN_ID, NSX_P_DEFAULT_GROUP)]
             rule_id = 1
             dhcp_client_rule = self.nsxpolicy.comm_map.build_entry(
                 'DHCP Reply', NSX_P_GLOBAL_DOMAIN_ID,
@@ -1712,8 +1714,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 rule_id, sequence_number=rule_id,
                 service_ids=['DHCP-Client'],
                 action=policy_constants.ACTION_ALLOW,
-                source_groups=None,
-                dest_groups=[NSX_P_DEFAULT_GROUP],
+                scope=scope,
                 direction=nsxlib_consts.IN,
                 logged=logged)
             rule_id += 1
@@ -1723,8 +1724,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 rule_id, sequence_number=rule_id,
                 service_ids=['DHCP-Server'],
                 action=policy_constants.ACTION_ALLOW,
-                source_groups=[NSX_P_DEFAULT_GROUP],
-                dest_groups=None,
+                scope=scope,
                 direction=nsxlib_consts.OUT,
                 logged=logged)
             rule_id += 1
@@ -1733,8 +1733,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 NSX_P_DEFAULT_SECTION,
                 rule_id, sequence_number=rule_id, service_ids=None,
                 action=policy_constants.ACTION_DENY,
-                source_groups=None,
-                dest_groups=[NSX_P_DEFAULT_GROUP],
+                scope=scope,
                 direction=nsxlib_consts.IN_OUT,
                 logged=logged)
             rules = [dhcp_client_rule, dhcp_server_rule, block_rule]
@@ -1907,6 +1906,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         service = self._get_rule_service_id(context, sg_rule, tags)
         logging = (cfg.CONF.nsx_p.log_security_groups_allowed_traffic or
                    secgroup_logging)
+        scope = [self.nsxpolicy.group.get_path(domain_id, this_group_id)]
         self.nsxpolicy.comm_map.create_entry(
             nsx_name, domain_id, map_id, entry_id=sg_rule['id'],
             description=sg_rule.get('description'),
@@ -1914,6 +1914,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             action=policy_constants.ACTION_ALLOW,
             source_groups=[source] if source else None,
             dest_groups=[destination] if destination else None,
+            scope=scope,
             direction=direction, logged=logging)
 
     def _create_project_domain(self, context, project_id):
