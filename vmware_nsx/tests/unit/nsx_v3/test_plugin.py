@@ -897,6 +897,29 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                     self.assertEqual(exc.HTTPBadRequest.code,
                                      res.status_int)
 
+    def test_fail_create_allowed_address_pairs_over_limit(self):
+        with self.network() as network,\
+                self.subnet(network=network, enable_dhcp=True) as s1:
+                    data = {'port': {
+                        'network_id': network['network']['id'],
+                        'tenant_id': self._tenant_id,
+                        'name': 'pair_port',
+                        'admin_state_up': True,
+                        'device_id': 'fake_device',
+                        'device_owner': 'fake_owner',
+                        'fixed_ips': [{'subnet_id': s1['subnet']['id']}]
+                                }
+                            }
+                    count = 1
+                    address_pairs = []
+                    while count < 129:
+                        address_pairs.append({'ip_address': '10.0.0.%s' %
+                                                            count})
+                        count += 1
+                    data['port']['allowed_address_pairs'] = address_pairs
+                    self.assertRaises(n_exc.InvalidInput,
+                                      self.plugin.create_port, self.ctx, data)
+
     def test_fail_update_lb_port_with_fixed_ip(self):
         with self.network() as network:
             data = {'port': {
