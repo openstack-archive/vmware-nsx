@@ -34,7 +34,6 @@ r="$r|(?:tempest\.api\.network\.test_extra_dhcp_options\.ExtraDHCPOptionsTestJSO
 r="$r|(?:tempest\.api\.network\.test_extensions\.ExtensionsTestJSON\..*)"
 r="$r|(?:tempest\.api\.network\.test_allowed_address_pair\.AllowedAddressPairTestJSON\.test_update.*)"
 r="$r|(?:tempest\.api\.network\.admin\.test_routers_dvr\.RoutersTestDVR\..*)"
-r="$r|(?:tempest\.api\.network\.admin\.test_l3_agent_scheduler\.L3AgentSchedulerTestJSON\..*)"
 r="$r|(?:tempest\.api\.network\.admin.\test_metering_extensions.*)"
 
 # End list of exclusions.
