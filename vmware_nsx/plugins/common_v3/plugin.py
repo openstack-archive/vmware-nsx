@@ -1756,6 +1756,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         pass
 
     def _create_subnet(self, context, subnet):
+        self._validate_number_of_subnet_static_routes(subnet)
         self._validate_host_routes_input(subnet)
 
         # TODO(berlin): public external subnet announcement
@@ -1934,6 +1935,20 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """Should be implemented by each plugin"""
         pass
 
+    def _validate_number_of_subnet_static_routes(self, subnet_input):
+        s = subnet_input['subnet']
+        request_host_routes = (validators.is_attr_set(s.get('host_routes')) and
+                               s['host_routes'])
+        num_allowed_on_backend = nsxlib_consts.MAX_STATIC_ROUTES
+        if request_host_routes:
+            if len(request_host_routes) > num_allowed_on_backend:
+                err_msg = (_(
+                    "Number of static routes is limited at the backend to %("
+                    "backend)s. Requested %(requested)s") %
+                           {'backend': nsxlib_consts.MAX_STATIC_ROUTES,
+                            'requested': len(request_host_routes)})
+                raise n_exc.InvalidInput(error_message=err_msg)
+
     def get_subnets(self, context, filters=None, fields=None, sorts=None,
                     limit=None, marker=None, page_reverse=False):
         filters = filters or {}
@@ -1977,6 +1992,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _update_subnet(self, context, subnet_id, subnet):
         updated_subnet = None
         orig_subnet = self.get_subnet(context, subnet_id)
+        self._validate_number_of_subnet_static_routes(subnet)
         self._validate_host_routes_input(
             subnet,
             orig_enable_dhcp=orig_subnet['enable_dhcp'],
