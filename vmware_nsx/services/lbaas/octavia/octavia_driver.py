@@ -533,6 +533,8 @@ class NSXOctaviaDriverEndpoint(driver_lib.DriverLibrary):
 
     @log_helpers.log_method_call
     def update_loadbalancer_status(self, ctxt, status):
+        # refresh the driver lib session
+        self.db_session = db_apis.get_session()
         try:
             return super(NSXOctaviaDriverEndpoint,
                          self).update_loadbalancer_status(status)
@@ -542,6 +544,8 @@ class NSXOctaviaDriverEndpoint(driver_lib.DriverLibrary):
 
     @log_helpers.log_method_call
     def update_listener_statistics(self, ctxt, statistics):
+        # refresh the driver lib session
+        self.db_session = db_apis.get_session()
         try:
             return super(NSXOctaviaDriverEndpoint,
                          self).update_listener_statistics(statistics)
