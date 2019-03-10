@@ -146,6 +146,7 @@ from vmware_nsx.plugins.nsx_v.vshield import edge_utils
 from vmware_nsx.plugins.nsx_v.vshield import securitygroup_utils
 from vmware_nsx.plugins.nsx_v.vshield import vcns_driver
 from vmware_nsx.services.flowclassifier.nsx_v import utils as fc_utils
+from vmware_nsx.services.fwaas.common import utils as fwaas_utils
 from vmware_nsx.services.fwaas.nsx_v import fwaas_callbacks
 
 LOG = logging.getLogger(__name__)
@@ -248,6 +249,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         self._is_sub_plugin = tvd_utils.is_tvd_core_plugin()
         self.init_is_complete = False
         self.housekeeper = None
+        self.fwaas_callbacks = None
         super(NsxVPluginV2, self).__init__()
         if self._is_sub_plugin:
             extension_drivers = cfg.CONF.nsx_tvd.nsx_v_extension_drivers
@@ -459,7 +461,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def _init_fwaas(self):
         # Bind FWaaS callbacks to the driver
-        self.fwaas_callbacks = fwaas_callbacks.NsxvFwaasCallbacks()
+        if fwaas_utils.is_fwaas_v1_plugin_enabled():
+            LOG.info("NSX-V FWaaS v1 plugin enabled")
+            self.fwaas_callbacks = fwaas_callbacks.NsxvFwaasCallbacks()
 
     def _create_security_group_container(self):
         name = "OpenStack Security Group container"
@@ -3316,8 +3320,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                     raise n_exc.InvalidInput(error_message=err_msg)
 
             # shared router cannot be attached to a fwaas
-            if self.fwaas_callbacks.should_apply_firewall_to_router(
-                context, router, router_id):
+            if (self.fwaas_callbacks and
+                self.fwaas_callbacks.should_apply_firewall_to_router(
+                    context, router, router_id)):
                 err_msg = _('Unable to create a shared router with FWaaS')
                 raise n_exc.InvalidInput(error_message=err_msg)
 
@@ -3994,8 +3999,9 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
         # router['id'] is the id of the neutron router (=tlr)
         # and router_id is the plr/tlr (the one that is being updated)
         fwaas_rules = None
-        if (self.fwaas_callbacks.should_apply_firewall_to_router(
-            context, router_db, router_id)):
+        if (self.fwaas_callbacks and
+            self.fwaas_callbacks.should_apply_firewall_to_router(
+                context, router_db, router_id)):
             fwaas_rules = self.fwaas_callbacks.get_fwaas_rules_for_router(
                 context, router_db['id'])
 
