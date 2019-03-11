@@ -417,6 +417,7 @@ nsx_v3_opts = nsx_v3_and_p + [
                       "Neutron networks, if no physical network has been "
                       "specified")),
     cfg.StrOpt('default_bridge_cluster',
+               deprecated_for_removal=True,
                help=_("(Optional) Name or UUID of the default NSX bridge "
                       "cluster that will be used to perform L2 gateway "
                       "bridging between VXLAN and VLAN networks. If default "
@@ -425,6 +426,13 @@ nsx_v3_opts = nsx_v3_and_p + [
                       "NSX Bridge Cluster using L2 gateway APIs. This field "
                       "must be specified on one of the active neutron "
                       "servers only.")),
+    cfg.StrOpt('default_bridge_endpoint_profile',
+               help=_("(Optional) Name or UUID of the default NSX bridge "
+                      "endpoint profile that will be used to perform L2 "
+                      "bridging between networks in the NSX fabric and "
+                      "VLANs external to NSX. If not specified, operators "
+                      "will need to explictly create a layer-2 gateway in "
+                      "Neutron using the L2 gateway APIs.")),
     cfg.StrOpt('default_tier0_router',
                help=_("Name or UUID of the default tier0 router that will be "
                       "used for connecting to tier1 logical routers and "

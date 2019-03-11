@@ -122,11 +122,6 @@ def _mock_nsx_backend_calls():
         side_effect=_return_id_key).start()
 
     mock.patch(
-        "vmware_nsxlib.v3.core_resources.NsxLibBridgeCluster."
-        "get_id_by_name_or_id",
-        return_value=uuidutils.generate_uuid()).start()
-
-    mock.patch(
         "vmware_nsxlib.v3.core_resources.NsxLibBridgeEndpoint.create",
         side_effect=_return_id_key).start()
 

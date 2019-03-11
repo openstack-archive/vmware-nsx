@@ -391,11 +391,6 @@ def get_l2gw_connection_mapping(session, connection_id):
         pass
 
 
-def get_l2gw_connection_mappings_by_bridge(session, bridge_endpoint_id):
-    return (session.query(nsx_models.NsxL2GWConnectionMapping).
-            filter_by(bridge_endpoint_id=bridge_endpoint_id).all())
-
-
 # NSXv3 QoS policy id <-> switch Id mapping
 def add_qos_policy_profile_mapping(session, qos_policy_id, switch_profile_id):
     with session.begin(subtransactions=True):
