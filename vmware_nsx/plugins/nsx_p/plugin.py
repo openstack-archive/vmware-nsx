@@ -1683,7 +1683,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
             # Create the default group membership criteria to match all neutron
             # ports by scope & tag
-            scope_and_tag = "%s:" % (NSX_P_SECURITY_GROUP_TAG)
+            scope_and_tag = "%s|" % (NSX_P_SECURITY_GROUP_TAG)
             conditions = [self.nsxpolicy.group.build_condition(
                 cond_val=scope_and_tag,
                 cond_key=policy_constants.CONDITION_KEY_TAG,
@@ -1764,7 +1764,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         nsx_name = utils.get_name_and_uuid(secgroup['name'] or 'securitygroup',
                                            sg_id)
         # Create the groups membership criteria for ports by scope & tag
-        scope_and_tag = "%s:%s" % (NSX_P_SECURITY_GROUP_TAG, sg_id)
+        scope_and_tag = "%s|%s" % (NSX_P_SECURITY_GROUP_TAG, sg_id)
         condition = self.nsxpolicy.group.build_condition(
             cond_val=scope_and_tag,
             cond_key=policy_constants.CONDITION_KEY_TAG,
