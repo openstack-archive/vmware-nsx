@@ -287,9 +287,17 @@ Security Groups, Firewall and Spoofguard
 Metadata
 ~~~~~~~~
 
-- Update loadbalancer members on router and DHCP edges::
+- Update metadata infrastructure on all router and DHCP edges::
 
     nsxadmin -r metadata -o nsx-update
+
+- Update metadata infrastructure on availability zone's router and DHCP edges::
+
+    nsxadmin -r metadata -o nsx-update --property az-name=az123
+
+- Update metadata infrastructure on specific router or DHCP edge::
+
+    nsxadmin -r metadata -o nsx-update --property edge-id=edge-15
 
 - Update shared secret on router and DHCP edges::
 
