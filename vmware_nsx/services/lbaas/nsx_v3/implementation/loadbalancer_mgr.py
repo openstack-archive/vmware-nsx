@@ -53,10 +53,6 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         if not lb_service:
             lb_size = lb_utils.get_lb_flavor_size(
                 self.flavor_plugin, context, lb.get('flavor_id'))
-            # Make sure the NSX service router exists
-            if not self.core_plugin.service_router_has_services(
-                    context, router_id):
-                self.core_plugin.create_service_router(context, router_id)
             lb_service = self._create_lb_service(
                 context, service_client, lb['tenant_id'],
                 router_id, nsx_router_id, lb['id'], lb_size)
@@ -97,9 +93,9 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             LOG.error("Failed to create LB service: %s", e)
             return
 
-        # Add rule to advertise external vips
-        lb_utils.update_router_lb_vip_advertisement(
-            context, self.core_plugin, router, nsx_router_id)
+        # Update router to enable advertise_lb_vip flag
+        self.core_plugin.nsxlib.logical_router.update_advertisement(
+            nsx_router_id, advertise_lb_vip=True)
 
         return lb_service
 
