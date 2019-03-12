@@ -242,6 +242,7 @@ class BaseTestEdgeLbaasV2(base.BaseTestCase):
                                            'persistence_profile').start()
         self.tm_client = mock.patch.object(nsxlib,
                                            'trust_management').start()
+        self.nsxlib = nsxlib
 
     def _unpatch_lb_plugin(self, lb_plugin, manager):
         setattr(lb_plugin, manager, self.real_manager)
@@ -298,7 +299,8 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
                               return_value=LB_ROUTER_ID),\
             mock.patch.object(self.service_client, 'get_router_lb_service',
                               return_value={'id': LB_SERVICE_ID}),\
-            mock.patch.object(self.service_client, 'create') as create_service,\
+            mock.patch.object(self.service_client,
+                              'create') as create_service,\
             mock.patch.object(nsx_db, 'add_nsx_lbaas_loadbalancer_binding'
                               ) as add_binding:
             mock_validate_lb_subnet.return_value = True
@@ -518,6 +520,7 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
                               ) as mock_add_virtual_server, \
             mock.patch.object(nsx_db, 'add_nsx_lbaas_listener_binding'
                               ) as mock_add_listener_binding,\
+            mock.patch.object(nsx_db, 'update_nsx_lbaas_pool_binding'),\
             mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
                               ) as mock_get_pool_binding:
             mock_get_floatingips.return_value = []
@@ -554,6 +557,71 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_get_floatingips.return_value = []
             mock_get_lb_binding.return_value = LB_BINDING
             mock_get_pool_binding.return_value = POOL_BINDING
+
+            self.assertRaises(n_exc.BadRequest,
+                              self.edge_driver.listener.create,
+                              self.context, listener)
+
+    def test_create_listener_with_session_persistence(self):
+        listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
+                                      'listener1', 'Dummy',
+                                      self.pool_persistency.id,
+                                      LB_ID, 'HTTP', protocol_port=80,
+                                      loadbalancer=self.lb,
+                                      default_pool=self.pool_persistency)
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(self.app_client, 'create'
+                              ) as mock_create_app_profile, \
+            mock.patch.object(self.vs_client, 'create'
+                              ) as mock_create_virtual_server, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(self.service_client, 'add_virtual_server'
+                              ) as mock_add_virtual_server, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_listener_binding'
+                              ) as mock_add_listener_binding,\
+            mock.patch.object(nsx_db, 'update_nsx_lbaas_pool_binding'),\
+            mock.patch.object(self.pp_client, 'create'
+                              ) as mock_create_pp, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding:
+            mock_get_floatingips.return_value = []
+            mock_create_app_profile.return_value = {'id': APP_PROFILE_ID}
+            mock_create_virtual_server.return_value = {'id': LB_VS_ID}
+            mock_get_lb_binding.return_value = LB_BINDING
+            mock_get_pool_binding.return_value = None
+
+            self.edge_driver.listener.create(self.context, listener)
+
+            mock_add_virtual_server.assert_called_with(LB_SERVICE_ID,
+                                                       LB_VS_ID)
+            mock_add_listener_binding.assert_called_with(
+                self.context.session, LB_ID, LISTENER_ID, APP_PROFILE_ID,
+                LB_VS_ID)
+            mock_create_pp.assert_called_once()
+            mock_successful_completion = (
+                self.lbv2_driver.listener.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          listener,
+                                                          delete=False)
+
+    def test_create_listener_with_session_persistence_fail(self):
+        listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
+                                      'listener1', 'Dummy',
+                                      self.pool_persistency.id,
+                                      LB_ID, 'TCP', protocol_port=80,
+                                      loadbalancer=self.lb,
+                                      default_pool=self.pool_persistency)
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding:
+            mock_get_floatingips.return_value = []
+            mock_get_lb_binding.return_value = LB_BINDING
+            mock_get_pool_binding.return_value = None
 
             self.assertRaises(n_exc.BadRequest,
                               self.edge_driver.listener.create,
@@ -605,6 +673,76 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_successful_completion.assert_called_with(self.context,
                                                           new_listener,
                                                           delete=False)
+
+    def test_update_with_session_persistence(self):
+        new_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
+                                          'listener1-new', 'new-description',
+                                          self.pool_persistency.id,
+                                          LB_ID, protocol='HTTP',
+                                          protocol_port=80,
+                                          loadbalancer=self.lb,
+                                          default_pool=self.pool_persistency)
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
+                              ) as mock_get_listener_binding,\
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding,\
+            mock.patch.object(self.vs_client, 'update',
+                              return_value={'id': LB_VS_ID}), \
+            mock.patch.object(self.pp_client, 'create'
+                              ) as mock_create_pp, \
+            mock.patch.object(nsx_db, 'update_nsx_lbaas_pool_binding'):
+            mock_get_floatingips.return_value = []
+            mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+
+            self.edge_driver.listener.update(self.context, self.listener,
+                                             new_listener)
+            mock_create_pp.assert_called_once()
+            mock_successful_completion = (
+                self.lbv2_driver.listener.successful_completion)
+            mock_successful_completion.assert_called_with(self.context,
+                                                          new_listener,
+                                                          delete=False)
+
+    def test_update_with_session_persistence_fail(self):
+        old_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
+                                          'listener1', 'description',
+                                          self.pool_persistency.id,
+                                          LB_ID, protocol='HTTP',
+                                          protocol_port=80,
+                                          loadbalancer=self.lb,
+                                          default_pool=self.pool_persistency)
+        sess_persistence = lb_models.SessionPersistence(
+            POOL_ID, 'SOURCE_IP')
+        pool_persistency = lb_models.Pool(POOL_ID, LB_TENANT_ID,
+                                   'pool1', '', None, 'HTTP',
+                                   'ROUND_ROBIN', loadbalancer_id=LB_ID,
+                                   listener=self.listener,
+                                   listeners=[self.listener],
+                                   loadbalancer=self.lb,
+                                   session_persistence=sess_persistence)
+        new_listener = lb_models.Listener(LISTENER_ID, LB_TENANT_ID,
+                                          'listener1-new', 'new-description',
+                                          pool_persistency.id,
+                                          LB_ID, protocol='HTTP',
+                                          protocol_port=80,
+                                          loadbalancer=self.lb,
+                                          default_pool=pool_persistency)
+        with mock.patch.object(self.core_plugin, 'get_floatingips'
+                               ) as mock_get_floatingips, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
+                              ) as mock_get_listener_binding,\
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding:
+            mock_get_floatingips.return_value = []
+            mock_get_listener_binding.return_value = LISTENER_BINDING
+            mock_get_pool_binding.return_value = POOL_BINDING
+
+            self.assertRaises(n_exc.BadRequest,
+                              self.edge_driver.listener.update,
+                              self.context, old_listener, new_listener)
 
     def test_delete(self):
         with mock.patch.object(nsx_db, 'get_nsx_lbaas_listener_binding'
@@ -1003,16 +1141,14 @@ class TestEdgeLbaasV2Pool(BaseTestEdgeLbaasV2):
             self.pool.session_persistence = session_persistence
             pool_dict = self.edge_driver.pool.translator(self.pool)
             list_dict = self.edge_driver.listener.translator(self.listener)
-            pool_impl = self.edge_driver.pool.implementor  # make pep8 happy
-            pp_id, post_func = pool_impl._setup_session_persistence(
-                pool_dict, [], list_dict, vs_data)
+            pp_id, post_func = lb_utils.setup_session_persistence(
+                self.nsxlib, pool_dict, [], list_dict, vs_data)
 
             if session_persistence:
                 self.assertEqual(LB_PP_ID, pp_id)
             else:
                 self.assertIsNone(pp_id)
-                self.assertEqual(({'id': LB_VS_ID,
-                                   'persistence_profile_id': LB_PP_ID},),
+                self.assertEqual((self.nsxlib, LB_PP_ID,),
                                  post_func.args)
             verify_func(res_type, cookie_name, cookie_mode,
                         mock_create_pp, mock_update_pp)
