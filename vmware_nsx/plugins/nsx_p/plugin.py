@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import time
-
 import netaddr
 
 from oslo_config import cfg
@@ -2182,9 +2180,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                         rule_id, e)
             # Go on with the deletion anyway
 
-        #TODO(annak): Due to platform bug, comm map may still be considered
-        # present for a short while. This is a workaround till issue is fixed.
-        time.sleep(2)
         self._delete_security_group_rule_backend_resources(
             context, domain_id, rule_db)
 
