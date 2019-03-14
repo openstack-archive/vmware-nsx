@@ -17,7 +17,7 @@ import time
 
 import mock
 import netaddr
-from neutron_lib.agent import topics
+
 from neutron_lib.api.definitions import address_scope
 from neutron_lib.api.definitions import agent as agent_apidef
 from neutron_lib.api.definitions import allowedaddresspairs as addr_apidef
@@ -48,7 +48,6 @@ from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib.plugins import constants as plugin_const
 from neutron_lib.plugins import directory
-from neutron_lib import rpc as n_rpc
 from neutron_lib.services.qos import constants as qos_consts
 
 from neutron.api.rpc.agentnotifiers import dhcp_rpc_agent_api
@@ -240,8 +239,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         qos_driver.register(qos_utils.QosNotificationsHandler())
-
-        self.start_rpc_listeners_called = False
 
         self._unsubscribe_callback_events()
         if cfg.CONF.api_replay_mode:
@@ -796,22 +793,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         self.agent_notifiers[const.AGENT_TYPE_DHCP] = (
             dhcp_rpc_agent_api.DhcpAgentNotifyAPI()
         )
-
-    def start_rpc_listeners(self):
-        if self.start_rpc_listeners_called:
-            # If called more than once - we should not create it again
-            return self.conn.consume_in_threads()
-
-        self._setup_rpc()
-        self.topic = topics.PLUGIN
-        self.conn = n_rpc.Connection()
-        self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
-        self.conn.create_consumer(topics.REPORTS,
-                                  [agents_db.AgentExtRpcCallback()],
-                                  fanout=False)
-        self.start_rpc_listeners_called = True
-
-        return self.conn.consume_in_threads()
 
     def _get_edge_cluster(self, tier0_uuid, router):
         az = self._get_router_az_obj(router)
@@ -2100,15 +2081,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                     'tz': tz_uuid,
                     'net': sub['network_id']})
                 raise n_exc.InvalidInput(error_message=msg)
-
-    def _router_has_edge_fw_rules(self, context, router):
-        if not router.gw_port_id:
-            # No GW -> No rule on the edge firewall
-            return False
-
-        if self.fwaas_callbacks and self.fwaas_callbacks.fwaas_enabled:
-            ports = self._get_router_interfaces(context, router.id)
-            return self.fwaas_callbacks.router_with_fwg(context, ports)
 
     def verify_sr_at_backend(self, context, router_id):
         nsx_router_id = nsx_db.get_nsx_router_id(context.session,

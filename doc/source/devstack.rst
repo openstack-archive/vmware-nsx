@@ -58,8 +58,6 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [service_providers]
     service_provider = FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
 
-Note - if devstack fails due to ml2_conf.ini being missing, please copy neutron/plugins/ml2/ml2_conf.ini.sample to /etc/neutron/plugins/ml2/ml2_conf.ini and stack again.
-
 L2GW Driver
 ~~~~~~~~~~~
 
@@ -219,8 +217,6 @@ Add neutron-fwaas repo as an external repository and configure following flags i
     [service_providers]
     service_provider = FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
 
-Note - if devstack fails due to ml2_conf.ini being missing, please copy neutron/plugins/ml2/ml2_conf.ini.sample to /etc/neutron/plugins/ml2/ml2_conf.ini and stack again.
-
 LBaaS v2 Driver
 ~~~~~~~~~~~~~~~
 
@@ -297,6 +293,23 @@ Optional: Update the nsx qos_peak_bw_multiplier in nsx.ini (default value is 2.0
 
     [NSX]
     qos_peak_bw_multiplier = <i.e 10.0>
+
+FWaaS (V2) Driver
+~~~~~~~~~~~~~~~~~
+
+Add neutron-fwaas repo as an external repository and configure following flags in ``local.conf``::
+
+    [[local|localrc]]
+    enable_service q-fwaas-v2
+    Q_SERVICE_PLUGIN_CLASSES+=,firewall_v2
+
+    [[post-config|$NEUTRON_CONF]]
+    [fwaas]
+    enabled = True
+    driver = vmware_nsxp_edge_v2
+
+    [service_providers]
+    service_provider = FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
 
 
 NSX-TVD

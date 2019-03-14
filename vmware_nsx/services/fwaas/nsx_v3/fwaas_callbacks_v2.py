@@ -15,8 +15,6 @@
 
 from oslo_log import log as logging
 
-from neutron_lib import constants as nl_constants
-
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.services.fwaas.common import fwaas_callbacks_v2 as \
@@ -26,7 +24,7 @@ from vmware_nsx.services.fwaas.nsx_tv import edge_fwaas_driver_v2 as tv_driver
 LOG = logging.getLogger(__name__)
 
 
-class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
+class Nsxv3FwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
     """NSX-V3 RPC callbacks for Firewall As A Service - V2."""
 
     def __init__(self, with_rpc):
@@ -43,37 +41,9 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
     def plugin_type(self):
         return projectpluginmap.NsxPlugins.NSX_T
 
-    def should_apply_firewall_to_router(self, context, router_id):
-        """Return True if the FWaaS rules should be added to this router."""
-        if not super(Nsxv3FwaasCallbacksV2,
-                     self).should_apply_firewall_to_router(context,
-                                                           router_id):
-            return False
-
-        # get all the relevant router info
-        ctx_elevated = context.elevated()
-        router_data = self.core_plugin.get_router(ctx_elevated, router_id)
-        if not router_data:
-            LOG.error("Couldn't read router %s data", router_id)
-            return False
-
-        # Check if the FWaaS driver supports this router
-        if not self.internal_driver.should_apply_firewall_to_router(
-            router_data):
-            return False
-
-        return True
-
     def get_port_rules(self, nsx_ls_id, fwg, plugin_rules):
         return self.internal_driver.get_port_translated_rules(
             nsx_ls_id, fwg, plugin_rules)
-
-    def router_with_fwg(self, context, router_interfaces):
-        for port in router_interfaces:
-            fwg = self.get_port_fwg(context, port['id'])
-            if fwg and fwg.get('status') == nl_constants.ACTIVE:
-                return True
-        return False
 
     def update_router_firewall(self, context, nsxlib, router_id,
                                router_interfaces, nsx_router_id, section_id,
@@ -130,11 +100,3 @@ class Nsxv3FwaasCallbacksV2(com_callbacks.NsxFwaasCallbacksV2):
                     exists_on_backend = False
         if exists_on_backend:
             nsxlib.firewall_section.update(section_id, rules=fw_rules)
-
-    def delete_port(self, context, port_id):
-        # Mark the FW group as inactive if this is the last port
-        fwg = self.get_port_fwg(context, port_id)
-        if (fwg and fwg.get('status') == nl_constants.ACTIVE and
-            len(fwg.get('ports', [])) <= 1):
-            self.fwplugin_rpc.set_firewall_group_status(
-                context, fwg['id'], nl_constants.INACTIVE)
