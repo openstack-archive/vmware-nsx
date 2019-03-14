@@ -927,6 +927,28 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                                   self.plugin.create_subnet,
                                   context.get_admin_context(), data)
 
+    def test_fail_create_static_routes_per_subnet_over_limit(self):
+        with self.network() as network:
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'cidr': '10.0.0.0/16',
+                               'name': 'sub1',
+                               'dns_nameservers': None,
+                               'allocation_pools': None,
+                               'tenant_id': 'tenant_one',
+                               'enable_dhcp': False,
+                               'ip_version': 4}}
+            count = 1
+            host_routes = []
+            while count < 28:
+                host_routes.append("'host_routes': [{'destination': "
+                                   "'135.207.0.0/%s', 'nexthop': "
+                                   "'1.2.3.%s'}]" % (count, count))
+                count += 1
+            data['subnet']['host_routes'] = host_routes
+            self.assertRaises(n_exc.InvalidInput,
+                              self.plugin.create_subnet,
+                              context.get_admin_context(), data)
+
     def test_create_subnet_disable_dhcp_with_host_route_fails(self):
         with self.network() as network:
             data = {'subnet': {'network_id': network['network']['id'],
