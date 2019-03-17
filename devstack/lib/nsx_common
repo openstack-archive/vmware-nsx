@@ -31,7 +31,7 @@ function _nsxv_ini_set {
 
 
 function install_neutron_projects {
-    pkg_list="networking-l2gw networking-sfc neutron-lbaas neutron-fwaas neutron-dynamic-routing neutron-vpnaas octavia vmware-nsxlib"
+    pkg_list="networking-l2gw networking-sfc neutron-lbaas neutron-fwaas neutron-dynamic-routing neutron-vpnaas octavia octavia-lib vmware-nsxlib"
     for pkg in `echo $pkg_list`
     do
         pkg_renamed=`echo $pkg | sed 's/-/_/g'`
