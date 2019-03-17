@@ -14,7 +14,6 @@
 #    under the License.
 
 import random
-import time
 
 import netaddr
 from oslo_log import log as logging
@@ -399,11 +398,6 @@ class NsxpFwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
         self.cleanup_router_fw_resources(domain_id, router_id)
 
     def cleanup_router_fw_resources(self, domain_id, router_id):
-        #TODO(asarfaty): Due to platform bug, gateway policy may still be
-        # considered present for a short while. This is a workaround till
-        # issue is fixed.
-        time.sleep(2)
-
         tags_to_search = [{'scope': ROUTER_FW_TAG, 'tag': router_id}]
         # Delete per rule & per network groups
         groups = self.nsxpolicy.search_by_tags(
