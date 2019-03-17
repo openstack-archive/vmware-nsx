@@ -101,7 +101,7 @@ NSX_P_DEFAULT_SECTION_DESC = ('This section is handled by OpenStack to '
 NSX_P_DEFAULT_SECTION_CATEGORY = policy_constants.CATEGORY_APPLICATION
 NSX_P_REGULAR_SECTION_CATEGORY = policy_constants.CATEGORY_ENVIRONMENT
 NSX_P_PROVIDER_SECTION_CATEGORY = policy_constants.CATEGORY_INFRASTRUCTURE
-
+NSX_P_PORT_RESOURCE_TYPE = 'os-neutron-port-id'
 NSX_P_IPV4_SERVICE_ID = 'os-ipv4-all'
 NSX_P_IPV6_SERVICE_ID = 'os-ipv6-all'
 
@@ -735,7 +735,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         elif device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF:
             tag_resource_type = 'os-neutron-rport-id'
         else:
-            tag_resource_type = 'os-neutron-port-id'
+            tag_resource_type = NSX_P_PORT_RESOURCE_TYPE
         tags.extend(self.nsxpolicy.build_v3_tags_payload(
             port_data, resource_type=tag_resource_type,
             project_name=context.tenant_name))
@@ -1740,8 +1740,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 return
 
             # Create the default group membership criteria to match all neutron
-            # ports by scope & tag
-            scope_and_tag = "%s|" % (NSX_P_SECURITY_GROUP_TAG)
+            # ports by scope (and no tag)
+            scope_and_tag = "%s|" % (NSX_P_PORT_RESOURCE_TYPE)
             conditions = [self.nsxpolicy.group.build_condition(
                 cond_val=scope_and_tag,
                 cond_key=policy_constants.CONDITION_KEY_TAG,
