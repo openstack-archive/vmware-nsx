@@ -27,6 +27,7 @@ from neutron_lib import context as q_context
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import l3 as l3_exc
 from oslo_config import cfg
+from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
@@ -2577,6 +2578,7 @@ class NsxVCallbacks(object):
         else:
             self._vcm = None
 
+    @log_helpers.log_method_call
     def complete_edge_creation(self, context, edge_id, name, router_id, dist,
                                deploy_successful, availability_zone=None,
                                deploy_metadata=False):

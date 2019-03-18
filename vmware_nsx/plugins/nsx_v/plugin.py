@@ -410,6 +410,10 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                         self.metadata_proxy_handler[az.name] = (
                             nsx_v_md_proxy.NsxVMetadataProxyHandler(
                                 self, az))
+                LOG.debug('Metadata is configured for AZs %s',
+                          self.metadata_proxy_handler.keys())
+            else:
+                LOG.debug('No metadata configuration available!')
 
             self.housekeeper = housekeeper.NsxHousekeeper(
                 hk_ns='vmware_nsx.neutron.nsxv.housekeeper.jobs',
