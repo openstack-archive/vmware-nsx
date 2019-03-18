@@ -19,13 +19,14 @@ import testtools
 
 from oslo_utils import uuidutils
 
+from octavia_lib.api.drivers import data_models
+
 code_ok = True
 # Skip duplications between Octavia & Neutron configurations and missing
 # configuration groups
 with mock.patch('oslo_config.cfg.ConfigOpts.import_group'),\
     mock.patch('oslo_config.cfg.ConfigOpts.__getattr__'):
     try:
-        from octavia.api.drivers import data_models
         from vmware_nsx.services.lbaas.octavia import octavia_driver as driver
     except ImportError:
         # Octavia code not found

@@ -24,12 +24,12 @@ from oslo_messaging.rpc import dispatcher
 import pecan
 from stevedore import driver as stevedore_driver
 
-from octavia.api.drivers import driver_lib
-from octavia.api.drivers import exceptions
-from octavia.api.drivers import provider_base as driver_base
 from octavia.api.drivers import utils as oct_utils
 from octavia.db import api as db_apis
 from octavia.db import repositories
+from octavia_lib.api.drivers import driver_lib
+from octavia_lib.api.drivers import exceptions
+from octavia_lib.api.drivers import provider_base as driver_base
 
 from vmware_nsx.services.lbaas.octavia import constants as d_const
 
