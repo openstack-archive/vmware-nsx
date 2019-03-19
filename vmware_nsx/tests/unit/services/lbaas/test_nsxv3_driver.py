@@ -235,12 +235,7 @@ class TestEdgeLbaasV2Loadbalancer(BaseTestEdgeLbaasV2):
 
     def test_create(self):
         with mock.patch.object(lb_utils, 'validate_lb_subnet'
-                               ) as mock_validate_lb_subnet,\
-            mock.patch.object(lb_utils, 'get_router_from_network'),\
-            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'),\
-            mock.patch.object(nsx_db, 'get_nsx_router_id'),\
-            mock.patch.object(self.service_client, 'get_router_lb_service'),\
-            mock.patch.object(nsx_db, 'add_nsx_lbaas_loadbalancer_binding'):
+                               ) as mock_validate_lb_subnet:
             mock_validate_lb_subnet.return_value = True
 
             self.edge_driver.loadbalancer.create(self.context, self.lb)
@@ -359,6 +354,7 @@ class TestEdgeLbaasV2Listener(BaseTestEdgeLbaasV2):
             mock_add_listener_binding.assert_called_with(
                 self.context.session, LB_ID, LISTENER_ID, APP_PROFILE_ID,
                 LB_VS_ID)
+
             mock_successful_completion = (
                 self.lbv2_driver.listener.successful_completion)
             mock_successful_completion.assert_called_with(self.context,
@@ -551,7 +547,7 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
     def _tested_entity(self):
         return 'member'
 
-    def test_create(self):
+    def _test_create(self, lb_binding, pool_binding):
         with mock.patch.object(lb_utils, 'validate_lb_member_subnet'
                                ) as mock_validate_lb_subnet, \
             mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
@@ -568,6 +564,11 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
                               ) as mock_get_nsx_router_id, \
             mock.patch.object(self.service_client, 'get_router_lb_service'
                               ) as mock_get_lb_service, \
+            mock.patch.object(nsx_db, 'add_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_add_loadbalancer_binding, \
+            mock.patch.object(self.service_client,
+                              'add_virtual_server'
+                              ) as mock_add_vs_to_service, \
             mock.patch.object(self.pool_client, 'get'
                               ) as mock_get_pool, \
             mock.patch.object(self.pool_client, 'update_pool_with_members'
@@ -576,13 +577,20 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock_get_pool_members.return_value = [self.member]
             mock_get_network.return_value = LB_NETWORK
             mock_get_router.return_value = LB_ROUTER_ID
-            mock_get_pool_binding.return_value = POOL_BINDING
-            mock_get_lb_binding.return_value = LB_BINDING
+            mock_get_pool_binding.return_value = pool_binding
+            mock_get_lb_binding.return_value = lb_binding
             mock_get_nsx_router_id.return_value = LB_ROUTER_ID
             mock_get_lb_service.return_value = {'id': LB_SERVICE_ID}
             mock_get_pool.return_value = LB_POOL
 
             self.edge_driver.member.create(self.context, self.member)
+            if not lb_binding:
+                mock_add_loadbalancer_binding.assert_called_with(
+                    self.context.session, LB_ID, LB_SERVICE_ID, LB_ROUTER_ID,
+                    LB_VIP)
+            else:
+                mock_add_loadbalancer_binding.assert_not_called()
+            mock_add_vs_to_service.assert_called_with(LB_SERVICE_ID, LB_VS_ID)
             mock_update_pool_with_members.assert_called_with(LB_POOL_ID,
                                                              [LB_MEMBER])
             mock_successful_completion = (
@@ -590,6 +598,46 @@ class TestEdgeLbaasV2Member(BaseTestEdgeLbaasV2):
             mock_successful_completion.assert_called_with(self.context,
                                                           self.member,
                                                           delete=False)
+
+    def test_create(self):
+        self._test_create(None, POOL_BINDING)
+
+    def test_create_existing_binding(self):
+        self._test_create(LB_BINDING, POOL_BINDING)
+
+    def test_create_lbs_no_router_gateway(self):
+        with mock.patch.object(lb_utils, 'validate_lb_member_subnet'
+                               ) as mock_validate_lb_subnet, \
+            mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'
+                              ) as mock_get_pool_members, \
+            mock.patch.object(lb_utils, 'get_network_from_subnet'
+                              ) as mock_get_network, \
+            mock.patch.object(lb_utils, 'get_router_from_network'
+                              ) as mock_get_router_from_network, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_pool_binding'
+                              ) as mock_get_pool_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_lbaas_loadbalancer_binding'
+                              ) as mock_get_lb_binding, \
+            mock.patch.object(nsx_db, 'get_nsx_router_id'
+                              ) as mock_get_nsx_router_id, \
+            mock.patch.object(self.service_client, 'get_router_lb_service'
+                              ) as mock_get_lb_service, \
+            mock.patch.object(self.core_plugin, 'get_router'
+                              ) as mock_get_router:
+            mock_validate_lb_subnet.return_value = True
+            mock_get_pool_members.return_value = [self.member]
+            mock_get_network.return_value = LB_NETWORK
+            mock_get_router_from_network.return_value = LB_ROUTER_ID
+            mock_get_pool_binding.return_value = POOL_BINDING
+            mock_get_lb_binding.return_value = None
+            mock_get_nsx_router_id.return_value = LB_ROUTER_ID
+            mock_get_lb_service.return_value = None
+            mock_get_router.return_value = {'id': 'router1-xxx'}
+
+            self.assertRaises(n_exc.BadRequest,
+                              self.edge_driver.member.create,
+                              self.context,
+                              self.member)
 
     def test_create_member_different_router(self):
         with mock.patch.object(self.lbv2_driver.plugin, 'get_pool_members'

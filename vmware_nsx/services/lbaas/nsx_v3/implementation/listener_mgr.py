@@ -147,20 +147,16 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
         # server to the lb service
         binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
             context.session, lb_id)
-        if not binding:
-            completor(success=False)
-            msg = _('Failed to get loadbalancer %s binding') % lb_id
-            raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
-
-        lb_service_id = binding['lb_service_id']
-        try:
-            service_client.add_virtual_server(lb_service_id,
-                                              virtual_server['id'])
-        except nsxlib_exc.ManagerError:
-            completor(success=False)
-            msg = _('Failed to add virtual server to lb service '
-                    'at NSX backend')
-            raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
+        if binding:
+            lb_service_id = binding['lb_service_id']
+            try:
+                service_client.add_virtual_server(lb_service_id,
+                                                  virtual_server['id'])
+            except nsxlib_exc.ManagerError:
+                completor(success=False)
+                msg = _('Failed to add virtual server to lb service '
+                        'at NSX backend')
+                raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
 
         nsx_db.add_nsx_lbaas_listener_binding(
             context.session, lb_id, listener['id'], app_profile_id,
@@ -219,24 +215,19 @@ class EdgeListenerManagerFromDict(base_mgr.Nsxv3LoadbalancerBaseManager):
             app_profile_id = binding['app_profile_id']
             lb_binding = nsx_db.get_nsx_lbaas_loadbalancer_binding(
                 context.session, lb_id)
-            if not lb_binding:
-                completor(success=False)
-                msg = (_('Failed to delete virtual server: %(listener)s: '
-                         'loadbalancer %(lb)s mapping was not found') %
-                       {'listener': listener['id'], 'lb': lb_id})
-                raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
-            try:
-                lbs_id = lb_binding.get('lb_service_id')
-                lb_service = service_client.get(lbs_id)
-                vs_list = lb_service.get('virtual_server_ids')
-                if vs_list and vs_id in vs_list:
-                    service_client.remove_virtual_server(lbs_id, vs_id)
-            except nsxlib_exc.ManagerError:
-                completor(success=False)
-                msg = (_('Failed to remove virtual server: %(listener)s '
-                         'from lb service %(lbs)s') %
-                       {'listener': listener['id'], 'lbs': lbs_id})
-                raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
+            if lb_binding:
+                try:
+                    lbs_id = lb_binding.get('lb_service_id')
+                    lb_service = service_client.get(lbs_id)
+                    vs_list = lb_service.get('virtual_server_ids')
+                    if vs_list and vs_id in vs_list:
+                        service_client.remove_virtual_server(lbs_id, vs_id)
+                except nsxlib_exc.ManagerError:
+                    completor(success=False)
+                    msg = (_('Failed to remove virtual server: %(listener)s '
+                             'from lb service %(lbs)s') %
+                           {'listener': listener['id'], 'lbs': lbs_id})
+                    raise n_exc.BadRequest(resource='lbaas-listener', msg=msg)
             try:
                 if listener.get('default_pool_id'):
                     vs_client.update(vs_id, pool_id='')
