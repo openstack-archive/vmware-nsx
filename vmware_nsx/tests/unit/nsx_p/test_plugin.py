@@ -631,8 +631,9 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
     def test_update_port_mac_v6_slaac(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
+    @with_disable_dhcp
     def test_requested_subnet_id_v4_and_v6(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
+        return super(NsxPTestPorts, self).test_requested_subnet_id_v4_and_v6()
 
     def test_requested_invalid_fixed_ips(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
@@ -670,8 +671,11 @@ class NsxPTestPorts(test_db_base_plugin_v2.TestPortsV2,
     def test_create_router_port_ipv4_and_ipv6_slaac_no_fixed_ips(self):
         self.skipTest('No DHCP v6 Support yet')
 
+    @with_disable_dhcp
     def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
-        self.skipTest('No DHCP v6 Support yet')
+        return super(
+            NsxPTestPorts,
+            self).test_create_port_with_multiple_ipv4_and_ipv6_subnets
 
     def test_ip_allocation_for_ipv6_2_subnet_slaac_mode(self):
         self.skipTest('No DHCP v6 Support yet')
@@ -1565,8 +1569,11 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
     def test_router_delete_dhcpv6_stateless_subnet_inuse_returns_409(self):
         self.skipTest('not supported')
 
+    @with_disable_dhcp
+    @common_v3.with_external_network
     def test_router_update_gateway_upon_subnet_create_ipv6(self):
-        self.skipTest('not supported')
+        super(NsxPTestL3NatTestCase,
+              self).test_router_update_gateway_upon_subnet_create_ipv6()
 
     def test_router_delete_ipv6_slaac_subnet_inuse_returns_409(self):
         self.skipTest('not supported')
@@ -1575,10 +1582,13 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
         self.skipTest('not supported')
 
     def test_router_add_interface_ipv6_subnet(self):
-        self.skipTest('not supported')
+        self.skipTest('slaac not supported')
 
-    def test_router_add_iface_ipv6_ext_ra_subnet_returns_400(self):
-        self.skipTest('not supported')
+    def test_router_add_interface_ipv6_single_subnet(self):
+        with self.router() as r, self.network() as n:
+            with self.subnet(network=n, cidr='fd00::1/64',
+                             gateway_ip='fd00::1', ip_version=6) as s:
+                self._test_router_add_interface_subnet(r, s)
 
     @with_disable_dhcp
     def test_route_clear_routes_with_None(self):

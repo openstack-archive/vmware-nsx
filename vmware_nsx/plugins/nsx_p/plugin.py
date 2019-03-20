@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import netaddr
-
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -657,9 +655,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         address_bindings = []
         for fixed_ip in port_data['fixed_ips']:
-            if netaddr.IPNetwork(fixed_ip['ip_address']).version != 4:
-                #TODO(annak): enable when IPv6 is supported
-                continue
             binding = self.nsxpolicy.segment_port.build_address_binding(
                 fixed_ip['ip_address'], port_data['mac_address'])
             address_bindings.append(binding)
@@ -968,8 +963,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             device_owner = (port_data['device_owner']
                             if 'device_owner' in port_data
                             else original_port.get('device_owner'))
-            self._validate_max_ips_per_port(
-                port_data.get('fixed_ips', []), device_owner)
+            self._validate_max_ips_per_port(context,
+                                            port_data.get('fixed_ips', []),
+                                            device_owner)
 
             direct_vnic_type = self._validate_port_vnic_type(
                 context, port_data, original_port['network_id'])
@@ -1126,6 +1122,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return 'ND-' + subnet['id']
 
     def _add_subnet_no_dnat_rule(self, context, router_id, subnet):
+        if not self._need_router_no_dnat_rules(subnet):
+            return
+
         # Add NO-DNAT rule to allow internal traffic between VMs, even if
         # they have floating ips (Only for routers with snat enabled)
         self.nsxpolicy.tier1_nat_rule.create_or_overwrite(
@@ -1463,12 +1462,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         router_db = self._get_router(context, router_id)
         gw_network_id = (router_db.gw_port.network_id if router_db.gw_port
                          else None)
+        # NOTE: In dual stack case, neutron would create a separate interface
+        # for each IP version
+        # We only allow one subnet per IP version
+        subnet = self._get_interface_subnet(context, interface_info)
 
         with locking.LockManager.get_lock(str(network_id)):
             # disallow more than one subnets belong to same network being
             # attached to routers
             self._validate_multiple_subnets_routers(
-                context, router_id, network_id)
+                context, router_id, network_id, subnet)
 
             # A router interface cannot be an external network
             if extern_net:
