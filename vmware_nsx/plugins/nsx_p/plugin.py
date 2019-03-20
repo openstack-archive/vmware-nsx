@@ -714,10 +714,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         address_bindings = self._build_port_address_bindings(
             context, port_data)
         device_owner = port_data.get('device_owner')
-        attachment_type = vif_id = None
+        vif_id = None
         if device_owner and device_owner != l3_db.DEVICE_OWNER_ROUTER_INTF:
             vif_id = port_data['id']
-            attachment_type = policy_constants.ATTACHMENT_INDEPENDENT
 
         tags = self._build_port_tags(port_data)
         if device_owner == const.DEVICE_OWNER_DHCP:
@@ -742,7 +741,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             description=port_data.get('description'),
             address_bindings=address_bindings,
             vif_id=vif_id,
-            attachment_type=attachment_type,
             tags=tags)
 
         # add the security profiles to the port
