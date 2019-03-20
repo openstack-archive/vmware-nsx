@@ -96,7 +96,7 @@ class NsxPPluginTestCaseMixin(
                                              'display_name': 'test'}]}
         mock.patch(
             "vmware_nsxlib.v3.policy.NsxPolicyLib.get_version",
-            return_value=nsx_constants.NSX_VERSION_2_4_0).start()
+            return_value=nsx_constants.NSX_VERSION_2_5_0).start()
         mock.patch(
             "vmware_nsxlib.v3.client.RESTClient.get").start()
         mock.patch(
@@ -133,7 +133,7 @@ class NsxPPluginTestCaseMixin(
                    return_value=nsxlib_utils.TagLimits(20, 40, 15)).start()
         # Add some nsxlib mocks for the passthrough apis
         mock.patch("vmware_nsxlib.v3.NsxLib.get_version",
-                   return_value=nsx_constants.NSX_VERSION_2_4_0).start()
+                   return_value=nsx_constants.NSX_VERSION_2_5_0).start()
         mock.patch("vmware_nsxlib.v3.core_resources.NsxLibLogicalRouter."
                    "update").start()
 
