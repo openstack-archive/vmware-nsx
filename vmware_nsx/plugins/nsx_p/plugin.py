@@ -98,8 +98,6 @@ NSX_P_DEFAULT_SECTION_CATEGORY = policy_constants.CATEGORY_APPLICATION
 NSX_P_REGULAR_SECTION_CATEGORY = policy_constants.CATEGORY_ENVIRONMENT
 NSX_P_PROVIDER_SECTION_CATEGORY = policy_constants.CATEGORY_INFRASTRUCTURE
 NSX_P_PORT_RESOURCE_TYPE = 'os-neutron-port-id'
-NSX_P_IPV4_SERVICE_ID = 'os-ipv4-all'
-NSX_P_IPV6_SERVICE_ID = 'os-ipv6-all'
 
 SPOOFGUARD_PROFILE_UUID = 'neutron-spoofguard-profile'
 NO_SPOOFGUARD_PROFILE_UUID = policy_defs.SpoofguardProfileDef.DEFAULT_PROFILE
@@ -192,7 +190,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._validate_nsx_policy_version()
 
         self._init_default_config()
-        self._prepare_common_services()
         self._prepare_default_rules()
         self._init_segment_profiles()
         self._init_dhcp_metadata()
@@ -1707,23 +1704,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         super(NsxPolicyPlugin, self).disassociate_floatingips(
             context, port_id, do_notify=False)
 
-    def _prepare_common_services(self):
-        """Prepare services for ipv4 and ipv6 only traffic"""
-
-        #NOTE: These services are overriden on each init. We never clean
-        # them up.
-        self.nsxpolicy.ip_protocol_service.create_or_overwrite(
-                NSX_P_IPV4_SERVICE_ID,
-                service_id=NSX_P_IPV4_SERVICE_ID,
-                description='all ipv4 traffic',
-                protocol_number=4)
-
-        self.nsxpolicy.ip_protocol_service.create_or_overwrite(
-                NSX_P_IPV6_SERVICE_ID,
-                service_id=NSX_P_IPV6_SERVICE_ID,
-                description='all ipv6 traffic',
-                protocol_number=41)
-
     def _prepare_default_rules(self):
         """Create a default group & communication map in the default domain"""
         # Run this code only on one worker at the time
@@ -1854,11 +1834,19 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self.nsxpolicy.group.delete(domain_id, sg_id)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
+    def _get_rule_ip_protocol(self, sg_rule):
+        ethertype = sg_rule.get('ethertype')
+        if ethertype == const.IPv4:
+            return nsxlib_consts.IPV4
+        if ethertype == const.IPv6:
+            return nsxlib_consts.IPV6
+
+        return nsxlib_consts.IPV4_IPV6
+
     def _get_rule_service_id(self, context, sg_rule, tags):
         """Return the NSX Policy service id matching the SG rule"""
         srv_id = None
         l4_protocol = nsxlib_utils.get_l4_protocol_name(sg_rule['protocol'])
-        ethertype = sg_rule.get('ethertype')
         srv_name = 'Service for OS rule %s' % sg_rule['id']
 
         if l4_protocol in [nsxlib_consts.TCP, nsxlib_consts.UDP]:
@@ -1900,12 +1888,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 description=sg_rule.get('description'),
                 protocol_number=l4_protocol,
                 tags=tags)
-        elif ethertype == const.IPv4:
-            # all ipv4 traffic
-            srv_id = NSX_P_IPV4_SERVICE_ID
-        elif ethertype == const.IPv6:
-            # all ipv6 traffic
-            srv_id = NSX_P_IPV6_SERVICE_ID
 
         return srv_id
 
@@ -1963,6 +1945,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             source, destination = destination, source
 
         service = self._get_rule_service_id(context, sg_rule, tags)
+        ip_protocol = self._get_rule_ip_protocol(sg_rule)
         logging = (cfg.CONF.nsx_p.log_security_groups_allowed_traffic or
                    secgroup_logging)
         scope = [self.nsxpolicy.group.get_path(domain_id, this_group_id)]
@@ -1970,6 +1953,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             nsx_name, domain_id, map_id, entry_id=sg_rule['id'],
             description=sg_rule.get('description'),
             service_ids=[service] if service else None,
+            ip_protocol=ip_protocol,
             action=policy_constants.ACTION_ALLOW,
             source_groups=[source] if source else None,
             dest_groups=[destination] if destination else None,
@@ -2295,9 +2279,3 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # let the fwaas callbacks update the router FW
             return self.fwaas_callbacks.update_router_firewall(
                 context, router_id, router_db, ports, called_from_fw=from_fw)
-
-    def get_ip_version_service_id(self, ip_version=4):
-        if ip_version == 4:
-            return NSX_P_IPV4_SERVICE_ID
-        else:
-            return NSX_P_IPV6_SERVICE_ID
