@@ -180,7 +180,7 @@ class NsxpFwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
             return group_id
 
     def _create_network_group(self, domain_id, router_id, neutron_net_id):
-        scope_and_tag = "%s:%s" % ('os-neutron-net-id', neutron_net_id)
+        scope_and_tag = "%s|%s" % ('os-neutron-net-id', neutron_net_id)
         tags = []
         tags = nsxlib_utils.add_v3_tag(tags, ROUTER_FW_TAG, router_id)
         expr = self.nsxpolicy.group.build_condition(
