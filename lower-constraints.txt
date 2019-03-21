@@ -51,7 +51,7 @@ munch==2.1.0
 netaddr==0.7.18
 netifaces==0.10.4
 neutron-lib==1.25.0
-octavia==3.0.0
+octavia-lib==1.1.1 # Apache-2.0
 openstackdocstheme==1.18.1
 os-client-config==1.28.0
 os-service-types==1.2.0
@@ -70,7 +70,7 @@ oslo.policy==1.30.0
 oslo.privsep==1.32.0
 oslo.reports==1.18.0
 oslo.rootwrap==5.8.0
-oslo.serialization==2.18.0
+oslo.serialization==2.28.1
 oslo.service==1.31.0
 oslo.utils==3.33.0
 oslo.versionedobjects==1.31.2
