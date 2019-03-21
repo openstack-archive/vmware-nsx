@@ -562,6 +562,14 @@ def get_nsx_lbaas_loadbalancer_binding(session, loadbalancer_id):
         return
 
 
+def update_nsx_lbaas_loadbalancer_binding(session, loadbalancer_id,
+                                          lb_router_id):
+    with session.begin(subtransactions=True):
+        binding = (session.query(nsx_models.NsxLbaasLoadbalancer).
+                   filter_by(loadbalancer_id=loadbalancer_id).one())
+        binding.lb_router_id = lb_router_id
+
+
 def get_nsx_lbaas_loadbalancer_bindings(session):
     return session.query(nsx_models.NsxLbaasLoadbalancer).all()
 
