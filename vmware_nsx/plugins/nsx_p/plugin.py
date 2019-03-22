@@ -1455,6 +1455,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         return updated_router
 
+    def _get_gateway_addr_from_subnet(self, subnet):
+        cidr_prefix = int(subnet['cidr'].split('/')[1])
+        return "%s/%s" % (subnet['gateway_ip'], cidr_prefix)
+
     def add_router_interface(self, context, router_id, interface_info):
         network_id = self._get_interface_network(context, interface_info)
         extern_net = self._network_is_external(context, network_id)
@@ -1514,12 +1518,20 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 net = self._get_network(context, network_id)
                 net_name = utils.get_name_and_uuid(
                     net['name'] or 'network', network_id)
-                gw_addr = "%s/%s" % (subnet['gateway_ip'], cidr_prefix)
-                pol_subnet = policy_defs.Subnet(gateway_address=gw_addr)
+                pol_subnets = []
+                for rtr_subnet in subnets:
+                    # For dueal stack, we allow one v4 and one v6
+                    # subnet per network
+                    if rtr_subnet['network_id'] == network_id:
+                        gw_addr = self._get_gateway_addr_from_subnet(
+                            rtr_subnet)
+                        pol_subnets.append(
+                            policy_defs.Subnet(gateway_address=gw_addr))
+
                 self.nsxpolicy.segment.update(segment_id,
-                                             name=net_name,
-                                             tier1_id=router_id,
-                                             subnets=[pol_subnet])
+                                              name=net_name,
+                                              tier1_id=router_id,
+                                              subnets=pol_subnets)
             else:
                 # Vlan interface
                 pol_subnet = policy_defs.InterfaceSubnet(
@@ -1577,8 +1589,25 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         try:
             if overlay_net:
                 # Remove the tier1 router from this segment on the NSX
-                self.nsxpolicy.segment.remove_connectivity_and_subnets(
-                    segment_id)
+                subnets = self._find_router_subnets(context.elevated(),
+                                                    router_id)
+                pol_subnets = []
+                for rtr_subnet in subnets:
+                    # For dueal stack, we allow one v4 and one v6
+                    # subnet per network
+                    if rtr_subnet['network_id'] == network_id:
+                        gw_addr = self._get_gateway_addr_from_subnet(
+                            rtr_subnet)
+                        pol_subnets.append(
+                            policy_defs.Subnet(gateway_address=gw_addr))
+
+                if len(pol_subnets) == 0:
+                    self.nsxpolicy.segment.remove_connectivity_and_subnets(
+                        segment_id)
+                else:
+                    self.nsxpolicy.segment.update(segment_id,
+                                                  tier1_id=router_id,
+                                                  subnets=pol_subnets)
             else:
                 # VLAN interface
                 self.nsxpolicy.tier1.remove_segment_interface(
