@@ -207,7 +207,8 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                 subnets.append({'id': subnet.id, 'cidr': subnet.cidr,
                                 'subnetpool_id': subnet.subnetpool_id,
                                 'ip_version': subnet.ip_version,
-                                'network_id': subnet.network_id})
+                                'network_id': subnet.network_id,
+                                'gateway_ip': subnet.gateway_ip})
         return subnets
 
     def _find_router_gw_subnets(self, context, router):
