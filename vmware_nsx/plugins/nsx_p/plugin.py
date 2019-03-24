@@ -102,6 +102,8 @@ NSX_P_PORT_RESOURCE_TYPE = 'os-neutron-port-id'
 SPOOFGUARD_PROFILE_UUID = 'neutron-spoofguard-profile'
 NO_SPOOFGUARD_PROFILE_UUID = policy_defs.SpoofguardProfileDef.DEFAULT_PROFILE
 MAC_DISCOVERY_PROFILE_UUID = 'neutron-mac-discovery-profile'
+NO_MAC_DISCOVERY_PROFILE_UUID = (
+    policy_defs.MacDiscoveryProfileDef.DEFAULT_PROFILE)
 NO_SEG_SECURITY_PROFILE_UUID = 'neutron-no-segment-security-profile'
 SEG_SECURITY_PROFILE_UUID = (
     policy_defs.SegmentSecurityProfileDef.DEFAULT_PROFILE)
@@ -286,6 +288,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 mac_change_enabled=True,
                 mac_learning_enabled=True,
                 tags=self.nsxpolicy.build_v3_api_version_tag())
+
+        # No Mac discovery profile profile
+        # (default NSX profile. just verify it exists)
+        try:
+            self.nsxpolicy.mac_discovery_profile.get(
+                NO_MAC_DISCOVERY_PROFILE_UUID)
+        except nsx_lib_exc.ResourceNotFound:
+            msg = (_("Cannot find MAC discovery profile %s") %
+                   NO_MAC_DISCOVERY_PROFILE_UUID)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # No Port security segment-security profile (find it or create)
         try:
@@ -758,7 +770,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             segment_security_profile_id=seg_sec_profile)
 
         # add the mac discovery profile to the port
-        mac_discovery_profile = None
         mac_disc_profile_must = False
         if is_psec_on:
             address_pairs = port_data.get(addr_apidef.ADDRESS_PAIRS)
@@ -769,6 +780,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             port_data.get(mac_ext.MAC_LEARNING) is True)
         if mac_disc_profile_must or mac_learning_enabled:
             mac_discovery_profile = MAC_DISCOVERY_PROFILE_UUID
+        else:
+            mac_discovery_profile = NO_MAC_DISCOVERY_PROFILE_UUID
         self.nsxpolicy.segment_port_discovery_profiles.create_or_overwrite(
             name, segment_id, port_data['id'],
             mac_discovery_profile_id=mac_discovery_profile)
