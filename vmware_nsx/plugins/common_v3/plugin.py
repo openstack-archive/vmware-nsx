@@ -249,10 +249,11 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._validate_address_scope_for_router_interface(
                 context.elevated(), router_db.id, gw_network_id, subnet['id'])
 
-    def _validate_ipv4_address_pairs(self, address_pairs):
+    def _validate_address_pairs(self, address_pairs):
         for pair in address_pairs:
             ip = pair.get('ip_address')
-            if not utils.is_ipv4_ip_address(ip):
+            if len(ip.split('/')) > 1:
+                LOG.error("cidr is not supported in allowed address pairs")
                 raise nsx_exc.InvalidIPAddress(ip_address=ip)
 
     def _create_port_address_pairs(self, context, port_data):
@@ -264,7 +265,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             if not port_security:
                 raise addr_exc.AddressPairAndPortSecurityRequired()
             else:
-                self._validate_ipv4_address_pairs(address_pairs)
+                self._validate_address_pairs(address_pairs)
                 self._process_create_allowed_address_pairs(context, port_data,
                                                            address_pairs)
         else:
@@ -348,7 +349,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                     raise addr_exc.AddressPairAndPortSecurityRequired()
 
         if delete_addr_pairs or has_addr_pairs:
-            self._validate_ipv4_address_pairs(
+            self._validate_address_pairs(
                 updated_port[addr_apidef.ADDRESS_PAIRS])
             # delete address pairs and read them in
             self._delete_allowed_address_pairs(context, id)
