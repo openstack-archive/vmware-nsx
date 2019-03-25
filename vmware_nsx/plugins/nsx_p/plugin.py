@@ -210,6 +210,14 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                            events.AFTER_INIT)
 
     def _init_default_config(self):
+
+        # Ipv6 is disabled by default in NSX
+        if (cfg.CONF.nsx_p.allow_passthrough and
+            self.nsxpolicy.feature_supported(nsxlib_consts.FEATURE_IPV6)):
+            self.nsxlib.global_routing.enable_ipv6()
+        else:
+            LOG.warning("Unable to switch on Ipv6 forwarding. Ipv6 "
+                        "connectivity might be broken.")
         # Default tier0/transport zones are initialized via the default AZ
 
         # Validate other mandatory configuration
