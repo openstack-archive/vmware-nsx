@@ -2025,9 +2025,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
 
     def get_port(self, context, id, fields=None):
         port = super(NsxV3Plugin, self).get_port(context, id, fields=None)
-        if 'id' in port:
-            port_model = self._get_port(context, port['id'])
-            resource_extend.apply_funcs('ports', port, port_model)
         self._extend_get_port_dict_qos_and_binding(context, port)
         self._remove_provider_security_groups_from_list(port)
         return db_utils.resource_fields(port, fields)
@@ -2044,16 +2041,6 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
                     limit, marker, page_reverse))
             # Add port extensions
             for port in ports[:]:
-                if 'id' in port:
-                    try:
-                        port_model = self._get_port(context, port['id'])
-                        resource_extend.apply_funcs('ports', port, port_model)
-                    except n_exc.PortNotFound:
-                        # Port might have been deleted by now
-                        LOG.debug("Port %s was deleted during the get_ports "
-                                  "process, and is being skipped", port['id'])
-                        ports.remove(port)
-                        continue
                 self._extend_get_port_dict_qos_and_binding(context, port)
                 self._remove_provider_security_groups_from_list(port)
         return (ports if not fields else
