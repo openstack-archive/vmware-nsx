@@ -1585,6 +1585,40 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
     def test_router_add_interface_ipv6_subnet(self):
         self.skipTest('slaac not supported')
 
+    def test_router_add_dual_stack_subnets(self):
+        """Add dual stack subnets to router interface"""
+
+        with self.router() as r, self.network() as n:
+            with self.subnet(network=n, cidr='fd00::0/64',
+                             gateway_ip='fd00::1', ip_version=6,
+                             enable_dhcp=False) as s6, \
+                self.subnet(network=n, cidr='2.0.0.0/24',
+                            gateway_ip='2.0.0.1') as s4:
+                    self._test_router_add_interface_subnet(r, s6)
+                    self._test_router_add_interface_subnet(r, s4)
+
+    def test_router_remove_dual_stack_subnets(self):
+        """Delete dual stack subnets from router interface"""
+
+        with self.router() as r, self.network() as n:
+            with self.subnet(network=n, cidr='fd00::0/64',
+                             ip_version=6, enable_dhcp=False) as s6, \
+                self.subnet(network=n, cidr='2.0.0.0/24') as s4:
+
+                body6 = self._router_interface_action('add', r['router']['id'],
+                                                     s6['subnet']['id'],
+                                                     None)
+                body4 = self._router_interface_action('add', r['router']['id'],
+                                              s4['subnet']['id'], None)
+                port = self._show('ports', body6['port_id'])
+                self.assertEqual(1, len(port['port']['fixed_ips']))
+                port = self._show('ports', body4['port_id'])
+                self.assertEqual(1, len(port['port']['fixed_ips']))
+                self._router_interface_action('remove', r['router']['id'],
+                                              s6['subnet']['id'], None)
+                self._router_interface_action('remove', r['router']['id'],
+                                              s4['subnet']['id'], None)
+
     def test_router_add_interface_ipv6_single_subnet(self):
         with self.router() as r, self.network() as n:
             with self.subnet(network=n, cidr='fd00::1/64',
