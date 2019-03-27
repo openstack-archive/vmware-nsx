@@ -613,7 +613,7 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
                               return_value=tier0_uuid),\
             self.router(external_gateway_info={'network_id':
                         ext_net['network']['id']}) as router,\
-            self.subnet() as sub:
+            self.subnet(cidr='1.1.0.0/24') as sub:
             # add an interface to the router
             self.l3plugin.add_router_interface(
                 self.context,
@@ -665,7 +665,7 @@ class TestVpnaasDriver(test_plugin.NsxV3PluginTestCaseMixin):
                               return_value=tier0_rtr_id),\
             self.router(external_gateway_info={'network_id':
                         ext_net['network']['id']}) as router,\
-            self.subnet() as sub:
+            self.subnet(cidr='1.1.0.0/24') as sub:
             # add an interface to the router
             self.l3plugin.add_router_interface(
                 self.context,

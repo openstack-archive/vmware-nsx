@@ -1189,6 +1189,26 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._validate_router_tz(context, new_tier0_uuid,
                                          router_subnets)
 
+    def _validate_gw_overlap_interfaces(self, context, gateway_net,
+                                        interfaces_networks):
+        # Ensure that interface subnets cannot overlap with the GW subnet
+        gw_subnets = self._get_subnets_by_network(
+            context.elevated(), gateway_net)
+        gw_cidrs = [subnet['cidr'] for subnet in gw_subnets]
+        gw_ip_set = netaddr.IPSet(gw_cidrs)
+
+        if_subnets = []
+        for net in interfaces_networks:
+            if_subnets.extend(self._get_subnets_by_network(
+                context.elevated(), net))
+        if_cidrs = [subnet['cidr'] for subnet in if_subnets]
+        if_ip_set = netaddr.IPSet(if_cidrs)
+
+        if gw_ip_set & if_ip_set:
+            msg = _("Interface network cannot overlap with router GW network")
+            LOG.error(msg)
+            raise n_exc.InvalidInput(error_message=msg)
+
     def _get_update_router_gw_actions(
         self,
         org_tier0_uuid, orgaddr, org_enable_snat,
