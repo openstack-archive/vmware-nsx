@@ -815,6 +815,18 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             context, port['port'], neutron_db)
         return neutron_db
 
+    def _is_backend_port(self, context, port_data):
+        is_external_net = self._network_is_external(
+            context, port_data['network_id'])
+
+        device_owner = port_data.get('device_owner')
+        is_router_interface = (device_owner == l3_db.DEVICE_OWNER_ROUTER_INTF)
+
+        if is_external_net or is_router_interface:
+            return False
+
+        return True
+
     def create_port(self, context, port, l2gw_port_check=False):
         port_data = port['port']
         # validate the new port parameters
@@ -868,7 +880,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         qos_policy_id = self._get_port_qos_policy_id(
             context, None, port_data)
 
-        if not is_external_net:
+        if self._is_backend_port(context, port_data):
+            # router interface port is created automatically by policy
             try:
                 self._create_or_update_port_on_backend(
                     context, port_data, is_psec_on, qos_policy_id)
@@ -908,6 +921,22 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         registry.notify(resources.PORT, events.AFTER_CREATE, self, **kwargs)
         return port_data
 
+    def _delete_port_on_backend(self, context, net_id, port_id):
+        try:
+            segment_id = self._get_network_nsx_segment_id(context, net_id)
+            self.nsxpolicy.segment_port_security_profiles.delete(
+                segment_id, port_id)
+            self.nsxpolicy.segment_port_discovery_profiles.delete(
+                segment_id, port_id)
+            if directory.get_plugin(plugin_const.QOS):
+                self.nsxpolicy.segment_port_qos_profiles.delete(
+                    segment_id, port_id)
+            self.nsxpolicy.segment_port.delete(segment_id, port_id)
+        except Exception as ex:
+            LOG.error("Failed to delete port %(id)s on NSX backend "
+                      "due to %(e)s", {'id': port_id, 'e': ex})
+            # Do not fail the neutron action
+
     def delete_port(self, context, port_id,
                     l3_port_check=True, l2gw_port_check=True,
                     force_delete_dhcp=False,
@@ -927,21 +956,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             msg = (_('Can not delete DHCP port %s') % port_id)
             raise n_exc.BadRequest(resource='port', msg=msg)
 
-        if not self._network_is_external(context, net_id):
-            try:
-                segment_id = self._get_network_nsx_segment_id(context, net_id)
-                self.nsxpolicy.segment_port_security_profiles.delete(
-                    segment_id, port_id)
-                self.nsxpolicy.segment_port_discovery_profiles.delete(
-                    segment_id, port_id)
-                if directory.get_plugin(plugin_const.QOS):
-                    self.nsxpolicy.segment_port_qos_profiles.delete(
-                        segment_id, port_id)
-                self.nsxpolicy.segment_port.delete(segment_id, port_id)
-            except Exception as ex:
-                LOG.error("Failed to delete port %(id)s on NSX backend "
-                          "due to %(e)s", {'id': port_id, 'e': ex})
-                # Do not fail the neutron action
+        if self._is_backend_port(context, port_data):
+            self._delete_port_on_backend(context, net_id, port_id)
 
         self.disassociate_floatingips(context, port_id)
 
@@ -1035,8 +1051,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                                  qos_policy_id)
 
         # update the port in the backend, only if it exists in the DB
-        # (i.e not external net)
-        if not is_external_net:
+        # (i.e not external net) and is not router interface
+        if self._is_backend_port(context, updated_port):
             try:
                 self._update_port_on_backend(context, port_id,
                                              original_port, updated_port,
@@ -1051,6 +1067,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                         self._revert_neutron_port_update(
                             context, port_id, original_port, updated_port,
                             port_security, sec_grp_updated)
+        else:
+            # if this port changed ownership to router interface, it should
+            # be deleted from policy, since policy handles router connectivity
+            original_owner = original_port.get('device_owner')
+            new_owner = port_data.get('device_owner')
+            if (original_owner != new_owner and
+                new_owner == const.DEVICE_OWNER_ROUTER_INTF):
+                self._delete_port_on_backend(context,
+                                             original_port['network_id'],
+                                             port_id)
 
         # Update DHCP bindings.
         if cfg.CONF.nsx_p.allow_passthrough:
