@@ -24,6 +24,7 @@ from vmware_nsx.services.lbaas import lb_const
 from vmware_nsxlib.v3 import nsx_constants
 
 ADV_RULE_NAME = 'LB external VIP advertisement'
+NO_ROUTER_ID = 'NO ROUTER'
 
 
 @log_helpers.log_method_call
