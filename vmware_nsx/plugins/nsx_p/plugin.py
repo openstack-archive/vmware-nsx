@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
+
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_log import log
@@ -673,9 +675,20 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         address_bindings = []
         for fixed_ip in port_data['fixed_ips']:
+            ip_addr = fixed_ip['ip_address']
+            mac_addr = port_data['mac_address']
             binding = self.nsxpolicy.segment_port.build_address_binding(
-                fixed_ip['ip_address'], port_data['mac_address'])
+                ip_addr, mac_addr)
             address_bindings.append(binding)
+
+            # add address binding for link local ipv6 address, otherwise
+            # neighbor discovery will be blocked by spoofguard.
+            # for now only one ipv6 address is allowed
+            if netaddr.IPAddress(ip_addr).version == 6:
+                lladdr = netaddr.EUI(mac_addr).ipv6_link_local()
+                binding = self.nsxpolicy.segment_port.build_address_binding(
+                    lladdr, mac_addr)
+                address_bindings.append(binding)
 
         for pair in port_data.get(addr_apidef.ADDRESS_PAIRS):
             binding = self.nsxpolicy.segment_port.build_address_binding(
