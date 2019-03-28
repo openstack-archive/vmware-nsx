@@ -178,7 +178,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         # Bind the dummy L3 notifications
         self.l3_rpc_notifier = l3_rpc_agent_api.L3NotifyAPI()
-        LOG.info("Starting NsxPolicyPlugin (Experimental only!)")
+        LOG.info("Starting NsxPolicyPlugin")
         self._extension_manager.initialize()
         self.supported_extension_aliases.extend(
             self._extension_manager.extension_aliases())
@@ -258,10 +258,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def _validate_nsx_policy_version(self):
         self._nsx_version = self.nsxpolicy.get_version()
         LOG.info("NSX Version: %s", self._nsx_version)
-        if not self.nsxpolicy.feature_supported(
-            nsxlib_consts.FEATURE_NSX_POLICY_NETWORKING):
-            msg = (_("The NSX Policy plugin cannot be used with NSX version "
-                     "%(ver)s") % {'ver': self._nsx_version})
+        if (not self.nsxpolicy.feature_supported(
+                nsxlib_consts.FEATURE_NSX_POLICY_NETWORKING) or
+            not utils.is_nsx_version_2_5_0(self._nsx_version)):
+            msg = (_("The NSX Policy plugin requires version 2.5 "
+                     "(current version %(ver)s)") % {'ver': self._nsx_version})
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def _init_segment_profiles(self):
