@@ -40,8 +40,14 @@ from vmware_nsx.db import db as nsx_db
 from vmware_nsx.extensions import projectpluginmap
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import utils as nsxlib_utils
+
 
 LOG = logging.getLogger(__name__)
+
+
+class _NotUniqueL2GW(Exception):
+    """Raised if validation of default L2 GW uniqueness fails."""
 
 
 class NsxV3Driver(l2gateway_db.L2GatewayMixin):
@@ -50,8 +56,6 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
     gateway_resource = l2gw_const.GATEWAY_RESOURCE_NAME
 
     def __init__(self, plugin):
-        # Create a default L2 gateway if default_bridge_cluster is
-        # provided in nsx.ini
         super(NsxV3Driver, self).__init__()
         self._plugin = plugin
         LOG.debug("Starting service plugin for NSX L2Gateway")
@@ -75,62 +79,142 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         registry.subscribe(self._ensure_default_l2_gateway, resources.PROCESS,
                            events.BEFORE_SPAWN)
 
+    def _find_default_l2_gateway(self, admin_ctx, def_device_id):
+        for l2gateway in self._get_l2_gateways(admin_ctx):
+            if l2gateway['devices'][0]['device_name'] == def_device_id:
+                return l2gateway
+
+    @nsxlib_utils.retry_random_upon_exception(_NotUniqueL2GW, max_attempts=10)
+    def _create_default_l2_gateway(self, admin_ctx, l2gw_dict, def_device_id):
+        LOG.debug("Creating default layer-2 gateway with: %s", l2gw_dict)
+        def_l2gw = super(NsxV3Driver, self).create_l2_gateway(admin_ctx,
+                                                              l2gw_dict)
+        # Verify that no other instance of neutron-server had the same
+        # brilliant idea...
+        l2gateways = self._get_l2_gateways(admin_ctx)
+        for l2gateway in l2gateways:
+            # Since we ensure L2 gateway is created with only 1 device, we use
+            # the first device in the list.
+            if l2gateway['devices'][0]['device_name'] == def_device_id:
+                if l2gateway['id'] == def_l2gw['id']:
+                    # Nothing to worry about, that's our gateway
+                    continue
+                LOG.info("Default L2 gateway is already created with "
+                         "id %s, deleting L2 gateway with id %s",
+                         l2gateway['id'], def_l2gw['id'])
+                # Commit suicide!
+                self.validate_l2_gateway_for_delete(
+                     admin_ctx, def_l2gw)
+                # We can be sure the gateway is not in use...
+                super(NsxV3Driver, self).delete_l2_gateway(
+                    admin_ctx, def_l2gw['id'])
+                # The operation should be retried to avoid the situation where
+                # every instance deletes the gateway it created
+                raise _NotUniqueL2GW
+
+        return def_l2gw
+
+    def _get_bridge_vlan_tz_id(self, bep_data):
+        nsxlib = self._core_plugin.nsxlib
+        # Edge cluster Id is mandatory, do not fear KeyError
+        edge_cluster_id = bep_data['edge_cluster_id']
+        member_indexes = bep_data.get('edge_cluster_member_indexes', [])
+        # NSX should not allow bridge endpoint profiles attached to
+        # non-existing edge clusters
+        edge_cluster = nsxlib.edge_cluster.get(edge_cluster_id)
+        member_map = dict((member['member_index'],
+                           member['transport_node_id'])
+                          for member in edge_cluster['members'])
+        # By default consider all transport nodes in the cluster for
+        # retrieving the VLAN transprtzone
+        tn_ids = member_map.values()
+        if member_indexes:
+            try:
+                tn_ids = [member_map[idx] for idx in member_indexes]
+            except KeyError:
+                LOG.warning("Invalid member indexes specified in bridge "
+                            "endpoint profile: %(bep_id)s: %(indexes)s",
+                            {'bep_id': bep_data['id'],
+                             'indexes': member_indexes})
+
+        # Retrieve VLAN transport zones
+        vlan_transport_zones = nsxlib.search_all_resource_by_attributes(
+                nsxlib.transport_zone.resource_type,
+                transport_type='VLAN')
+        vlan_tz_map = dict((vlan_tz['id'], [])
+                           for vlan_tz in vlan_transport_zones)
+        for tn_id in tn_ids:
+            tn_data = nsxlib.transport_node.get(tn_id)
+            for tz_endpoint in tn_data.get('transport_zone_endpoints', []):
+                tz_id = tz_endpoint['transport_zone_id']
+                if tz_id in vlan_tz_map:
+                    vlan_tz_map[tz_id].append(tn_id)
+
+        # Find the VLAN transport zone that is used by all transport nodes
+        results = []
+        for (tz_id, nodes) in vlan_tz_map.items():
+            if set(nodes) != set(tn_ids):
+                continue
+            results.append(tz_id)
+
+        return results
+
     def _ensure_default_l2_gateway(self, resource, event,
                                    trigger, payload=None):
         """
         Create a default logical L2 gateway.
 
-        Create a logical L2 gateway in the neutron database if the
-        default_bridge_cluster config parameter is set and if it is
-        not previously created. If not set, return.
+        Create a logical L2 gateway in the neutron database for the
+        default bridge endpoint profile, if specified in the configuration.
+        Ensure only one gateway is configured in presence of multiple
+        neutron servers.
         """
-        def_l2gw_name = cfg.CONF.nsx_v3.default_bridge_cluster
-        # Return if no default_bridge_cluster set in config
-        if not def_l2gw_name:
-            LOG.info("NSX: Default bridge cluster not configured "
-                     "in nsx.ini. No default L2 gateway created.")
+        if cfg.CONF.nsx_v3.default_bridge_cluster:
+            LOG.warning("Attention! The default_bridge_cluster option is "
+                        "still set to %s. This option won't have any effect "
+                        "as L2 gateways based on bridge clusters are not "
+                        "implemented anymore",
+                        cfg.CONF.nsx_v3.default_bridge_cluster)
+        def_bep = cfg.CONF.nsx_v3.default_bridge_endpoint_profile
+        # Return if no default_endpoint_profile set in config
+        if not def_bep:
+            LOG.info("NSX Default bridge endpoint profile not set. "
+                     "Default L2 gateway will not be processed.")
             return
         admin_ctx = context.get_admin_context()
-
-        def_l2gw_uuid = (
-            self._core_plugin.nsxlib.bridge_cluster.get_id_by_name_or_id(
-                def_l2gw_name))
-
-        # Optimistically create the default L2 gateway in neutron DB
-        device = {'device_name': def_l2gw_uuid,
-                  'interfaces': [{'name': 'default-bridge-cluster'}]}
+        nsx_bep_client = self._core_plugin.nsxlib.bridge_endpoint_profile
+        bep_id = nsx_bep_client.get_id_by_name_or_id(def_bep)
+        def_l2gw = self._find_default_l2_gateway(admin_ctx, bep_id)
+        # If there is already an existing gateway, use that one
+        if def_l2gw:
+            LOG.info("A default L2 gateway for bridge endpoint profile "
+                     "%(bep_id)s already exists. Reusing L2 gateway "
+                     "%(def_l2gw_id)s)",
+                     {'bep_id': bep_id, 'def_l2gw_id': def_l2gw['id']})
+            return def_l2gw
+        bep_data = nsx_bep_client.get(bep_id)
+        vlan_tzs = self._get_bridge_vlan_tz_id(bep_data)
+        if not vlan_tzs:
+            LOG.info("No NSX VLAN transport zone could be used for bridge "
+                     "endpoint profile: %s. Default L2 gateway will not "
+                     "be processed", bep_id)
+            return
+        # TODO(salv-orlando): Implement support for multiple VLAN TZ
+        vlan_tz = vlan_tzs[0]
+        if len(vlan_tzs) > 1:
+            LOG.info("The NSX L2 gateway driver currenly supports a single "
+                     "VLAN transport zone for bridging, but %(num_tz)d "
+                     "were specified. Transport zone %(tz)s will be used "
+                     "for L2 gateways",
+                     {'num_tz': len(vlan_tzs), 'tz': vlan_tz})
+        device = {'device_name': bep_id,
+                  'interfaces': [{'name': vlan_tz}]}
         # TODO(asarfaty): Add a default v3 tenant-id to allow TVD filtering
-        def_l2gw = {'name': 'default-l2gw',
-                    'devices': [device]}
-        l2gw_dict = {self.gateway_resource: def_l2gw}
-        self.create_l2_gateway(admin_ctx, l2gw_dict)
-        l2_gateway = super(NsxV3Driver, self).create_l2_gateway(admin_ctx,
-                                                                l2gw_dict)
-        # Verify that only one default L2 gateway is created
-        def_l2gw_exists = False
-        l2gateways = self._get_l2_gateways(admin_ctx)
-        for l2gateway in l2gateways:
-            # Since we ensure L2 gateway is created with only 1 device, we use
-            # the first device in the list.
-            if l2gateway['devices'][0]['device_name'] == def_l2gw_uuid:
-                if def_l2gw_exists:
-                    LOG.info("Default L2 gateway is already created.")
-                    try:
-                        # Try deleting this duplicate default L2 gateway
-                        self.validate_l2_gateway_for_delete(
-                            admin_ctx, l2gateway['id'])
-                        super(NsxV3Driver, self).delete_l2_gateway(
-                            admin_ctx, l2gateway['id'])
-                    except l2gw_exc.L2GatewayInUse:
-                        # If the L2 gateway we are trying to delete is in
-                        # use then we should delete the L2 gateway which
-                        # we just created ensuring there is only one
-                        # default L2 gateway in the database.
-                        super(NsxV3Driver, self).delete_l2_gateway(
-                            admin_ctx, l2_gateway['id'])
-                else:
-                    def_l2gw_exists = True
-        return l2_gateway
+        l2gw_dict = {self.gateway_resource: {
+            'name': 'default-nsxedge-l2gw',
+            'devices': [device]}}
+        self._create_default_l2_gateway(admin_ctx, l2gw_dict, bep_id)
+        return def_l2gw
 
     def _prevent_l2gw_port_delete(self, resource, event,
                                   trigger, payload=None):
@@ -140,30 +224,34 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         if port_check:
             self.prevent_l2gw_port_deletion(context, port_id)
 
-    def _validate_device_list(self, devices):
-        # In NSXv3, one L2 gateway is mapped to one bridge cluster.
+    def _validate_device_list(self, devices, check_backend=True):
+        # In NSXv3, one L2 gateway is mapped to one bridge endpoint profle.
         # So we expect only one device to be configured as part of
         # a L2 gateway resource. The name of the device must be the bridge
-        # cluster's UUID.
+        # endpoint profile UUID.
         if len(devices) != 1:
-            msg = _("Only a single device is supported for one L2 gateway")
+            msg = _("Only a single device is supported by the NSX L2"
+                    "gateway driver")
             raise n_exc.InvalidInput(error_message=msg)
-        if not uuidutils.is_uuid_like(devices[0]['device_name']):
+        dev_name = devices[0]['device_name']
+        if not uuidutils.is_uuid_like(dev_name):
             msg = _("Device name must be configured with a UUID")
             raise n_exc.InvalidInput(error_message=msg)
-        # Make sure the L2GW device ID exists as Bridge Cluster on NSX.
-        try:
-            self._core_plugin.nsxlib.bridge_cluster.get(
-                devices[0]['device_name'])
-        except nsxlib_exc.ResourceNotFound:
-            msg = _("Could not find Bridge Cluster for L2 gateway device "
-                    "%s on NSX backend") % devices[0]['device_name']
-            LOG.error(msg)
-            raise n_exc.InvalidInput(error_message=msg)
+        # Ensure the L2GW device is a valid bridge endpoint profile in NSX
+        if check_backend:
+            try:
+                self._core_plugin.nsxlib.bridge_endpoint_profile.get(
+                    dev_name)
+            except nsxlib_exc.ResourceNotFound:
+                msg = _("Could not find Bridge Endpoint Profile for L2 "
+                        "gateway device %s on NSX backend") % dev_name
+                LOG.error(msg)
+                raise n_exc.InvalidInput(error_message=msg)
         # One L2 gateway must have only one interface defined.
         interfaces = devices[0].get(l2gw_const.IFACE_NAME_ATTR)
         if len(interfaces) > 1:
-            msg = _("Maximum of one interface is supported for one L2 gateway")
+            msg = _("Maximum of one interface is supported by the NSX L2 "
+                    "gateway driver")
             raise n_exc.InvalidInput(error_message=msg)
 
     def create_l2_gateway(self, context, l2_gateway):
@@ -196,10 +284,9 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
     def _validate_network(self, context, network_id):
         network = self._core_plugin.get_network(context, network_id)
         network_type = network.get(providernet.NETWORK_TYPE)
-        # If network is a provider network, verify whether it is of type VXLAN
-        if network_type and network_type != nsx_utils.NsxV3NetworkTypes.VXLAN:
-            msg = (_("Unsupported network type %s for L2 gateway "
-                     "connection. Only VXLAN network type supported") %
+        # If network is a provider network, verify whether it is of type GENEVE
+        if network_type and network_type != nsx_utils.NsxV3NetworkTypes.GENEVE:
+            msg = (_("Unsupported network type %s for L2 gateway connection") %
                    network_type)
             raise n_exc.InvalidInput(error_message=msg)
 
@@ -213,33 +300,67 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         network_id = gw_connection.get(l2gw_const.NETWORK_ID)
         self._validate_network(context, network_id)
 
-    def _get_bridge_cluster(self, context, l2gw_id):
+    def _get_bep(self, context, l2gw_id):
         # In NSXv3, there will be only one device configured per L2 gateway.
-        # The name of the device shall carry the backend bridge cluster's UUID.
+        # The name of the device shall carry the bridge endpoint profile id.
         devices = self._get_l2_gateway_devices(context, l2gw_id)
         return devices[0].get('device_name')
 
-    def _get_conn_seg_id(self, context, gw_connection):
+    def _get_conn_parameters(self, context, gw_connection):
+        """Return interface and segmenantion id for a connection. """
         if not gw_connection:
             return
+        l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
         seg_id = gw_connection.get(l2gw_const.SEG_ID)
+        devices = self._get_l2_gateway_devices(context, l2gw_id)
+        # TODO(salv-orlando): support more than a single interface
+        interface = self._get_l2_gw_interfaces(context, devices[0]['id'])[0]
         if not seg_id:
             # Seg-id was not passed as part of connection-create. Retrieve
             # seg-id from L2 gateway's interface.
-            l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
-            devices = self._get_l2_gateway_devices(context, l2gw_id)
-            interface = self._get_l2_gw_interfaces(context, devices[0]['id'])
-            seg_id = interface[0].get(l2gw_const.SEG_ID)
-        return seg_id
+            seg_id = interface.get('segmentation_id')
+        return interface['interface_name'], seg_id
 
     def create_l2_gateway_connection_precommit(self, context, gw_connection):
         """Validate the L2 gateway connection
         Do not allow another connection with the same bride cluster and seg_id
         """
         admin_ctx = context.elevated()
+        nsxlib = self._core_plugin.nsxlib
         l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
-        seg_id = self._get_conn_seg_id(admin_ctx, gw_connection)
-        bridge_cluster = self._get_bridge_cluster(admin_ctx, l2gw_id)
+        devices = self._get_l2_gateway_devices(context, l2gw_id)
+        bep_id = devices[0].get('device_name')
+        # Check for bridge endpoint profile existence
+        # if bridge endpoint profile is not found, this is likely an old
+        # connection, fail with error.
+        try:
+            nsxlib.bridge_endpoint_profile.get_id_by_name_or_id(bep_id)
+        except nsxlib_exc.ManagerError as e:
+            msg = (_("Error while retrieving bridge endpoint profile "
+                     "%(bep_id)s from NSX backend. Check that the profile "
+                     "exits and there are not multiple profiles with "
+                     "the given name. Exception: %(exc)s") %
+                   {'bep_id': bep_id, 'exc': e})
+            raise n_exc.InvalidInput(error_message=msg)
+
+        interface_name, seg_id = self._get_conn_parameters(
+            admin_ctx, gw_connection)
+        try:
+            # Use search API for listing bridge endpoints on NSX for provided
+            # VLAN id, transport zone id, and Bridge endpoint profile
+            endpoints = nsxlib.search_all_resource_by_attributes(
+                nsxlib.bridge_endpoint.resource_type,
+                bridge_endpoint_profile_id=bep_id,
+                vlan_transport_zone_id=interface_name,
+                vlan=seg_id)
+            endpoint_map = dict((endpoint['id'],
+                                 endpoint['bridge_endpoint_profile_id'])
+                            for endpoint in endpoints)
+        except nsxlib_exc.ManagerError as e:
+            msg = (_("Error while retrieving endpoints for bridge endpoint "
+                     "profile %(bep_id)s s from NSX backend. "
+                     "Exception: %(exc)s") % {'bep_id': bep_id, 'exc': e})
+            raise n_exc.InvalidInput(error_message=msg)
 
         # get all bridge endpoint ports
         with db_api.CONTEXT_WRITER.using(admin_ctx):
@@ -247,65 +368,55 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             ports = self._core_plugin.get_ports(
                 admin_ctx, filters=port_filters)
             for port in ports:
-                # get the nsx mapping by bridge endpoint
-                if port.get('device_id'):
-                    mappings = nsx_db.get_l2gw_connection_mappings_by_bridge(
-                        admin_ctx.session, port['device_id'])
-                    for mapping in mappings:
-                        conn_id = mapping.connection_id
-                        # get the matching GW connection
-                        conn = self._get_l2_gateway_connection(
-                            admin_ctx, conn_id)
-                        con_seg_id = self._get_conn_seg_id(admin_ctx, conn)
-                        if (conn and con_seg_id and
-                            int(con_seg_id) == int(seg_id)):
-                            # compare the bridge cluster
-                            conn_bridge_cluster = self._get_bridge_cluster(
-                                admin_ctx, conn.l2_gateway_id)
-                            if conn_bridge_cluster == bridge_cluster:
-                                msg = (_("Cannot create multiple connections "
-                                         "with the same segmentation id "
-                                         "%(seg_id)s for bridge cluster "
-                                         "%(bridge)s") % {
-                                    'seg_id': seg_id,
-                                    'bridge': bridge_cluster})
-                                raise n_exc.InvalidInput(error_message=msg)
+                device_id = port.get('device_id')
+                if endpoint_map.get(device_id) == bep_id:
+                    # This device is using the same vlan id and bridge endpoint
+                    # profile as the one requested. Not ok.
+                    msg = (_("Cannot create multiple connections with the "
+                             "same segmentation id %(seg_id)s for bridge "
+                             "endpoint profile %(bep_id)s") %
+                           {'seg_id': seg_id,
+                            'bep_id': bep_id})
+                    raise n_exc.InvalidInput(error_message=msg)
 
     def create_l2_gateway_connection_postcommit(self, context, gw_connection):
-        """Create a L2 gateway connection."""
+        """Create a L2 gateway connection on the backend"""
+        nsxlib = self._core_plugin.nsxlib
         l2gw_id = gw_connection.get(l2gw_const.L2GATEWAY_ID)
         network_id = gw_connection.get(l2gw_const.NETWORK_ID)
-        device_name = self._get_bridge_cluster(context, l2gw_id)
-        seg_id = self._get_conn_seg_id(context, gw_connection)
+        device_name = self._get_bep(context, l2gw_id)
+        interface_name, seg_id = self._get_conn_parameters(
+            context, gw_connection)
         self._validate_segment_id(seg_id)
         tenant_id = gw_connection['tenant_id']
         if context.is_admin and not tenant_id:
             tenant_id = context.tenant_id
             gw_connection['tenant_id'] = tenant_id
         try:
-            tags = self._core_plugin.nsxlib.build_v3_tags_payload(
+            tags = nsxlib.build_v3_tags_payload(
                 gw_connection, resource_type='os-neutron-l2gw-id',
                 project_name=context.tenant_name)
-            bridge_endpoint = self._core_plugin.nsxlib.bridge_endpoint.create(
+            bridge_endpoint = nsxlib.bridge_endpoint.create(
                 device_name=device_name,
-                seg_id=seg_id,
+                vlan_transport_zone_id=interface_name,
+                vlan_id=seg_id,
                 tags=tags)
         except nsxlib_exc.ManagerError as e:
-            LOG.exception("Unable to create bridge endpoint, rolling back "
-                          "changes on neutron. Exception is %s", e)
+            LOG.exception("Unable to create bridge endpoint. "
+                          "Exception is %s", e)
             raise l2gw_exc.L2GatewayServiceDriverError(
                 method='create_l2_gateway_connection_postcommit')
-        #TODO(abhiraut): Consider specifying the name of the port
-        # Create a logical port and connect it to the bridge endpoint.
+
         port_dict = {'port': {
+                        'name': 'l2gw-conn-%s-%s' % (
+                            l2gw_id, seg_id),
                         'tenant_id': tenant_id,
                         'network_id': network_id,
                         'mac_address': constants.ATTR_NOT_SPECIFIED,
                         'admin_state_up': True,
                         'fixed_ips': [],
                         'device_id': bridge_endpoint['id'],
-                        'device_owner': nsx_constants.BRIDGE_ENDPOINT,
-                        'name': '', }}
+                        'device_owner': nsx_constants.BRIDGE_ENDPOINT}}
         try:
             #TODO(abhiraut): Consider adding UT for port check once UTs are
             #                refactored
@@ -319,12 +430,16 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
             LOG.debug("IP addresses deallocated on port %s", port['id'])
         except (nsxlib_exc.ManagerError,
                 n_exc.NeutronException) as e:
-            LOG.exception("Unable to create L2 gateway port, "
-                          "rolling back changes on neutron: %s", e)
-            self._core_plugin.nsxlib.bridge_endpoint.delete(
-                bridge_endpoint['id'])
-            raise l2gw_exc.L2GatewayServiceDriverError(
-                method='create_l2_gateway_connection_postcommit')
+            with excutils.save_and_reraise_exception():
+                LOG.exception("Unable to create L2 gateway port, "
+                              "rolling back changes on backend: %s", e)
+                self._core_plugin.nsxlib.bridge_endpoint.delete(
+                    bridge_endpoint['id'])
+                super(NsxV3Driver,
+                      self).delete_l2_gateway_connection(
+                          context,
+                          gw_connection['id'])
+
         try:
             # Update neutron's database with the mappings.
             nsx_db.add_l2gw_connection_mapping(
@@ -335,7 +450,10 @@ class NsxV3Driver(l2gateway_db.L2GatewayMixin):
         except db_exc.DBError:
             with excutils.save_and_reraise_exception():
                 LOG.exception("Unable to add L2 gateway connection "
-                              "mappings, rolling back changes on neutron")
+                              "mappings for %(conn_id)s on network "
+                              "%(net_id)s. rolling back changes.",
+                              {'conn_id': gw_connection['id'],
+                               'net_id': network_id})
                 self._core_plugin.nsxlib.bridge_endpoint.delete(
                     bridge_endpoint['id'])
                 super(NsxV3Driver,

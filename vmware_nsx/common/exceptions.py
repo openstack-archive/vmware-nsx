@@ -76,6 +76,11 @@ class L2GatewayAlreadyInUse(n_exc.Conflict):
     message = _("Gateway Service %(gateway)s is already in use")
 
 
+class BridgeEndpointAttachmentInUse(n_exc.Conflict):
+    message = _("The NSX backend only allow a single L2 gateway connection "
+                "for network %(network_id)s")
+
+
 class InvalidTransportType(NsxPluginException):
     message = _("The transport type %(transport_type)s is not recognized "
                 "by the backend")

@@ -1409,6 +1409,9 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
             # (for example - transport zone with KVM)
             LOG.exception("Unable to create port on the backend: %s",
                           inst)
+            if inst.error_code == 8407:
+                raise nsx_exc.BridgeEndpointAttachmentInUse(
+                    network_id=port_data['network_id'])
             msg = _("Unable to create port on the backend")
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
