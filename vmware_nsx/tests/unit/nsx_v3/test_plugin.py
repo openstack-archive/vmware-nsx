@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import decorator
-
 import mock
 import netaddr
 from neutron.db import models_v2
@@ -799,7 +797,10 @@ class TestNetworksV2(test_plugin.TestNetworksV2, NsxV3PluginTestCaseMixin):
                                  res['NeutronError']['type'])
 
 
-class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
+class TestSubnetsV2(common_v3.NsxV3TestSubnets, NsxV3PluginTestCaseMixin):
+
+    def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None):
+        super(TestSubnetsV2, self).setUp(plugin=plugin, ext_mgr=ext_mgr)
 
     def test_create_subnet_with_shared_address_space(self):
         with self.network() as network:
@@ -846,12 +847,6 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
             self.assertRaises(n_exc.InvalidInput,
                               self.plugin.create_subnet,
                               context.get_admin_context(), data)
-
-    def test_subnet_update_ipv4_and_ipv6_pd_v6stateless_subnets(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_subnet_update_ipv4_and_ipv6_pd_slaac_subnets(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
 
     def test_subnet_native_dhcp_subnet_enabled(self):
         self._enable_native_dhcp_md()
@@ -982,7 +977,8 @@ class TestSubnetsV2(test_plugin.TestSubnetsV2, NsxV3PluginTestCaseMixin):
                               context.get_admin_context(), subnet['id'], data)
 
 
-class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
+class TestPortsV2(common_v3.NsxV3SubnetMixin,
+                  common_v3.NsxV3TestPorts, NsxV3PluginTestCaseMixin,
                   test_bindings.PortBindingsTestCase,
                   test_bindings.PortBindingsHostTestCaseMixin,
                   test_bindings.PortBindingsVnicTestCaseMixin):
@@ -1714,33 +1710,6 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
             self.assertEqual('InvalidInput',
                              res['NeutronError']['type'])
 
-    def test_update_port_update_ip_address_only(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_update_port_with_new_ipv6_slaac_subnet_in_fixed_ips(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_update_port_mac_v6_slaac(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_requested_invalid_fixed_ips(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_requested_subnet_id_v4_and_v6_slaac(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_range_allocation(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_create_port_anticipating_allocation(self):
-        self.skipTest('Multiple fixed ips on a port are not supported')
-
-    def test_ip_allocation_for_ipv6_2_subnet_slaac_mode(self):
-        self.skipTest('Only one ipv6 subnet per network is supported')
-
-    def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
-        self.skipTest('Only one ipv6 subnet per network is supported')
-
     def test_create_compute_port_with_relay_no_router(self):
         """Compute port creation should fail
 
@@ -1880,6 +1849,10 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
                                     **kwargs)
             self.assertEqual(res.status_int, exc.HTTPBadRequest.code)
 
+    @common_v3.with_disable_dhcp
+    def test_requested_subnet_id_v4_and_v6(self):
+        return super(TestPortsV2, self).test_requested_subnet_id_v4_and_v6()
+
 
 class DHCPOptsTestCase(test_dhcpopts.TestExtraDhcpOpt,
                        NsxV3PluginTestCaseMixin):
@@ -1922,8 +1895,10 @@ class TestL3ExtensionManager(object):
         return []
 
 
-class L3NatTest(test_l3_plugin.L3BaseForIntTests, NsxV3PluginTestCaseMixin,
+class L3NatTest(test_l3_plugin.L3BaseForIntTests,
+                NsxV3PluginTestCaseMixin,
                 common_v3.FixExternalNetBaseTest,
+                common_v3.NsxV3SubnetMixin,
                 test_address_scope.AddressScopeTestCase):
 
     def setUp(self, plugin=PLUGIN_NAME, ext_mgr=None,
@@ -2042,6 +2017,16 @@ class TestL3NatTestCase(L3NatTest,
         super(TestL3NatTestCase,
               self).test_router_update_gateway_with_different_external_subnet()
 
+    @common_v3.with_disable_dhcp
+    def test_create_floatingip_ipv6_only_network_returns_400(self):
+        super(TestL3NatTestCase,
+              self).test_create_floatingip_ipv6_only_network_returns_400()
+
+    @common_v3.with_disable_dhcp
+    def test_create_floatingip_with_assoc_to_ipv4_and_ipv6_port(self):
+        super(L3NatTest,
+              self).test_create_floatingip_with_assoc_to_ipv4_and_ipv6_port()
+
     @common_v3.with_external_subnet_once
     def test_router_update_gateway_with_existed_floatingip(self):
         with self.subnet(cidr='20.0.0.0/24') as subnet:
@@ -2129,6 +2114,31 @@ class TestL3NatTestCase(L3NatTest,
 
     def test_floatingip_via_router_interface_returns_404(self):
         self.skipTest('not supported')
+
+    def test_router_delete_dhcpv6_stateless_subnet_inuse_returns_409(self):
+        self.skipTest('DHCPv6 not supported')
+
+    @common_v3.with_disable_dhcp
+    def test_router_add_interface_ipv6_subnet(self):
+        self.skipTest('DHCPv6 not supported')
+
+    @common_v3.with_disable_dhcp
+    def test_router_add_interface_ipv6_subnet_without_gateway_ip(self):
+        super(TestL3NatTestCase,
+              self).test_router_add_interface_ipv6_subnet_without_gateway_ip()
+
+    @common_v3.with_disable_dhcp
+    def test_router_add_interface_multiple_ipv6_subnets_different_net(self):
+        super(TestL3NatTestCase, self).\
+            test_router_add_interface_multiple_ipv6_subnets_different_net()
+
+    @common_v3.with_disable_dhcp
+    def test_create_floatingip_with_assoc_to_ipv6_subnet(self):
+        super(TestL3NatTestCase,
+              self).test_create_floatingip_with_assoc_to_ipv6_subnet()
+
+    def test_router_add_iface_ipv6_ext_ra_subnet_returns_400(self):
+        self.skipTest('DHCPv6 not supported')
 
     @common_v3.with_external_subnet
     def test_floatingip_list_with_sort(self):
@@ -3112,17 +3122,6 @@ class ExtGwModeTestCase(test_ext_gw_mode.ExtGwModeIntTestCase,
                         L3NatTest):
     def test_router_gateway_set_fail_after_port_create(self):
         self.skipTest("TBD")
-
-    # Override subnet/network creation in some tests to create external
-    # networks immediately instead of updating it post creation, which the
-    # v3 plugin does not support
-    @decorator.decorator
-    def with_external_subnet(f, *args, **kwargs):
-        obj = args[0]
-        obj.subnet = obj.external_subnet
-        result = f(*args, **kwargs)
-        obj.subnet = obj.original_subnet
-        return result
 
     @common_v3.with_external_subnet
     def _test_router_update_ext_gwinfo(self, snat_input_value,
