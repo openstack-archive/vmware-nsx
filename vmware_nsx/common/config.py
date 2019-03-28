@@ -517,6 +517,14 @@ nsx_p_opts = nsx_v3_and_p + [
                 default=True,
                 help=_("If True, use nsx manager api for cases which are not "
                        "supported by the policy manager api")),
+    cfg.IntOpt('realization_max_attempts',
+               default=50,
+               help=_("(Optional) Maximum number of times to retry while "
+                      "waiting for a resource to be realized")),
+    cfg.IntOpt('realization_wait_sec',
+               default=1.0,
+               help=_("(Optional) Number of seconds to wait between attempts "
+                      "for a resource to be realized")),
 ]
 
 
