@@ -1907,17 +1907,43 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 LOG.error(msg)
                 raise n_exc.InvalidInput(error_message=msg)
 
+    def _subnet_with_native_dhcp(self, subnet):
+        native_metadata = self._has_native_dhcp_metadata()
+        # DHCPv6 is not yet supported, but slaac is
+        # When configuring slaac, neutron requires the user
+        # to enable dhcp, however plugin code does not consider
+        # slaac as dhcp.
+        return (native_metadata and
+                subnet.get('enable_dhcp', False) and
+                subnet.get('ipv6_address_mode') != 'slaac')
+
+    def _validate_subnet_ip_version(self, subnet):
+        # This validation only needs to be called at create,
+        # since ip version and ipv6 mode attributes are read only
+        if subnet.get('ip_version') == 4:
+            # No dhcp restrictions for V4
+            return
+
+        enable_dhcp = subnet.get('enable_dhcp', False)
+        is_slaac = (subnet.get('ipv6_address_mode') == 'slaac')
+        if enable_dhcp and not is_slaac:
+            # No DHCPv6 support yet
+            msg = _("DHCPv6 is not supported")
+            LOG.error(msg)
+            raise n_exc.InvalidInput(error_message=msg)
+
     def _create_subnet(self, context, subnet):
         self._validate_number_of_subnet_static_routes(subnet)
         self._validate_host_routes_input(subnet)
+        self._validate_subnet_ip_version(subnet['subnet'])
 
         network = self._get_network(
             context, subnet['subnet']['network_id'])
         self._validate_single_ipv6_subnet(context, network, subnet['subnet'])
 
         # TODO(berlin): public external subnet announcement
-        native_metadata = self._has_native_dhcp_metadata()
-        if (native_metadata and subnet['subnet'].get('enable_dhcp', False)):
+        if self._subnet_with_native_dhcp(subnet['subnet']):
+
             self._validate_external_subnet(context,
                                            subnet['subnet']['network_id'])
             self._ensure_native_dhcp()
@@ -2126,7 +2152,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             self._subnet_check_ip_allocations_internal_router_ports(
                 context, subnet_id)
             subnet = self.get_subnet(context, subnet_id)
-            if subnet['enable_dhcp']:
+            if self._subnet_with_native_dhcp(subnet):
                 lock = 'nsxv3_network_' + subnet['network_id']
                 with locking.LockManager.get_lock(lock):
                     # Check if it is the last DHCP-enabled subnet to delete.
@@ -2159,9 +2185,10 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, network, subnet['subnet'])
 
         if self._has_native_dhcp_metadata():
-            enable_dhcp = subnet['subnet'].get('enable_dhcp')
+            enable_dhcp = self._subnet_with_native_dhcp(subnet['subnet'])
+            orig_enable_dhcp = self._subnet_with_native_dhcp(orig_subnet)
             if (enable_dhcp is not None and
-                enable_dhcp != orig_subnet['enable_dhcp']):
+                enable_dhcp != orig_enable_dhcp):
                 self._ensure_native_dhcp()
                 lock = 'nsxv3_network_' + orig_subnet['network_id']
                 with locking.LockManager.get_lock(lock):
@@ -2208,8 +2235,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 context, subnet['subnet'], updated_subnet)
 
         # Check if needs to update logical DHCP server for native DHCP.
-        if (self._has_native_dhcp_metadata() and
-            updated_subnet['enable_dhcp']):
+        if self._subnet_with_native_dhcp(updated_subnet):
             self._ensure_native_dhcp()
             kwargs = {}
             for key in ('dns_nameservers', 'gateway_ip', 'host_routes'):
@@ -2438,7 +2464,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
     def _has_no_dhcp_enabled_subnet(self, context, network):
         # Check if there is no DHCP-enabled subnet in the network.
         for subnet in network.subnets:
-            if subnet.enable_dhcp:
+            if subnet.enable_dhcp and subnet.ipv6_address_mode != 'slaac':
                 return False
         return True
 
@@ -2456,9 +2482,6 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         return cidr0.first <= cidr1.last and cidr1.first <= cidr0.last
 
     def _validate_address_space(self, context, subnet):
-        # Only working for IPv4 at the moment
-        if (subnet['ip_version'] != 4):
-            return
 
         # get the subnet IPs
         if ('allocation_pools' in subnet and
