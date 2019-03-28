@@ -715,8 +715,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return network_id
 
     def _build_port_tags(self, port_data):
-        sec_groups = port_data.get(ext_sg.SECURITYGROUPS, [])
-        sec_groups += port_data.get(provider_sg.PROVIDER_SECURITYGROUPS, [])
+        sec_groups = []
+        sec_groups.extend(port_data.get(ext_sg.SECURITYGROUPS, []))
+        sec_groups.extend(port_data.get(provider_sg.PROVIDER_SECURITYGROUPS,
+                                        []))
 
         tags = []
         for sg in sec_groups:
@@ -1029,7 +1031,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
             (port_security, has_ip) = self._determine_port_security_and_has_ip(
                 context, updated_port)
-            self._remove_provider_security_groups_from_list(updated_port)
             self._process_portbindings_create_and_update(
                 context, port_data, updated_port,
                 vif_type=self._vif_type_by_vnic_type(direct_vnic_type))
@@ -1044,6 +1045,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     raise n_exc.InvalidInput(error_message=msg)
                 self._update_mac_learning_state(context, port_id,
                                                 mac_learning_state)
+            self._remove_provider_security_groups_from_list(updated_port)
 
         # Update the QoS policy
         qos_policy_id = self._get_port_qos_policy_id(
@@ -1095,7 +1097,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             'mac_address_updated': False,
             'original_port': original_port,
         }
-
         registry.notify(resources.PORT, events.AFTER_UPDATE, self, **kwargs)
         return updated_port
 
@@ -1973,7 +1974,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         return '%s_local_group' % sg_rule['id']
 
     def _create_security_group_backend_rule(self, context, domain_id, map_id,
-                                            sg_rule, secgroup_logging):
+                                            sg_rule, secgroup_logging,
+                                            is_provider_sg=False):
         # The id of the map and group is the same as the security group id
         this_group_id = map_id
         # There is no rule name in neutron. Using ID instead
@@ -2024,12 +2026,14 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         logging = (cfg.CONF.nsx_p.log_security_groups_allowed_traffic or
                    secgroup_logging)
         scope = [self.nsxpolicy.group.get_path(domain_id, this_group_id)]
+        action = (policy_constants.ACTION_DENY if is_provider_sg
+                  else policy_constants.ACTION_ALLOW)
         self.nsxpolicy.comm_map.create_entry(
             nsx_name, domain_id, map_id, entry_id=sg_rule['id'],
             description=sg_rule.get('description'),
             service_ids=[service] if service else None,
             ip_protocol=ip_protocol,
-            action=policy_constants.ACTION_ALLOW,
+            action=action,
             source_groups=[source] if source else None,
             dest_groups=[destination] if destination else None,
             scope=scope,
@@ -2192,11 +2196,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     context, rules_db[i], r['security_group_rule'])
 
         domain_id = sg['tenant_id']
+        is_provider_sg = sg.get(provider_sg.PROVIDER)
         secgroup_logging = self._is_security_group_logged(context, sg_id)
         for rule_data in rules_db:
             # create the NSX backend rule
             self._create_security_group_backend_rule(
-                context, domain_id, sg_id, rule_data, secgroup_logging)
+                context, domain_id, sg_id, rule_data, secgroup_logging,
+                is_provider_sg=is_provider_sg)
 
         return rules_db
 

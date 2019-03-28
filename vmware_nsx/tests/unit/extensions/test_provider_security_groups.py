@@ -28,6 +28,8 @@ from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.tests.unit.nsx_p import test_plugin as test_nsxp_plugin
 from vmware_nsx.tests.unit.nsx_v import test_plugin as test_nsxv_plugin
 from vmware_nsx.tests.unit.nsx_v3 import test_plugin as test_nsxv3_plugin
+from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3.policy import constants as policy_constants
 
 
 PLUGIN_NAME = ('vmware_nsx.tests.unit.extensions.'
@@ -397,33 +399,27 @@ class TestNSXvProviderSecurityGroup(test_nsxv_plugin.NsxVPluginV2TestCase,
 class TestNSXpProviderSecurityGrp(test_nsxp_plugin.NsxPPluginTestCaseMixin,
                                   ProviderSecurityGroupExtTestCase):
 
-    # Temporarily skip all port related tests until the plugin supports it
-    def test_update_port_security_groups(self):
-        self.skipTest('Temporarily not supported')
+    def test_create_provider_security_group_rule(self):
+        provider_secgroup = self._create_provider_security_group()
+        sg_id = provider_secgroup['security_group']['id']
 
-    def test_update_port_remove_provider_sg_with_empty_list(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_update_port_security_groups_only(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_create_port_with_no_provider_sg(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_create_port_gets_multi_provider_sg(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_cannot_update_port_with_provider_group_as_sec_group(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_update_port_remove_provider_sg_with_none(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_create_port_gets_provider_sg(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_cannot_update_port_with_different_tenant_provider_secgroup(self):
-        self.skipTest('Temporarily not supported')
-
-    def test_cannot_update_port_with_sec_group_as_provider(self):
-        self.skipTest('Temporarily not supported')
+        with mock.patch("vmware_nsxlib.v3.policy.core_resources."
+                        "NsxPolicyCommunicationMapApi.create_entry"
+                        ) as entry_create:
+            with self.security_group_rule(security_group_id=sg_id) as rule:
+                rule_data = rule['security_group_rule']
+                rule_id = rule_data['id']
+                project_id = rule_data['project_id']
+                scope = [self.plugin.nsxpolicy.group.get_path(
+                    project_id, sg_id)]
+                entry_create.assert_called_once_with(
+                    rule_id, project_id, sg_id, entry_id=rule_id,
+                    description='',
+                    direction=nsx_constants.IN,
+                    ip_protocol=nsx_constants.IPV4,
+                    action=policy_constants.ACTION_DENY,
+                    service_ids=mock.ANY,
+                    source_groups=mock.ANY,
+                    dest_groups=mock.ANY,
+                    scope=scope,
+                    logged=False)

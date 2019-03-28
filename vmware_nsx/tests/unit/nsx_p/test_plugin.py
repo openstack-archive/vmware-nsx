@@ -52,9 +52,9 @@ from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.common_plugin import common_v3
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3.policy import constants as policy_constants
 from vmware_nsxlib.v3 import utils as nsxlib_utils
 
-from vmware_nsxlib.v3.policy import constants as policy_constants
 
 PLUGIN_NAME = 'vmware_nsx.plugin.NsxPolicyPlugin'
 NSX_OVERLAY_TZ_NAME = 'OVERLAY_TZ'
