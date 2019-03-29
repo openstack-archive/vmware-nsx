@@ -1875,9 +1875,25 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         """Should be implemented by each plugin"""
         pass
 
+    def _get_ipv6_subnet(self, context, network):
+        for subnet in network.subnets:
+            if subnet.ip_version == 6:
+                return subnet
+
+    def _validate_single_ipv6_subnet(self, context, network, subnet):
+        if subnet.get('ip_version') == 6:
+            if self._get_ipv6_subnet(context, network):
+                msg = (_("Only one ipv6 subnet per network is supported"))
+                LOG.error(msg)
+                raise n_exc.InvalidInput(error_message=msg)
+
     def _create_subnet(self, context, subnet):
         self._validate_number_of_subnet_static_routes(subnet)
         self._validate_host_routes_input(subnet)
+
+        network = self._get_network(
+            context, subnet['subnet']['network_id'])
+        self._validate_single_ipv6_subnet(context, network, subnet['subnet'])
 
         # TODO(berlin): public external subnet announcement
         native_metadata = self._has_native_dhcp_metadata()
@@ -1892,8 +1908,6 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 # Check if it is on an overlay network and is the first
                 # DHCP-enabled subnet to create.
                 if ddi_support:
-                    network = self._get_network(
-                        context, subnet['subnet']['network_id'])
                     if self._has_no_dhcp_enabled_subnet(context, network):
                         created_subnet = super(
                             NsxPluginV3Base, self).create_subnet(context,
@@ -2117,6 +2131,13 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             subnet,
             orig_enable_dhcp=orig_subnet['enable_dhcp'],
             orig_host_routes=orig_subnet['host_routes'])
+
+        network = self._get_network(context, orig_subnet['network_id'])
+        if (subnet['subnet'].get('ip_version') !=
+            orig_subnet.get('ip_version')):
+            self._validate_single_ipv6_subnet(
+                context, network, subnet['subnet'])
+
         if self._has_native_dhcp_metadata():
             enable_dhcp = subnet['subnet'].get('enable_dhcp')
             if (enable_dhcp is not None and
@@ -2124,8 +2145,6 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
                 self._ensure_native_dhcp()
                 lock = 'nsxv3_network_' + orig_subnet['network_id']
                 with locking.LockManager.get_lock(lock):
-                    network = self._get_network(
-                        context, orig_subnet['network_id'])
                     if enable_dhcp:
                         (ddi_support,
                          ddi_type) = self._is_ddi_supported_on_net_with_type(

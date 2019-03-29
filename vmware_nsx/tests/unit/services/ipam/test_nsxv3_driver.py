@@ -150,3 +150,9 @@ class TestNsxv3IpamPorts(test_plugin.TestPortsV2, MockIPPools):
 
     def test_update_port_invalid_fixed_ip_address_v6_pd_slaac(self):
         self.skipTest('Update ipam subnet is not supported')
+
+    def test_ip_allocation_for_ipv6_2_subnet_slaac_mode(self):
+        self.skipTest('Only one ipv6 subnet per network is supported')
+
+    def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
+        self.skipTest('Only one ipv6 subnet per network is supported')

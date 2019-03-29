@@ -1735,6 +1735,12 @@ class TestPortsV2(test_plugin.TestPortsV2, NsxV3PluginTestCaseMixin,
     def test_create_port_anticipating_allocation(self):
         self.skipTest('Multiple fixed ips on a port are not supported')
 
+    def test_ip_allocation_for_ipv6_2_subnet_slaac_mode(self):
+        self.skipTest('Only one ipv6 subnet per network is supported')
+
+    def test_create_port_with_multiple_ipv4_and_ipv6_subnets(self):
+        self.skipTest('Only one ipv6 subnet per network is supported')
+
     def test_create_compute_port_with_relay_no_router(self):
         """Compute port creation should fail
 
