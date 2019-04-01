@@ -102,14 +102,16 @@ NSX_P_REGULAR_SECTION_CATEGORY = policy_constants.CATEGORY_ENVIRONMENT
 NSX_P_PROVIDER_SECTION_CATEGORY = policy_constants.CATEGORY_INFRASTRUCTURE
 NSX_P_PORT_RESOURCE_TYPE = 'os-neutron-port-id'
 
-SPOOFGUARD_PROFILE_UUID = 'neutron-spoofguard-profile'
-NO_SPOOFGUARD_PROFILE_UUID = policy_defs.SpoofguardProfileDef.DEFAULT_PROFILE
-MAC_DISCOVERY_PROFILE_UUID = 'neutron-mac-discovery-profile'
-NO_MAC_DISCOVERY_PROFILE_UUID = (
+SPOOFGUARD_PROFILE_ID = 'neutron-spoofguard-profile'
+NO_SPOOFGUARD_PROFILE_ID = policy_defs.SpoofguardProfileDef.DEFAULT_PROFILE
+MAC_DISCOVERY_PROFILE_ID = 'neutron-mac-discovery-profile'
+NO_MAC_DISCOVERY_PROFILE_ID = (
     policy_defs.MacDiscoveryProfileDef.DEFAULT_PROFILE)
-NO_SEG_SECURITY_PROFILE_UUID = 'neutron-no-segment-security-profile'
-SEG_SECURITY_PROFILE_UUID = (
+NO_SEG_SECURITY_PROFILE_ID = 'neutron-no-segment-security-profile'
+SEG_SECURITY_PROFILE_ID = (
     policy_defs.SegmentSecurityProfileDef.DEFAULT_PROFILE)
+SLAAC_NDRA_PROFILE_ID = 'neutron-slaac-profile'
+DEFAULT_NDRA_PROFILE_ID = 'default'
 
 # Priorities for NAT rules: (FIP specific rules should come before GW rules)
 NAT_RULE_PRIORITY_FIP = 2000
@@ -196,7 +198,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         self._init_default_config()
         self._prepare_default_rules()
-        self._init_segment_profiles()
+        self._init_profiles()
         self._init_dhcp_metadata()
         self.lbv2_driver = self._init_lbv2_driver()
 
@@ -216,8 +218,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def _init_default_config(self):
 
         # Ipv6 is disabled by default in NSX
-        if (cfg.CONF.nsx_p.allow_passthrough and
-            self.nsxpolicy.feature_supported(nsxlib_consts.FEATURE_IPV6)):
+        if cfg.CONF.nsx_p.allow_passthrough:
             self.nsxlib.global_routing.enable_ipv6()
         else:
             LOG.warning("Unable to switch on Ipv6 forwarding. Ipv6 "
@@ -269,35 +270,35 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                      "(current version %(ver)s)") % {'ver': self._nsx_version})
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
-    def _init_segment_profiles(self):
+    def _init_profiles(self):
         """Find/Create segment profiles this plugin will use"""
         # Spoofguard profile (find it or create)
         try:
-            self.nsxpolicy.spoofguard_profile.get(SPOOFGUARD_PROFILE_UUID)
+            self.nsxpolicy.spoofguard_profile.get(SPOOFGUARD_PROFILE_ID)
         except nsx_lib_exc.ResourceNotFound:
             self.nsxpolicy.spoofguard_profile.create_or_overwrite(
-                SPOOFGUARD_PROFILE_UUID,
-                profile_id=SPOOFGUARD_PROFILE_UUID,
+                SPOOFGUARD_PROFILE_ID,
+                profile_id=SPOOFGUARD_PROFILE_ID,
                 address_binding_whitelist=True,
                 tags=self.nsxpolicy.build_v3_api_version_tag())
 
         # No Port security spoofguard profile
         # (default NSX profile. just verify it exists)
         try:
-            self.nsxpolicy.spoofguard_profile.get(NO_SPOOFGUARD_PROFILE_UUID)
+            self.nsxpolicy.spoofguard_profile.get(NO_SPOOFGUARD_PROFILE_ID)
         except nsx_lib_exc.ResourceNotFound:
             msg = (_("Cannot find spoofguard profile %s") %
-                   NO_SPOOFGUARD_PROFILE_UUID)
+                   NO_SPOOFGUARD_PROFILE_ID)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # Mac discovery profile (find it or create)
         try:
             self.nsxpolicy.mac_discovery_profile.get(
-                MAC_DISCOVERY_PROFILE_UUID)
+                MAC_DISCOVERY_PROFILE_ID)
         except nsx_lib_exc.ResourceNotFound:
             self.nsxpolicy.mac_discovery_profile.create_or_overwrite(
-                MAC_DISCOVERY_PROFILE_UUID,
-                profile_id=MAC_DISCOVERY_PROFILE_UUID,
+                MAC_DISCOVERY_PROFILE_ID,
+                profile_id=MAC_DISCOVERY_PROFILE_ID,
                 mac_change_enabled=True,
                 mac_learning_enabled=True,
                 tags=self.nsxpolicy.build_v3_api_version_tag())
@@ -306,20 +307,20 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # (default NSX profile. just verify it exists)
         try:
             self.nsxpolicy.mac_discovery_profile.get(
-                NO_MAC_DISCOVERY_PROFILE_UUID)
+                NO_MAC_DISCOVERY_PROFILE_ID)
         except nsx_lib_exc.ResourceNotFound:
             msg = (_("Cannot find MAC discovery profile %s") %
-                   NO_MAC_DISCOVERY_PROFILE_UUID)
+                   NO_MAC_DISCOVERY_PROFILE_ID)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
         # No Port security segment-security profile (find it or create)
         try:
             self.nsxpolicy.segment_security_profile.get(
-                NO_SEG_SECURITY_PROFILE_UUID)
+                NO_SEG_SECURITY_PROFILE_ID)
         except nsx_lib_exc.ResourceNotFound:
             self.nsxpolicy.segment_security_profile.create_or_overwrite(
-                NO_SEG_SECURITY_PROFILE_UUID,
-                profile_id=NO_SEG_SECURITY_PROFILE_UUID,
+                NO_SEG_SECURITY_PROFILE_ID,
+                profile_id=NO_SEG_SECURITY_PROFILE_ID,
                 bpdu_filter_enable=False,
                 dhcp_client_block_enabled=False,
                 dhcp_client_block_v6_enabled=False,
@@ -334,10 +335,28 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # (default NSX profile. just verify it exists)
         try:
             self.nsxpolicy.segment_security_profile.get(
-                SEG_SECURITY_PROFILE_UUID)
+                SEG_SECURITY_PROFILE_ID)
         except nsx_lib_exc.ResourceNotFound:
             msg = (_("Cannot find segment security profile %s") %
-                   SEG_SECURITY_PROFILE_UUID)
+                   SEG_SECURITY_PROFILE_ID)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
+        # Ipv6 NDRA profile (find it or create)
+        try:
+            self.nsxpolicy.ipv6_ndra_profile.get(SLAAC_NDRA_PROFILE_ID)
+        except nsx_lib_exc.ResourceNotFound:
+            self.nsxpolicy.ipv6_ndra_profile.create_or_overwrite(
+                SLAAC_NDRA_PROFILE_ID,
+                profile_id=SLAAC_NDRA_PROFILE_ID,
+                ra_mode=policy_constants.IPV6_RA_MODE_SLAAC_RA,
+                tags=self.nsxpolicy.build_v3_api_version_tag())
+
+        # Verify default NDRA profile exists
+        try:
+            self.nsxpolicy.ipv6_ndra_profile.get(DEFAULT_NDRA_PROFILE_ID)
+        except nsx_lib_exc.ResourceNotFound:
+            msg = (_("Cannot find ipv6 ndra profile %s") %
+                   DEFAULT_NDRA_PROFILE_ID)
             raise nsx_exc.NsxPluginException(err_msg=msg)
 
     @staticmethod
@@ -790,11 +809,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         # add the security profiles to the port
         if is_psec_on:
-            spoofguard_profile = SPOOFGUARD_PROFILE_UUID
-            seg_sec_profile = SEG_SECURITY_PROFILE_UUID
+            spoofguard_profile = SPOOFGUARD_PROFILE_ID
+            seg_sec_profile = SEG_SECURITY_PROFILE_ID
         else:
-            spoofguard_profile = NO_SPOOFGUARD_PROFILE_UUID
-            seg_sec_profile = NO_SEG_SECURITY_PROFILE_UUID
+            spoofguard_profile = NO_SPOOFGUARD_PROFILE_ID
+            seg_sec_profile = NO_SEG_SECURITY_PROFILE_ID
         self.nsxpolicy.segment_port_security_profiles.create_or_overwrite(
             name, segment_id, port_data['id'],
             spoofguard_profile_id=spoofguard_profile,
@@ -810,9 +829,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             validators.is_attr_set(port_data.get(mac_ext.MAC_LEARNING)) and
             port_data.get(mac_ext.MAC_LEARNING) is True)
         if mac_disc_profile_must or mac_learning_enabled:
-            mac_discovery_profile = MAC_DISCOVERY_PROFILE_UUID
+            mac_discovery_profile = MAC_DISCOVERY_PROFILE_ID
         else:
-            mac_discovery_profile = NO_MAC_DISCOVERY_PROFILE_UUID
+            mac_discovery_profile = NO_MAC_DISCOVERY_PROFILE_ID
         self.nsxpolicy.segment_port_discovery_profiles.create_or_overwrite(
             name, segment_id, port_data['id'],
             mac_discovery_profile_id=mac_discovery_profile)
