@@ -365,6 +365,65 @@ class NSXClient(object):
             except exceptions.ManagerError as e:
                 print("Failed to delete service %s: %s" % (srv['id'], e))
 
+    def _cleanup_lb_resource(self, service, service_name):
+        r_list = self.get_os_resources(service.list())
+
+        print("Number of %s to be deleted: %d" % (service_name, len(r_list)))
+        for r in r_list:
+            try:
+                service.delete(
+                    r['id'])
+            except Exception as e:
+                print("ERROR: Failed to delete %s %s, error %s" %
+                      (r['resource_type'], r['id'], e))
+
+    def cleanup_lb_virtual_servers(self):
+        self._cleanup_lb_resource(self.nsxpolicy.load_balancer.virtual_server,
+                                  'LB virtual servers')
+
+    def cleanup_lb_server_pools(self):
+        self._cleanup_lb_resource(self.nsxpolicy.load_balancer.lb_pool,
+                                  'LB pools')
+
+    def cleanup_lb_profiles(self):
+        lb_svc = self.nsxpolicy.load_balancer
+        self._cleanup_lb_resource(lb_svc.lb_http_profile,
+                                  'LB HTTP app profiles')
+        self._cleanup_lb_resource(lb_svc.lb_fast_tcp_profile,
+                                  'LB HTTPS app profiles')
+        self._cleanup_lb_resource(lb_svc.lb_fast_udp_profile,
+                                  'LB UDP app profiles')
+        self._cleanup_lb_resource(lb_svc.client_ssl_profile,
+                                  'LB SSL client profiles')
+        self._cleanup_lb_resource(lb_svc.lb_cookie_persistence_profile,
+                                  'LB cookie persistence profiles')
+        self._cleanup_lb_resource(lb_svc.lb_source_ip_persistence_profile,
+                                  'LB source IP persistence profiles')
+
+    def cleanup_lb_monitors(self):
+        lb_svc = self.nsxpolicy.load_balancer
+        self._cleanup_lb_resource(lb_svc.lb_monitor_profile_http,
+                                  'LB HTTP monitor profiles')
+        self._cleanup_lb_resource(lb_svc.lb_monitor_profile_https,
+                                  'LB HTTPS monitor profiles')
+        self._cleanup_lb_resource(lb_svc.lb_monitor_profile_udp,
+                                  'LB UDP monitor profiles')
+        self._cleanup_lb_resource(lb_svc.lb_monitor_profile_icmp,
+                                  'LB ICMP monitor profiles')
+        self._cleanup_lb_resource(lb_svc.lb_monitor_profile_tcp,
+                                  'LB TCP monitor profiles')
+
+    def cleanup_lb_services(self):
+        self._cleanup_lb_resource(self.nsxpolicy.load_balancer.lb_service,
+                                  'LB services')
+
+    def cleanup_load_balancers(self):
+        self.cleanup_lb_virtual_servers()
+        self.cleanup_lb_profiles()
+        self.cleanup_lb_services()
+        self.cleanup_lb_server_pools()
+        self.cleanup_lb_monitors()
+
     def cleanup_all(self):
         """
         Per domain cleanup steps:
@@ -381,6 +440,7 @@ class NSXClient(object):
 
         print("Cleaning up openstack global resources")
         self.cleanup_segments()
+        self.cleanup_load_balancers()
         self.cleanup_nsx_logical_dhcp_servers()
         self.cleanup_tier1_routers()
         self.cleanup_rules_services()

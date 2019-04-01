@@ -76,17 +76,18 @@ from vmware_nsx.plugins.nsx_p import availability_zones as nsxp_az
 from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.common import utils as fwaas_utils
 from vmware_nsx.services.fwaas.nsx_p import fwaas_callbacks_v2
+from vmware_nsx.services.lbaas import lb_const
+from vmware_nsx.services.lbaas.nsx_p.v2 import lb_driver_v2
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v3 import pol_utils as qos_utils
 
 from vmware_nsxlib.v3 import exceptions as nsx_lib_exc
 from vmware_nsxlib.v3 import nsx_constants as nsxlib_consts
-from vmware_nsxlib.v3 import security
-from vmware_nsxlib.v3 import utils as nsxlib_utils
-
 from vmware_nsxlib.v3.policy import constants as policy_constants
 from vmware_nsxlib.v3.policy import core_defs as policy_defs
+from vmware_nsxlib.v3 import security
+from vmware_nsxlib.v3 import utils as nsxlib_utils
 
 LOG = log.getLogger(__name__)
 NSX_P_SECURITY_GROUP_TAG = 'os-security-group'
@@ -197,6 +198,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self._prepare_default_rules()
         self._init_segment_profiles()
         self._init_dhcp_metadata()
+        self.lbv2_driver = self._init_lbv2_driver()
 
         # Init QoS
         qos_driver.register(qos_utils.PolicyQosNotificationsHandler())
@@ -341,6 +343,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     @staticmethod
     def plugin_type():
         return projectpluginmap.NsxPlugins.NSX_P
+
+    def _init_lbv2_driver(self):
+        # Get LBaaSv2 driver during plugin initialization. If the platform
+        # has a version that doesn't support native loadbalancing, the driver
+        # will return a NotImplementedManager class.
+        LOG.debug("Initializing LBaaSv2.0 nsxp driver")
+        return lb_driver_v2.EdgeLoadbalancerDriverV2()
 
     @staticmethod
     def is_tvd_plugin():
@@ -1225,10 +1234,19 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         if not router:
             router = self._get_router(context, router_id)
         snat_exist = router.enable_snat
-        # TODO(asarfaty) - add lbaas/octavia support here
-        lb_exist = False
         fw_exist = self._router_has_edge_fw_rules(context, router)
+        lb_exist = False
+        if not (fw_exist or snat_exist):
+            lb_exist = self.service_router_has_loadbalancers(router_id)
         return snat_exist or lb_exist or fw_exist
+
+    def service_router_has_loadbalancers(self, router_id):
+        tags_to_search = [{'scope': lb_const.LR_ROUTER_TYPE, 'tag': router_id}]
+        router_lb_services = self.nsxpolicy.search_by_tags(
+            tags_to_search,
+            self.nsxpolicy.load_balancer.lb_service.entry_def.resource_type()
+        )['results']
+        return True if router_lb_services else False
 
     def verify_sr_at_backend(self, router_id):
         """Check if the backend Tier1 has a service router or not"""
