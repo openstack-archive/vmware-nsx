@@ -1271,7 +1271,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
     def delete_service_router(self, project_id, router_id):
         if cfg.CONF.nsx_p.allow_passthrough:
             try:
-                # Enable standby relocation on this router
+                # Disable standby relocation on this router
                 self.nsxpolicy.tier1.set_standby_relocation(
                     router_id, enable_standby_relocation=False)
             except Exception as ex:
@@ -1650,7 +1650,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                                     router_id)
                 pol_subnets = []
                 for rtr_subnet in subnets:
-                    # For dueal stack, we allow one v4 and one v6
+                    # For dual stack, we allow one v4 and one v6
                     # subnet per network
                     if rtr_subnet['network_id'] == network_id:
                         gw_addr = self._get_gateway_addr_from_subnet(
