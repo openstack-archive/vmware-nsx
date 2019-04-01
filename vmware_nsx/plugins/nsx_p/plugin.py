@@ -1603,7 +1603,6 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
             segment_id = self._get_network_nsx_segment_id(context, network_id)
             subnet = self.get_subnet(context, info['subnet_ids'][0])
-            cidr_prefix = int(subnet['cidr'].split('/')[1])
             if overlay_net:
                 # overlay interface
                 #TODO(asarfaty): adding the segment name even though it was not
@@ -1628,12 +1627,17 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                                               subnets=pol_subnets)
             else:
                 # Vlan interface
-                pol_subnet = policy_defs.InterfaceSubnet(
-                    ip_addresses=[subnet['gateway_ip']],
-                    prefix_len=cidr_prefix)
+                pol_subnets = []
+                for rtr_subnet in subnets:
+                    if rtr_subnet['network_id'] == network_id:
+                        prefix_len = int(rtr_subnet['cidr'].split('/')[1])
+                        pol_subnets.append(policy_defs.InterfaceSubnet(
+                            ip_addresses=[rtr_subnet['gateway_ip']],
+                            prefix_len=prefix_len))
+
                 self.nsxpolicy.tier1.add_segment_interface(
                     router_id, segment_id,
-                    segment_id, [pol_subnet])
+                    segment_id, pol_subnets)
 
             # add the SNAT/NO_DNAT rules for this interface
             if router_db.enable_snat and gw_network_id:
@@ -1680,11 +1684,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         overlay_net = self._is_overlay_network(context, network_id)
         segment_id = self._get_network_nsx_segment_id(context, network_id)
 
+        subnets = self._find_router_subnets(context.elevated(),
+                                            router_id)
         try:
             if overlay_net:
                 # Remove the tier1 router from this segment on the NSX
-                subnets = self._find_router_subnets(context.elevated(),
-                                                    router_id)
                 pol_subnets = []
                 for rtr_subnet in subnets:
                     # For dual stack, we allow one v4 and one v6
@@ -1695,21 +1699,37 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                         pol_subnets.append(
                             policy_defs.Subnet(gateway_address=gw_addr))
 
-                if len(pol_subnets) == 0:
-                    self.nsxpolicy.segment.remove_connectivity_and_subnets(
-                        segment_id)
-                else:
+                if pol_subnets:
                     self.nsxpolicy.segment.update(segment_id,
                                                   tier1_id=router_id,
                                                   subnets=pol_subnets)
+                else:
+                    self.nsxpolicy.segment.remove_connectivity_and_subnets(
+                        segment_id)
+
             else:
                 # VLAN interface
-                self.nsxpolicy.tier1.remove_segment_interface(
-                    router_id, segment_id)
+                pol_subnets = []
+                for rtr_subnet in subnets:
+                    if rtr_subnet['network_id'] == network_id:
+                        prefix_len = int(rtr_subnet['cidr'].split('/')[1])
+                        pol_subnets.append(policy_defs.InterfaceSubnet(
+                            ip_addresses=[rtr_subnet['gateway_ip']],
+                            prefix_len=prefix_len))
+
+                if pol_subnets:
+                    # This will update segment interface
+                    self.nsxpolicy.tier1.add_segment_interface(
+                        router_id, segment_id,
+                        segment_id, pol_subnets)
+                else:
+                    self.nsxpolicy.tier1.remove_segment_interface(
+                        router_id, segment_id)
 
             # try to delete the SNAT/NO_DNAT rules of this subnet
             router_db = self._get_router(context, router_id)
-            if subnet and router_db.gw_port and router_db.enable_snat:
+            if (subnet and router_db.gw_port and router_db.enable_snat and
+                subnet['ip_version'] == 4):
                 self._del_subnet_snat_rule(router_id, subnet)
                 self._del_subnet_no_dnat_rule(router_id, subnet)
 
