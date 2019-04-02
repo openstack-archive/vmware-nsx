@@ -248,6 +248,47 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             az.translate_configured_names_to_uuids(
                 self.nsxpolicy, nsxlib=self.nsxlib, search_scope=search_scope)
 
+        self._waf_profile_uuid = self._init_backend_resource(
+            self.nsxpolicy.waf_profile,
+            cfg.CONF.nsx_p.waf_profile,
+            search_scope=search_scope)
+
+    def _init_backend_resource(self, resource_api, name_or_id,
+                               search_scope=None):
+        resource_type = resource_api.entry_def.resource_type()
+        if not name_or_id:
+            return None
+        try:
+            # Check if the configured value is the ID
+            resource_api.get(name_or_id, silent=True)
+            return name_or_id
+        except nsx_lib_exc.ResourceNotFound:
+            # Search by tags
+            if search_scope:
+                resource_id = self.nsxpolicy.get_id_by_resource_and_tag(
+                    resource_type,
+                    search_scope,
+                    name_or_id)
+                if resource_id:
+                    return resource_id
+
+            # Check if the configured value is the name
+            resource = resource_api.get_by_name(name_or_id)
+            if resource:
+                return resource['id']
+
+        msg = (_("Could not find %(type)s %(id)s") % {
+            'type': resource_type, 'id': name_or_id})
+        raise nsx_exc.NsxPluginException(err_msg=msg)
+
+    def get_waf_profile_path_and_mode(self):
+        path = self.nsxpolicy.waf_profile.get_path(
+            profile_id=self._waf_profile_uuid)
+        mode = (policy_constants.WAF_OPERATIONAL_MODE_PROTECTION
+                if cfg.CONF.nsx_p.waf_protect
+                else policy_constants.WAF_OPERATIONAL_MODE_DETECTION)
+        return path, mode
+
     def _init_dhcp_metadata(self):
         if (cfg.CONF.dhcp_agent_notification and
             cfg.CONF.nsx_p.allow_passthrough):

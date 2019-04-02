@@ -25,6 +25,7 @@ from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
 from vmware_nsxlib.v3.policy import core_resources
+from vmware_nsxlib.v3.policy import lb_defs
 from vmware_nsxlib.v3 import utils
 
 LOG = logging.getLogger(__name__)
@@ -101,6 +102,15 @@ class EdgeListenerManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
             if (listener['protocol'] == lb_const.LB_PROTOCOL_TERMINATED_HTTPS
                 and ssl_profile_binding):
                 kwargs.update(ssl_profile_binding)
+
+        waf_profile, mode = self.core_plugin.get_waf_profile_path_and_mode()
+        if (waf_profile and (
+            listener['protocol'] == lb_const.LB_PROTOCOL_HTTP or
+            listener['protocol'] == lb_const.LB_PROTOCOL_TERMINATED_HTTPS)):
+            kwargs['waf_profile_binding'] = lb_defs.WAFProfileBindingDef(
+                waf_profile_path=waf_profile,
+                operational_mode=mode)
+
         return kwargs
 
     def _get_nsxlib_app_profile(self, nsxlib_lb, listener):

@@ -63,6 +63,7 @@ DEFAULT_TIER0_ROUTER_UUID = "efad0078-9204-4b46-a2d8-d4dd31ed448f"
 NSX_DHCP_PROFILE_ID = 'DHCP_PROFILE'
 NSX_MD_PROXY_ID = 'MD_PROXY'
 LOGICAL_SWITCH_ID = '00000000-1111-2222-3333-444444444444'
+WAF_PROFILE_ID = 'WAF'
 
 
 def _return_id_key(*args, **kwargs):
@@ -184,6 +185,7 @@ class NsxPPluginTestCaseMixin(
         cfg.CONF.set_override('default_vlan_tz', NSX_VLAN_TZ_NAME, 'nsx_p')
         cfg.CONF.set_override('dhcp_profile', NSX_DHCP_PROFILE_ID, 'nsx_p')
         cfg.CONF.set_override('metadata_proxy', NSX_MD_PROXY_ID, 'nsx_p')
+        cfg.CONF.set_override('waf_profile', WAF_PROFILE_ID, 'nsx_p')
         cfg.CONF.set_override('dhcp_agent_notification', False)
 
     def _create_network(self, fmt, name, admin_state_up,
