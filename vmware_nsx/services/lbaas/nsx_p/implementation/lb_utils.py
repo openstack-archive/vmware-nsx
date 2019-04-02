@@ -14,13 +14,12 @@
 #    under the License.
 
 from neutron_lib import exceptions as n_exc
-from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 
 from vmware_nsx._i18n import _
 from vmware_nsx.services.lbaas import lb_const
 from vmware_nsx.services.lbaas.nsx_p.implementation import lb_const as p_const
-from vmware_nsx.services.lbaas.nsx_v3.implementation import lb_utils
+from vmware_nsxlib.v3.policy import constants as p_constants
 
 ADV_RULE_NAME = 'LB external VIP advertisement'
 
@@ -122,26 +121,14 @@ def update_router_lb_vip_advertisement(context, core_plugin, router_id):
     router = core_plugin.get_router(context, router_id)
 
     # Add a rule to advertise external vips on the router
-
-    # TODO(kobis): Code below should be executed when platform supports
-    #
-    #     external_subnets = core_plugin._find_router_gw_subnets(
-    #         context.elevated(), router)
-    #     external_cidrs = [s['cidr'] for s in external_subnets]
-    #     if external_cidrs:
-    #         core_plugin.nsxpolicy.tier1.add_advertisement_rule(
-    #             router_id,
-    #             ADV_RULE_NAME,
-    #             p_constants.ADV_RULE_PERMIT,
-    #             p_constants.ADV_RULE_OPERATOR_GE,
-    #             [p_constants.ADV_RULE_TIER1_LB_VIP],
-    #             external_cidrs)
-    if cfg.CONF.nsx_p.allow_passthrough:
-        lb_utils.update_router_lb_vip_advertisement(
-            context, core_plugin, router,
-            core_plugin.nsxpolicy.tier1.get_realized_id(
-                router_id, entity_type='RealizedLogicalRouter'))
-    else:
-        msg = (_('Failed to set loadbalancer advertisement rule for router %s')
-               % router_id)
-        raise n_exc.BadRequest(resource='lbaas-loadbalancer', msg=msg)
+    external_subnets = core_plugin._find_router_gw_subnets(
+        context.elevated(), router)
+    external_cidrs = [s['cidr'] for s in external_subnets]
+    if external_cidrs:
+        core_plugin.nsxpolicy.tier1.add_advertisement_rule(
+            router_id,
+            ADV_RULE_NAME,
+            p_constants.ADV_RULE_PERMIT,
+            p_constants.ADV_RULE_OPERATOR_GE,
+            [p_constants.ADV_RULE_TIER1_LB_VIP],
+            external_cidrs)
