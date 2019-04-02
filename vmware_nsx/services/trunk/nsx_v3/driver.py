@@ -18,12 +18,12 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from neutron.services.trunk import constants as trunk_consts
 from neutron.services.trunk.drivers import base
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
+from neutron_lib.services.trunk import constants as trunk_consts
 
 from vmware_nsx.common import nsx_constants as nsx_consts
 from vmware_nsx.common import utils as nsx_utils
@@ -37,7 +37,7 @@ SUPPORTED_INTERFACES = (
     portbindings.VIF_TYPE_OVS,
 )
 SUPPORTED_SEGMENTATION_TYPES = (
-    trunk_consts.VLAN,
+    trunk_consts.SEGMENTATION_TYPE_VLAN,
 )
 
 
@@ -138,9 +138,9 @@ class NsxV3TrunkHandler(object):
         try:
             if trunk.sub_ports:
                 self._set_subports(context, trunk.port_id, trunk.sub_ports)
-            trunk.update(status=trunk_consts.ACTIVE_STATUS)
+            trunk.update(status=trunk_consts.TRUNK_ACTIVE_STATUS)
         except (nsxlib_exc.ManagerError, nsxlib_exc.ResourceNotFound):
-            trunk.update(status=trunk_consts.ERROR_STATUS)
+            trunk.update(status=trunk_consts.TRUNK_ERROR_STATUS)
 
     def trunk_deleted(self, context, trunk):
         # Retrieve the logical port ID based on the parent port's neutron ID
@@ -158,15 +158,15 @@ class NsxV3TrunkHandler(object):
     def subports_added(self, context, trunk, subports):
         try:
             self._set_subports(context, trunk.port_id, subports)
-            trunk.update(status=trunk_consts.ACTIVE_STATUS)
+            trunk.update(status=trunk_consts.TRUNK_ACTIVE_STATUS)
         except (nsxlib_exc.ManagerError, nsxlib_exc.ResourceNotFound):
-            trunk.update(status=trunk_consts.ERROR_STATUS)
+            trunk.update(status=trunk_consts.TRUNK_ERROR_STATUS)
 
     def subports_deleted(self, context, trunk, subports):
         try:
             self._unset_subports(context, subports)
         except (nsxlib_exc.ManagerError, nsxlib_exc.ResourceNotFound):
-            trunk.update(status=trunk_consts.ERROR_STATUS)
+            trunk.update(status=trunk_consts.TRUNK_ERROR_STATUS)
 
     def trunk_event(self, resource, event, trunk_plugin, payload):
         if event == events.AFTER_CREATE:
