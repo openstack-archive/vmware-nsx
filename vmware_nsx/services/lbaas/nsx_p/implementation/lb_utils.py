@@ -139,7 +139,8 @@ def update_router_lb_vip_advertisement(context, core_plugin, router_id):
     if cfg.CONF.nsx_p.allow_passthrough:
         lb_utils.update_router_lb_vip_advertisement(
             context, core_plugin, router,
-            core_plugin.nsxpolicy.tier1.get_realized_id(router_id))
+            core_plugin.nsxpolicy.tier1.get_realized_id(
+                router_id, entity_type='RealizedLogicalRouter'))
     else:
         msg = (_('Failed to set loadbalancer advertisement rule for router %s')
                % router_id)
