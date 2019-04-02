@@ -4556,6 +4556,27 @@ class TestNSXvAllowedAddressPairs(NsxVPluginV2TestCase,
                             arg_list=(addrp_apidef.ADDRESS_PAIRS,),
                             allowed_address_pairs=address_pairs)
 
+    def test_create_port_with_address_pair_existing_fixed_ip_fail(self):
+        address_pairs1 = [{'ip_address': '10.0.0.2'}]
+        with self.network() as network:
+            with self.subnet(network=network, cidr='10.0.0.0/24',
+                             enable_dhcp=False) as subnet:
+                fixed_ips1 = [{'subnet_id': subnet['subnet']['id'],
+                              'ip_address': '10.0.0.4'}]
+                fixed_ips2 = [{'subnet_id': subnet['subnet']['id'],
+                              'ip_address': '10.0.0.5'}]
+                self._create_port(self.fmt, network['network']['id'],
+                                  arg_list=(addrp_apidef.ADDRESS_PAIRS,
+                                            'fixed_ips'),
+                                  allowed_address_pairs=address_pairs1,
+                                  fixed_ips=fixed_ips1)
+                res = self._create_port(self.fmt, network['network']['id'],
+                                        arg_list=(addrp_apidef.ADDRESS_PAIRS,
+                                                  'fixed_ips'),
+                                        allowed_address_pairs=address_pairs1,
+                                        fixed_ips=fixed_ips2)
+                self.assertEqual(res.status_int, 400)
+
 
 class TestNSXPortSecurity(test_psec.TestPortSecurity,
                           NsxVPluginV2TestCase):
