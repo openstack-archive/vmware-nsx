@@ -1679,8 +1679,13 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
 
     @common_v3.with_external_subnet_once
     def test_router_update_gateway_with_existed_floatingip(self):
-        super(NsxPTestL3NatTestCase,
-              self).test_router_update_gateway_with_existed_floatingip()
+        with self.subnet(cidr='20.0.0.0/24') as subnet:
+            self._set_net_external(subnet['subnet']['network_id'])
+            with self.floatingip_with_assoc() as fip:
+                self._add_external_gateway_to_router(
+                    fip['floatingip']['router_id'],
+                    subnet['subnet']['network_id'],
+                    expected_code=exc.HTTPConflict.code)
 
     @common_v3.with_external_network
     def test_router_update_gateway_add_multiple_prefixes_ipv6(self):
@@ -1691,11 +1696,6 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
     def test_router_concurrent_delete_upon_subnet_create(self):
         super(NsxPTestL3NatTestCase,
               self).test_router_concurrent_delete_upon_subnet_create()
-
-    @common_v3.with_external_subnet_second_time
-    def test_router_add_interface_cidr_overlapped_with_gateway(self):
-        super(NsxPTestL3NatTestCase,
-              self).test_router_add_interface_cidr_overlapped_with_gateway()
 
     @common_v3.with_external_subnet
     def test_router_add_gateway_dup_subnet2_returns_400(self):
@@ -1736,11 +1736,6 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
     def test_router_add_and_remove_gateway_tenant_ctx(self):
         super(NsxPTestL3NatTestCase,
               self).test_router_add_and_remove_gateway_tenant_ctx()
-
-    @common_v3.with_external_subnet_second_time
-    def test_router_add_interface_by_port_cidr_overlapped_with_gateway(self):
-        super(NsxPTestL3NatTestCase, self).\
-            test_router_add_interface_by_port_cidr_overlapped_with_gateway()
 
     @common_v3.with_external_subnet
     def test_router_add_and_remove_gateway(self):
@@ -1950,3 +1945,51 @@ class NsxPTestL3NatTestCase(NsxPTestL3NatTest,
                     s['subnet']['network_id'])
                 add_srv_router.assert_called_once_with(
                     mock.ANY, '%s%s' % (path_prefix, edge_cluster))
+
+    def test_router_add_interface_cidr_overlapped_with_gateway(self):
+        with self.router() as r,\
+            self._create_l3_ext_network() as ext_net,\
+            self.subnet(cidr='10.0.1.0/24') as s1,\
+            self.subnet(network=ext_net, cidr='10.0.0.0/16',
+                        enable_dhcp=False) as s2:
+            self._add_external_gateway_to_router(
+                r['router']['id'],
+                s2['subnet']['network_id'])
+            res = self._router_interface_action(
+                'add', r['router']['id'],
+                s1['subnet']['id'], None,
+                expected_code=exc.HTTPBadRequest.code)
+            self.assertIn('NeutronError', res)
+
+    def test_router_add_gateway_overlapped_with_interface_cidr(self):
+        with self.router() as r,\
+            self._create_l3_ext_network() as ext_net,\
+            self.subnet(cidr='10.0.1.0/24') as s1,\
+            self.subnet(network=ext_net, cidr='10.0.0.0/16',
+                        enable_dhcp=False) as s2:
+            self._router_interface_action(
+                'add', r['router']['id'],
+                s1['subnet']['id'], None)
+            res = self._add_external_gateway_to_router(
+                r['router']['id'],
+                s2['subnet']['network_id'],
+                expected_code=exc.HTTPBadRequest.code)
+            self.assertIn('NeutronError', res)
+
+    def test_router_add_interface_by_port_cidr_overlapped_with_gateway(self):
+        with self.router() as r,\
+            self._create_l3_ext_network() as ext_net,\
+            self.subnet(cidr='10.0.1.0/24') as s1,\
+            self.subnet(network=ext_net, cidr='10.0.0.0/16',
+                        enable_dhcp=False) as s2,\
+            self.port(subnet=s1) as p:
+            self._add_external_gateway_to_router(
+                r['router']['id'],
+                s2['subnet']['network_id'])
+
+            res = self._router_interface_action(
+                'add', r['router']['id'],
+                None,
+                p['port']['id'],
+                expected_code=exc.HTTPBadRequest.code)
+            self.assertIn('NeutronError', res)

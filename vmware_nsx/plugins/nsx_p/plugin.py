@@ -1364,6 +1364,11 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             context.elevated(), router_id)
         self._validate_router_gw_and_tz(context, router_id, info,
                                         org_enable_snat, router_subnets)
+        # Interface subnets cannot overlap with the GW external subnet
+        if info and info.get('network_id'):
+            self._validate_gw_overlap_interfaces(
+                context, info['network_id'],
+                [sub['network_id'] for sub in router_subnets])
 
         # First update the neutron DB
         super(NsxPolicyPlugin, self)._update_router_gw_info(
@@ -1611,6 +1616,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 msg = _("A router attached to a VLAN backed network "
                         "must have an external network assigned")
                 raise n_exc.InvalidInput(error_message=msg)
+
+            # Interface subnets cannot overlap with the GW external subnet
+            self._validate_gw_overlap_interfaces(context, gw_network_id,
+                                                 [network_id])
 
             # Update the interface of the neutron router
             info = super(NsxPolicyPlugin, self).add_router_interface(
