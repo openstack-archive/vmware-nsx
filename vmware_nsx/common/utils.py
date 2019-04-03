@@ -26,9 +26,12 @@ import six
 import tenacity
 from tenacity import _utils as tenacity_utils
 
+from neutron._i18n import _
 from neutron import version as n_version
+from neutron_lib.api.definitions import provider_net
 from neutron_lib.api import validators
 from neutron_lib import constants
+from neutron_lib import exceptions as n_exc
 from oslo_context import context as common_context
 from oslo_log import log
 
@@ -295,3 +298,15 @@ def spawn_n(func, *args, **kwargs):
         func(*args, **kwargs)
 
     eventlet.spawn_n(context_wrapper, *args, **kwargs)
+
+
+def raise_if_updates_provider_attributes(attrs):
+    """Raise exception if provider attributes are present.
+
+    This method is used for plugins that do not support updating provider
+    network attributes.
+    """
+    if any(validators.is_attr_set(attrs.get(a))
+           for a in provider_net.ATTRIBUTES):
+        msg = _("Plugin does not support updating provider attributes")
+        raise n_exc.InvalidInput(error_message=msg)

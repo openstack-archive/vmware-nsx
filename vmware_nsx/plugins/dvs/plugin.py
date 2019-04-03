@@ -47,7 +47,6 @@ from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db as vlan_ext_db
-from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 
@@ -377,7 +376,7 @@ class NsxDvsV2(addr_pair_db.AllowedAddressPairsMixin,
 
     def update_network(self, context, id, network):
         net_attrs = network['network']
-        providernet._raise_if_updates_provider_attributes(net_attrs)
+        c_utils.raise_if_updates_provider_attributes(net_attrs)
 
         with db_api.CONTEXT_WRITER.using(context):
             net_res = super(NsxDvsV2, self).update_network(context, id,
