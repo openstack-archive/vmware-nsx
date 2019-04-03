@@ -271,7 +271,15 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
             # If listeners is an empty list we hit this exception
             listener = None
         if listener:
-            self._process_vs_update(context, pool, None, listener, completor)
+            try:
+                self._process_vs_update(
+                    context, pool, None, listener, completor)
+            except Exception as e:
+                LOG.error('Disassociation of listener %(lsn)s from pool '
+                          '%(pool)s failed with error %(err)s',
+                          {'lsn': listener['id'],
+                           'pool': pool['id'],
+                           'err': e})
         try:
             pool_client.delete(pool['id'])
         except nsxlib_exc.ResourceNotFound:
