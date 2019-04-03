@@ -1950,6 +1950,18 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 direction=nsxlib_consts.OUT,
                 logged=logged)
             rule_id += 1
+            nd_rule = self.nsxpolicy.comm_map.build_entry(
+                'IPv6 Neighbor Discovery', NSX_P_GLOBAL_DOMAIN_ID,
+                NSX_P_DEFAULT_SECTION,
+                rule_id, sequence_number=rule_id,
+                service_ids=['IPv6-ICMP_Neighbor_Solicitation',
+                             'IPv6-ICMP_Neighbor_Advertisement'],
+                action=policy_constants.ACTION_ALLOW,
+                ip_protocol=nsxlib_consts.IPV6,
+                scope=scope,
+                direction=nsxlib_consts.IN_OUT,
+                logged=logged)
+            rule_id += 1
             block_rule = self.nsxpolicy.comm_map.build_entry(
                 'Block All', NSX_P_GLOBAL_DOMAIN_ID,
                 NSX_P_DEFAULT_SECTION,
@@ -1958,7 +1970,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 scope=scope,
                 direction=nsxlib_consts.IN_OUT,
                 logged=logged)
-            rules = [dhcp_client_rule, dhcp_server_rule, block_rule]
+            rules = [dhcp_client_rule, dhcp_server_rule, nd_rule, block_rule]
             try:
                 # This will not fail if the map already exists
                 self.nsxpolicy.comm_map.create_with_entries(
