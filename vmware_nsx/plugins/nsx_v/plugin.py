@@ -91,7 +91,6 @@ from neutron.db import models_v2
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
 from neutron.db import vlantransparent_db
-from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 from neutron.services.flavors import flavors_plugin
@@ -1676,7 +1675,7 @@ class NsxVPluginV2(addr_pair_db.AllowedAddressPairsMixin,
             not validators.is_attr_set(
                 attrs.get(pnet.SEGMENTATION_ID))):
             return
-        providernet._raise_if_updates_provider_attributes(attrs)
+        c_utils.raise_if_updates_provider_attributes(attrs)
 
     def _update_vlan_network_dvs_ids(self, context, network,
                                      new_physical_network, az_dvs):

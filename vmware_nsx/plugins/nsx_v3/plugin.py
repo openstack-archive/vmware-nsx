@@ -58,7 +58,6 @@ from neutron.db import l3_db
 from neutron.db.models import l3 as l3_db_models
 from neutron.db.models import securitygroup as securitygroup_model  # noqa
 from neutron.db import models_v2
-from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 
@@ -1075,7 +1074,7 @@ class NsxV3Plugin(nsx_plugin_common.NsxPluginV3Base,
         original_net = super(NsxV3Plugin, self).get_network(context, id)
         net_data = network['network']
         # Neutron does not support changing provider network values
-        providernet._raise_if_updates_provider_attributes(net_data)
+        utils.raise_if_updates_provider_attributes(net_data)
         extern_net = self._network_is_external(context, id)
         is_nsx_net = self._network_is_nsx_net(context, id)
         is_ens_net = self._is_ens_tz_net(context, id)

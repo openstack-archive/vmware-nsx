@@ -69,7 +69,6 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import portsecurity_db
 from neutron.db import securitygroups_db
-from neutron.extensions import providernet
 from neutron.extensions import securitygroup as ext_sg
 from neutron.quota import resource_registry
 
@@ -1070,7 +1069,7 @@ class NsxPluginV2(addr_pair_db.AllowedAddressPairsMixin,
                                           fields) for network in networks])
 
     def update_network(self, context, id, network):
-        providernet._raise_if_updates_provider_attributes(network['network'])
+        c_utils.raise_if_updates_provider_attributes(network['network'])
         if network["network"].get("admin_state_up") is False:
             raise NotImplementedError(_("admin_state_up=False networks "
                                         "are not supported."))
