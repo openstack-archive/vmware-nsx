@@ -14,6 +14,7 @@
 #    under the License.
 
 from oslo_log import log as logging
+from sqlalchemy.orm import exc
 
 from neutron.db import address_scope_db
 from neutron.db import db_base_plugin_v2
@@ -402,6 +403,16 @@ class NsxPluginBase(db_base_plugin_v2.NeutronDbPluginV2,
                 validators.is_attr_set(r.get(extra_attr))):
                 self.set_extra_attr_value(context, router_db,
                                           extra_attr, r[extra_attr])
+
+    def _ensure_default_security_group(self, context, tenant_id):
+        try:
+            return super(NsxPluginBase, self)._ensure_default_security_group(
+                context, tenant_id)
+        except exc.FlushError:
+            # This means that another worker already created this default SG
+            LOG.info("_ensure_default_security_group fail for project %s. "
+                     "Default security group already created", tenant_id)
+            return self._get_default_sg_id(context, tenant_id)
 
     def get_housekeeper(self, context, name, fields=None):
         # run the job in readonly mode and get the results
