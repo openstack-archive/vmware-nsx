@@ -13,16 +13,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import functools
+
 from neutron.db import l3_db
 from neutron.services.flavors import flavors_plugin
 from neutron_lib import exceptions as n_exc
 from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
 
 from vmware_nsx._i18n import _
 from vmware_nsx.db import db as nsx_db
 from vmware_nsx.services.lbaas import lb_const
+from vmware_nsxlib.v3 import load_balancer as nsxlib_lb
 from vmware_nsxlib.v3 import nsx_constants
+from vmware_nsxlib.v3 import utils
 
+LOG = logging.getLogger(__name__)
 ADV_RULE_NAME = 'LB external VIP advertisement'
 NO_ROUTER_ID = 'NO ROUTER'
 
@@ -242,3 +248,136 @@ def update_router_lb_vip_advertisement(context, core_plugin, router,
                             'match_route_types': ['T1_LB_VIP']}}
         core_plugin.nsxlib.logical_router.update_advertisement_rules(
             nsx_router_id, [adv_rule], name_prefix=ADV_RULE_NAME)
+
+
+@log_helpers.log_method_call
+def validate_session_persistence(pool, listener, completor, old_pool=None):
+    sp = pool.get('session_persistence')
+    if not listener or not sp:
+        # safety first!
+        return
+    # L4 listeners only allow source IP persistence
+    if (listener['protocol'] == lb_const.LB_PROTOCOL_TCP and
+        sp['type'] != lb_const.LB_SESSION_PERSISTENCE_SOURCE_IP):
+        completor(success=False)
+        msg = (_("Invalid session persistence type %(sp_type)s for "
+                 "pool on listener %(lst_id)s with %(proto)s protocol") %
+               {'sp_type': sp['type'],
+                'lst_id': listener['id'],
+                'proto': listener['protocol']})
+        raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
+    # Cannot switch (yet) on update from source IP to cookie based, and
+    # vice versa
+    cookie_pers_types = (lb_const.LB_SESSION_PERSISTENCE_HTTP_COOKIE,
+                         lb_const.LB_SESSION_PERSISTENCE_APP_COOKIE)
+    if old_pool:
+        oldsp = old_pool.get('session_persistence')
+        if not oldsp:
+            return
+        if ((sp['type'] == lb_const.LB_SESSION_PERSISTENCE_SOURCE_IP and
+             oldsp['type'] in cookie_pers_types) or
+            (sp['type'] in cookie_pers_types and
+             oldsp['type'] == lb_const.LB_SESSION_PERSISTENCE_SOURCE_IP)):
+            completor(success=False)
+            msg = (_("Cannot update session persistence type to "
+                     "%(sp_type)s for pool on listener %(lst_id)s "
+                     "from %(old_sp_type)s") %
+                   {'sp_type': sp['type'],
+                    'lst_id': listener['id'],
+                    'old_sp_type': oldsp['type']})
+            raise n_exc.BadRequest(resource='lbaas-pool', msg=msg)
+
+
+@log_helpers.log_method_call
+def delete_persistence_profile(nsxlib, persistence_profile_id):
+    if persistence_profile_id:
+        nsxlib.load_balancer.persistence_profile.delete(persistence_profile_id)
+
+
+@log_helpers.log_method_call
+def build_persistence_profile_tags(pool_tags, listener):
+    tags = pool_tags[:]
+    # With octavia loadbalancer name might not be among data passed
+    # down to the driver
+    lb_data = listener.get('loadbalancer')
+    if lb_data:
+        tags.append({
+            'scope': 'os-lbaas-lb-name',
+            'tag': lb_data['name'][:utils.MAX_TAG_LEN]})
+    tags.append({
+        'scope': 'os-lbaas-lb-id',
+        'tag': listener['loadbalancer_id']})
+    tags.append({
+        'scope': 'os-lbaas-listener-id',
+        'tag': listener['id']})
+    return tags
+
+
+def get_pool_tags(context, core_plugin, pool):
+    return get_tags(core_plugin, pool['id'],
+                    lb_const.LB_POOL_TYPE, pool['tenant_id'],
+                    context.project_name)
+
+
+@log_helpers.log_method_call
+def setup_session_persistence(nsxlib, pool, pool_tags, listener, vs_data):
+    sp = pool.get('session_persistence')
+    pers_type = None
+    cookie_name = None
+    cookie_mode = None
+    if not sp:
+        LOG.debug("No session persistence info for pool %s", pool['id'])
+    elif sp['type'] == lb_const.LB_SESSION_PERSISTENCE_HTTP_COOKIE:
+        pers_type = nsxlib_lb.PersistenceProfileTypes.COOKIE
+        cookie_name = sp.get('cookie_name')
+        if not cookie_name:
+            cookie_name = lb_const.SESSION_PERSISTENCE_DEFAULT_COOKIE_NAME
+        cookie_mode = "INSERT"
+    elif sp['type'] == lb_const.LB_SESSION_PERSISTENCE_APP_COOKIE:
+        pers_type = nsxlib_lb.PersistenceProfileTypes.COOKIE
+        # In this case cookie name is mandatory
+        cookie_name = sp['cookie_name']
+        cookie_mode = "REWRITE"
+    else:
+        pers_type = nsxlib_lb.PersistenceProfileTypes.SOURCE_IP
+
+    if pers_type:
+        # There is a profile to create or update
+        pp_kwargs = {
+            'resource_type': pers_type,
+            'display_name': "persistence_%s" % utils.get_name_and_uuid(
+                pool['name'] or 'pool', pool['id'], maxlen=235),
+            'tags': build_persistence_profile_tags(pool_tags, listener)
+        }
+        if cookie_name:
+            pp_kwargs['cookie_name'] = cookie_name
+            pp_kwargs['cookie_mode'] = cookie_mode
+
+    pp_client = nsxlib.load_balancer.persistence_profile
+    persistence_profile_id = vs_data.get('persistence_profile_id')
+    if persistence_profile_id:
+        # NOTE: removal of the persistence profile must be executed
+        # after the virtual server has been updated
+        if pers_type:
+            # Update existing profile
+            LOG.debug("Updating persistence profile %(profile_id)s for "
+                      "listener %(listener_id)s with pool %(pool_id)s",
+                      {'profile_id': persistence_profile_id,
+                       'listener_id': listener['id'],
+                       'pool_id': pool['id']})
+            pp_client.update(persistence_profile_id, **pp_kwargs)
+            return persistence_profile_id, None
+        else:
+            # Prepare removal of persistence profile
+            return (None, functools.partial(delete_persistence_profile,
+                                            nsxlib, persistence_profile_id))
+    elif pers_type:
+        # Create persistence profile
+        pp_data = pp_client.create(**pp_kwargs)
+        LOG.debug("Created persistence profile %(profile_id)s for "
+                  "listener %(listener_id)s with pool %(pool_id)s",
+                  {'profile_id': pp_data['id'],
+                   'listener_id': listener['id'],
+                   'pool_id': pool['id']})
+        return pp_data['id'], None
+    return None, None
