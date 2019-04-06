@@ -116,6 +116,8 @@ SEG_SECURITY_PROFILE_ID = (
 SLAAC_NDRA_PROFILE_ID = 'neutron-slaac-profile'
 DEFAULT_NDRA_PROFILE_ID = 'default'
 
+IPV6_RA_SERVICE = 'neutron-ipv6-ra'
+
 # Priorities for NAT rules: (FIP specific rules should come before GW rules)
 NAT_RULE_PRIORITY_FIP = 2000
 NAT_RULE_PRIORITY_GW = 3000
@@ -256,6 +258,23 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self.nsxpolicy.waf_profile,
             cfg.CONF.nsx_p.waf_profile,
             search_scope=search_scope)
+
+        # create or override ipv6 RA service
+        unicast_ra = self.nsxpolicy.icmp_service.build_entry(
+            'unicast RA', IPV6_RA_SERVICE, 'unicast',
+            version=6, icmp_type=134)
+        multicast_ra = self.nsxpolicy.icmp_service.build_entry(
+            'multicast RA', IPV6_RA_SERVICE, 'multicast',
+            version=6, icmp_type=151)
+
+        try:
+            self.nsxpolicy.mixed_service.create_or_overwrite(
+                IPV6_RA_SERVICE, IPV6_RA_SERVICE,
+                entries=[unicast_ra, multicast_ra])
+        except nsx_lib_exc.ManagerError:
+            msg = _("Failed to configure RA service for IPv6 connectivity")
+            LOG.error(msg)
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def _init_backend_resource(self, resource_api, name_or_id,
                                search_scope=None):
@@ -1962,7 +1981,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 NSX_P_DEFAULT_SECTION,
                 rule_id, sequence_number=rule_id,
                 service_ids=['IPv6-ICMP_Neighbor_Solicitation',
-                             'IPv6-ICMP_Neighbor_Advertisement'],
+                             'IPv6-ICMP_Neighbor_Advertisement',
+                             IPV6_RA_SERVICE],
                 action=policy_constants.ACTION_ALLOW,
                 ip_protocol=nsxlib_consts.IPV6,
                 scope=scope,
