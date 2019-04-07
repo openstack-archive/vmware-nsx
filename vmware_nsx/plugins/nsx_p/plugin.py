@@ -78,7 +78,15 @@ from vmware_nsx.plugins.nsx_v3 import utils as v3_utils
 from vmware_nsx.services.fwaas.common import utils as fwaas_utils
 from vmware_nsx.services.fwaas.nsx_p import fwaas_callbacks_v2
 from vmware_nsx.services.lbaas import lb_const
+from vmware_nsx.services.lbaas.nsx_p.implementation import healthmonitor_mgr
+from vmware_nsx.services.lbaas.nsx_p.implementation import l7policy_mgr
+from vmware_nsx.services.lbaas.nsx_p.implementation import l7rule_mgr
+from vmware_nsx.services.lbaas.nsx_p.implementation import listener_mgr
+from vmware_nsx.services.lbaas.nsx_p.implementation import loadbalancer_mgr
+from vmware_nsx.services.lbaas.nsx_p.implementation import member_mgr
+from vmware_nsx.services.lbaas.nsx_p.implementation import pool_mgr
 from vmware_nsx.services.lbaas.nsx_p.v2 import lb_driver_v2
+from vmware_nsx.services.lbaas.octavia import octavia_listener
 from vmware_nsx.services.qos.common import utils as qos_com_utils
 from vmware_nsx.services.qos.nsx_v3 import driver as qos_driver
 from vmware_nsx.services.qos.nsx_v3 import pol_utils as qos_utils
@@ -165,6 +173,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         self.fwaas_callbacks = None
         self.init_is_complete = False
         self._is_sub_plugin = False
+        self.octavia_listener = None
+        self.octavia_stats_collector = None
         nsxlib_utils.set_is_attr_callback(validators.is_attr_set)
         self._extend_fault_map()
         extension_drivers = cfg.CONF.nsx_extension_drivers
@@ -429,9 +439,33 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             self.fwaas_callbacks = fwaas_callbacks_v2.NsxpFwaasCallbacksV2(
                 with_rpc)
 
+    def _get_octavia_stats_getter(self):
+        return listener_mgr.stats_getter
+
     def spawn_complete(self, resource, event, trigger, payload=None):
         # Init the FWaaS support with RPC listeners for the original process
         self._init_fwaas(with_rpc=True)
+
+        self.octavia_stats_collector = (
+            octavia_listener.NSXOctaviaStatisticsCollector(
+                self,
+                self._get_octavia_stats_getter()))
+
+    def _init_octavia(self):
+        octavia_objects = self._get_octavia_objects()
+        self.octavia_listener = octavia_listener.NSXOctaviaListener(
+            **octavia_objects)
+
+    def _get_octavia_objects(self):
+        return {
+            'loadbalancer': loadbalancer_mgr.EdgeLoadBalancerManagerFromDict(),
+            'listener': listener_mgr.EdgeListenerManagerFromDict(),
+            'pool': pool_mgr.EdgePoolManagerFromDict(),
+            'member': member_mgr.EdgeMemberManagerFromDict(),
+            'healthmonitor':
+                healthmonitor_mgr.EdgeHealthMonitorManagerFromDict(),
+            'l7policy': l7policy_mgr.EdgeL7PolicyManagerFromDict(),
+            'l7rule': l7rule_mgr.EdgeL7RuleManagerFromDict()}
 
     def init_complete(self, resource, event, trigger, payload=None):
         with locking.LockManager.get_lock('plugin-init-complete'):
@@ -451,6 +485,9 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # Init the FWaaS support without RPC listeners
             # for the spawn workers
             self._init_fwaas(with_rpc=False)
+
+            # Init octavia listener and endpoints
+            self._init_octavia()
 
             self.init_is_complete = True
 
