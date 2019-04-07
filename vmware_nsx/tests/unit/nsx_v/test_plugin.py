@@ -79,6 +79,7 @@ from vmware_nsx.extensions import projectpluginmap
 from vmware_nsx.extensions import routersize as router_size
 from vmware_nsx.extensions import routertype as router_type
 from vmware_nsx.extensions import vnicindex as ext_vnic_idx
+from vmware_nsx.plugins.common import plugin as com_plugin
 from vmware_nsx.plugins.nsx_v import availability_zones as nsx_az
 from vmware_nsx.plugins.nsx_v.drivers import (
     distributed_router_driver as dist_router_driver)
@@ -4077,6 +4078,41 @@ class NsxVTestSecurityGroup(ext_sg.TestSecurityGroups,
 
     def test_create_security_group_rule_protocol_as_number_with_port(self):
         self.skipTest('not supported')
+
+    def test_create_security_group_rule_with_remote_group(self):
+        with self.security_group() as sg1, self.security_group() as sg2:
+            security_group_id = sg1['security_group']['id']
+            direction = "ingress"
+            remote_group_id = sg2['security_group']['id']
+            protocol = "tcp"
+            keys = [('remote_group_id', remote_group_id),
+                    ('security_group_id', security_group_id),
+                    ('direction', direction),
+                    ('protocol', protocol)]
+            with self.security_group_rule(
+                security_group_id, direction=direction, protocol=protocol,
+                remote_group_id=remote_group_id) as rule:
+                for k, v, in keys:
+                    self.assertEqual(rule['security_group_rule'][k], v)
+
+    def test_delete_security_group_rule_with_remote_group(self):
+        com_plugin.subscribe()
+        with self.security_group() as sg1, self.security_group() as sg2:
+            security_group_id = sg1['security_group']['id']
+            direction = "ingress"
+            remote_group_id = sg2['security_group']['id']
+            protocol = "tcp"
+            with self.security_group_rule(
+                security_group_id, direction=direction, protocol=protocol,
+                remote_group_id=remote_group_id) as rule,\
+                mock.patch.object(
+                    self.plugin, "delete_security_group_rule") as del_rule:
+                # delete sg2
+                self._delete('security-groups', remote_group_id,
+                             webob.exc.HTTPNoContent.code)
+                # verify the rule was deleted
+                del_rule.assert_called_once_with(
+                    mock.ANY, rule["security_group_rule"]["id"])
 
 
 class TestVdrTestCase(L3NatTest, L3NatTestCaseBase,
