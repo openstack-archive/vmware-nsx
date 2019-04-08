@@ -286,6 +286,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def get_waf_profile_path_and_mode(self):
+        if not self._waf_profile_uuid:
+            return None, None
         path = self.nsxpolicy.waf_profile.get_path(
             profile_id=self._waf_profile_uuid)
         mode = (policy_constants.WAF_OPERATIONAL_MODE_PROTECTION
