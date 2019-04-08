@@ -136,7 +136,7 @@ Add octavia and python-octaviaclient repos as external repositories and configur
     enable_plugin octavia https://git.openstack.org/openstack/octavia.git
     enable_plugin octavia-dashboard https://git.openstack.org/openstack/octavia-dashboard
     enable_service octavia
-    enable_service o-api
+    enable_service o-api,o-da
 
     [[post-config|$OCTAVIA_CONF]]
     [DEFAULT]
@@ -259,7 +259,7 @@ Add octavia and python-octaviaclient repos as external repositories and configur
     enable_plugin octavia https://git.openstack.org/openstack/octavia.git
     enable_plugin octavia-dashboard https://git.openstack.org/openstack/octavia-dashboard
     enable_service octavia
-    enable_service o-api
+    enable_service o-api,o-da
 
     [[post-config|$OCTAVIA_CONF]]
     [DEFAULT]
@@ -340,7 +340,7 @@ Add octavia and python-octaviaclient repos as external repositories and configur
     enable_plugin octavia https://git.openstack.org/openstack/octavia.git
     enable_plugin octavia-dashboard https://git.openstack.org/openstack/octavia-dashboard
     enable_service octavia
-    enable_service o-api
+    enable_service o-api,o-da
 
     [[post-config|$OCTAVIA_CONF]]
     [DEFAULT]
