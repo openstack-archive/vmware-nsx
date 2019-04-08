@@ -1131,6 +1131,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # for notifications
             original_port = super(NsxPolicyPlugin, self).get_port(
                 context, port_id)
+            self._remove_provider_security_groups_from_list(original_port)
             port_data = port['port']
             self._validate_update_port(context, port_id, original_port,
                                        port_data)
