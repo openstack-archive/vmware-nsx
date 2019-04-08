@@ -2051,6 +2051,59 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                          "%(e)s") % {'e': e})
                 raise nsx_exc.NsxPluginException(err_msg=msg)
 
+    def _prepare_exclude_list_group(self):
+        try:
+            self.nsxpolicy.group.get(NSX_P_GLOBAL_DOMAIN_ID,
+                                     NSX_P_EXCLUDE_LIST_GROUP)
+        except nsx_lib_exc.ResourceNotFound:
+            LOG.info("Going to create exclude list group")
+        else:
+            LOG.debug("Verified exclude list group already exists")
+            return
+
+        # Create the group membership criteria to match excluded neutron
+        # ports by scope and tag
+        scope_and_tag = "%s|%s" % (security.PORT_SG_SCOPE,
+                                   NSX_P_EXCLUDE_LIST_TAG)
+        conditions = [self.nsxpolicy.group.build_condition(
+            cond_val=scope_and_tag,
+            cond_key=policy_constants.CONDITION_KEY_TAG,
+            cond_member_type=policy_constants.CONDITION_MEMBER_PORT)]
+        # Create the exclude list group
+        # (This will not fail if the group already exists)
+        try:
+            self.nsxpolicy.group.create_or_overwrite_with_conditions(
+                name=NSX_P_EXCLUDE_LIST_GROUP,
+                domain_id=NSX_P_GLOBAL_DOMAIN_ID,
+                group_id=NSX_P_EXCLUDE_LIST_GROUP,
+                conditions=conditions)
+
+        except Exception as e:
+            msg = (_("Failed to create NSX exclude list group: %(e)s") % {
+                'e': e})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
+    def _add_exclude_list_group(self):
+        member = self.nsxpolicy.group.get_path(
+            domain_id=NSX_P_GLOBAL_DOMAIN_ID,
+            group_id=NSX_P_EXCLUDE_LIST_GROUP)
+
+        exclude_list = self.nsxpolicy.exclude_list.get()
+        if member in exclude_list['members']:
+            LOG.debug("Verified that group %s was already added to the "
+                      "NSX exclude list", member)
+            return
+
+        LOG.info("Going to add group %s to the NSX exclude list", member)
+        members = exclude_list['members']
+        members.append(member)
+        try:
+            self.nsxpolicy.exclude_list.create_or_overwrite(members=members)
+        except Exception as e:
+            msg = (_("Failed to add group to the NSX exclude list: %(e)s") % {
+                'e': e})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
+
     def _prepare_exclude_list(self):
         """Create exclude list for ports without port security
 
@@ -2058,49 +2111,8 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         """
         # Run this code only on one worker at the time
         with locking.LockManager.get_lock('nsx_p_prepare_exclude_list'):
-            # Return if the objects were already created
-            try:
-                self.nsxpolicy.group.get(NSX_P_GLOBAL_DOMAIN_ID,
-                                         NSX_P_EXCLUDE_LIST_GROUP)
-            except nsx_lib_exc.ResourceNotFound:
-                LOG.info("Going to create exclude list group")
-            else:
-                LOG.debug("Verified exclude list group already exists")
-                return
-
-            # Create the group membership criteria to match excluded neutron
-            # ports by scope and tag
-            scope_and_tag = "%s|%s" % (security.PORT_SG_SCOPE,
-                                       NSX_P_EXCLUDE_LIST_TAG)
-            conditions = [self.nsxpolicy.group.build_condition(
-                cond_val=scope_and_tag,
-                cond_key=policy_constants.CONDITION_KEY_TAG,
-                cond_member_type=policy_constants.CONDITION_MEMBER_PORT)]
-            # Create the exclude list group
-            # (This will not fail if the group already exists)
-            try:
-                self.nsxpolicy.group.create_or_overwrite_with_conditions(
-                    name=NSX_P_EXCLUDE_LIST_GROUP,
-                    domain_id=NSX_P_GLOBAL_DOMAIN_ID,
-                    group_id=NSX_P_EXCLUDE_LIST_GROUP,
-                    conditions=conditions)
-
-            except Exception as e:
-                msg = (_("Failed to create NSX exclude list group: %(e)s") % {
-                    'e': e})
-                raise nsx_exc.NsxPluginException(err_msg=msg)
-
-            # Add this group to the exclude list
-            try:
-                member = self.nsxpolicy.group.get_path(
-                    domain_id=NSX_P_GLOBAL_DOMAIN_ID,
-                    group_id=NSX_P_EXCLUDE_LIST_GROUP)
-                self.nsxpolicy.exclude_list.create_or_overwrite(
-                    members=[member])
-            except Exception as e:
-                msg = (_("Failed to add member to exclude list: %(e)s") % {
-                    'e': e})
-                raise nsx_exc.NsxPluginException(err_msg=msg)
+            self._prepare_exclude_list_group()
+            self._add_exclude_list_group()
 
     def _create_security_group_backend_resources(self, context, secgroup,
                                                  domain_id):
