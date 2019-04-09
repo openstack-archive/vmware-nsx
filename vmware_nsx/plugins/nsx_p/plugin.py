@@ -125,6 +125,7 @@ SLAAC_NDRA_PROFILE_ID = 'neutron-slaac-profile'
 DEFAULT_NDRA_PROFILE_ID = 'default'
 
 IPV6_RA_SERVICE = 'neutron-ipv6-ra'
+IPV6_ROUTER_ADV_RULE_NAME = 'all-ipv6'
 
 # Priorities for NAT rules: (FIP specific rules should come before GW rules)
 NAT_RULE_PRIORITY_FIP = 2000
@@ -1561,13 +1562,35 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             for subnet in router_subnets:
                 self._add_subnet_no_dnat_rule(context, router_id, subnet)
 
+        # always advertise ipv6 subnets if gateway is set
+        actions['advertise_ipv6_subnets'] = True if info else False
+
+        self._update_router_advertisement(router_id, actions, router_subnets)
+
+        if actions['remove_service_router']:
+            self.delete_service_router(router['project_id'], router_id)
+
+    def _update_router_advertisement(self, router_id, actions, subnets):
+
         self.nsxpolicy.tier1.update_route_advertisement(
             router_id,
             nat=actions['advertise_route_nat_flag'],
             subnets=actions['advertise_route_connected_flag'])
 
-        if actions['remove_service_router']:
-            self.delete_service_router(router['project_id'], router_id)
+        # There is no NAT for ipv6 - all connected ipv6 segments should be
+        # advertised
+        ipv6_cidrs = [s['cidr'] for s in subnets if s.get('ip_version') == 6]
+        if ipv6_cidrs and actions['advertise_ipv6_subnets']:
+            self.nsxpolicy.tier1.add_advertisement_rule(
+                router_id,
+                IPV6_ROUTER_ADV_RULE_NAME,
+                policy_constants.ADV_RULE_PERMIT,
+                policy_constants.ADV_RULE_OPERATOR_EQ,
+                [policy_constants.ADV_RULE_TIER1_CONNECTED],
+                ipv6_cidrs)
+        else:
+            self.nsxpolicy.tier1.remove_advertisement_rule(
+                router_id, IPV6_ROUTER_ADV_RULE_NAME)
 
     def create_router(self, context, router):
         r = router['router']
