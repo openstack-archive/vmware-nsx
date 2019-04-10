@@ -806,6 +806,45 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         return updated_net
 
+    def _update_slaac_on_router(self, context, router_id,
+                                subnet, delete=False):
+        # TODO(annak): redesign when policy supports downlink-level
+        # ndra profile attachment
+
+        # This code is optimised to deal with concurrency challenges
+        # (which can not be always solved by lock because the plugin
+        # can run on different hosts).
+        # We prefer to make another backend call for attaching the
+        # profile even if it is already attached, than rely on DB
+        # to have an accurate picture of existing subnets.
+        profile_id = None
+
+        slaac_subnet = (subnet.get('ipv6_address_mode') == 'slaac')
+
+        if slaac_subnet and not delete:
+            # slaac subnet connected - verify slaac is set on router
+            profile_id = SLAAC_NDRA_PROFILE_ID
+
+        if delete:
+
+            rtr_subnets = self._find_router_subnets(context.elevated(),
+                                                router_id)
+            # check if there is another slaac overlay subnet that needs
+            # advertising (vlan advertising is attached on interface level)
+            slaac_subnets = [s for s in rtr_subnets
+                             if s['id'] != subnet['id'] and
+                             s.get('ipv6_address_mode') == 'slaac' and
+                             self._is_overlay_network(s['network_id'])]
+
+            if not slaac_subnets and slaac_subnet:
+                # this was the last slaac subnet connected -
+                # need to disable slaac on router
+                profile_id = DEFAULT_NDRA_PROFILE_ID
+
+        if profile_id:
+            self.nsxpolicy.tier1.update(router_id,
+                                        ipv6_ndra_profile_id=profile_id)
+
     def create_subnet(self, context, subnet):
         return self._create_subnet(context, subnet)
 
@@ -1747,7 +1786,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                     net['name'] or 'network', network_id)
                 pol_subnets = []
                 for rtr_subnet in subnets:
-                    # For dueal stack, we allow one v4 and one v6
+                    # For dual stack, we allow one v4 and one v6
                     # subnet per network
                     if rtr_subnet['network_id'] == network_id:
                         gw_addr = self._get_gateway_addr_from_subnet(
@@ -1769,9 +1808,13 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                             ip_addresses=[rtr_subnet['gateway_ip']],
                             prefix_len=prefix_len))
 
+                slaac_subnet = (subnet.get('ipv6_address_mode') == 'slaac')
+                ndra_profile_id = (SLAAC_NDRA_PROFILE_ID if slaac_subnet
+                                   else DEFAULT_NDRA_PROFILE_ID)
                 self.nsxpolicy.tier1.add_segment_interface(
                     router_id, segment_id,
-                    segment_id, pol_subnets)
+                    segment_id, pol_subnets,
+                    ndra_profile_id)
 
             # add the SNAT/NO_DNAT rules for this interface
             if router_db.enable_snat and gw_network_id:
@@ -1840,6 +1883,10 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 else:
                     self.nsxpolicy.segment.remove_connectivity_and_subnets(
                         segment_id)
+
+                # will update the router only if needed
+                self._update_slaac_on_router(context, router_id,
+                                             subnet, delete=True)
 
             else:
                 # VLAN interface
