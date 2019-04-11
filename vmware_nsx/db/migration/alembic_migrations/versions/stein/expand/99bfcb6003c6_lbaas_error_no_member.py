@@ -27,6 +27,9 @@ from neutron.db import migration
 revision = '99bfcb6003c6'
 down_revision = 'fc6308289aca'
 
+# milestone identifier, used by neutron-db-manage
+neutron_milestone = [migration.STEIN]
+
 
 def upgrade():
     if (migration.schema_has_table('nsxv3_lbaas_loadbalancers') and
