@@ -47,6 +47,7 @@ from neutron_lib.plugins import directory
 from vmware_nsx.common import utils
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
 from vmware_nsx.plugins.nsx_p import plugin as nsx_plugin
+
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.common_plugin import common_v3
 from vmware_nsxlib.v3 import exceptions as nsxlib_exc
@@ -1326,6 +1327,16 @@ class NsxPTestL3NatTest(common_v3.FixExternalNetBaseTest,
         cfg.CONF.set_default('max_routes', 3)
         kwargs['ext_mgr'] = (kwargs.get('ext_mgr') or
                              NsxPTestL3ExtensionManager())
+
+        # Make sure the LB callback is not called on router deletion
+        self.lb_mock1 = mock.patch(
+            "vmware_nsx.services.lbaas.nsx_p.v2.lb_driver_v2."
+            "EdgeLoadbalancerDriverV2._check_lb_service_on_router")
+        self.lb_mock1.start()
+        self.lb_mock2 = mock.patch(
+            "vmware_nsx.services.lbaas.nsx_p.v2.lb_driver_v2."
+            "EdgeLoadbalancerDriverV2._check_lb_service_on_router_interface")
+        self.lb_mock2.start()
 
         super(NsxPTestL3NatTest, self).setUp(*args, **kwargs)
         self.original_subnet = self.subnet
