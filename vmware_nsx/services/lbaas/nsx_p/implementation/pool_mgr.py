@@ -55,7 +55,7 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
 
     def _remove_persistence(self, pool, vs_data):
         sp = pool.get('session_persistence')
-        lb_client = self.core_plugin.nsxlib.load_balancer
+        lb_client = self.core_plugin.nsxpolicy.load_balancer
         pp_client = None
         if not sp:
             LOG.debug("No session persistence info for pool %s", pool['id'])
@@ -110,12 +110,29 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
                 LOG.error('Failed to attach pool %s to virtual '
                           'server %s', pool['id'], listener['id'])
 
+    def _build_persistence_profile_tags(self, pool_tags, listener):
+        tags = pool_tags[:]
+        # With octavia loadbalancer name might not be among data passed
+        # down to the driver
+        lb_data = listener.get('loadbalancer')
+        if lb_data:
+            tags.append({
+                'scope': 'os-lbaas-lb-name',
+                'tag': lb_data['name'][:utils.MAX_TAG_LEN]})
+        tags.append({
+            'scope': 'os-lbaas-lb-id',
+            'tag': listener['loadbalancer_id']})
+        tags.append({
+            'scope': 'os-lbaas-listener-id',
+            'tag': listener['id']})
+        return tags
+
     def _setup_session_persistence(self, pool, pool_tags, listener, vs_data):
         sp = pool.get('session_persistence')
         pers_type = None
         cookie_name = None
         cookie_mode = None
-        lb_client = self.core_plugin.nsxlib.load_balancer
+        lb_client = self.core_plugin.nsxpolicy.load_balancer
         pp_client = None
         if not sp:
             LOG.debug("No session persistence info for pool %s", pool['id'])
@@ -168,13 +185,13 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
                                                 vs_data))
         elif pers_type:
             # Create persistence profile
-            pp_data = pp_client.create(**pp_kwargs)
+            pp_id = pp_client.create_or_overwrite(**pp_kwargs)
             LOG.debug("Created persistence profile %(profile_id)s for "
                       "listener %(listener_id)s with pool %(pool_id)s",
-                      {'profile_id': pp_data['id'],
+                      {'profile_id': pp_id,
                        'listener_id': listener['id'],
                        'pool_id': pool['id']})
-            return pp_data['id'], None
+            return pp_id, None
         return None, None
 
     @log_helpers.log_method_call
@@ -247,7 +264,7 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
         try:
             kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm,
                                            description)
-            pool_client.update(new_pool['id'], **kwargs)
+            pool_client.update(**kwargs)
             if (listener and new_pool['session_persistence'] !=
                 old_pool['session_persistence']):
                 self._process_vs_update(context, new_pool, new_pool['id'],
