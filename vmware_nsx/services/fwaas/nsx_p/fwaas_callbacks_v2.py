@@ -85,9 +85,6 @@ class NsxpFwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
             tags = nsxlib_utils.add_v3_tag(tags, ROUTER_FW_TAG, router_id)
             l4_protocol = v3_utils.translate_fw_rule_protocol(
                 rule.get('protocol'))
-            # The L4 protocol must be a part of the service ID to allow
-            # changing the protocol of a rule
-            srv_id = '%s-%s-%s' % (rule['protocol'], router_id, rule['id'])
             srv_name = 'FW_rule_%s_%s_service' % (rule['id'], rule['protocol'])
             description = '%s service for FW rule %s of Tier1 %s' % (
                 rule['protocol'], rule['id'], router_id)
@@ -104,8 +101,8 @@ class NsxpFwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
                     source_ports = v3_utils.translate_fw_rule_ports(
                         rule['source_port'])
 
-                self.nsxpolicy.service.create_or_overwrite(
-                    srv_name, service_id=srv_id,
+                srv_id = self.nsxpolicy.service.create_or_overwrite(
+                    srv_name,
                     description=description,
                     protocol=l4_protocol,
                     dest_ports=destination_ports,
@@ -113,8 +110,8 @@ class NsxpFwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
                     tags=tags)
             elif l4_protocol == nsx_constants.ICMPV4:
                 #TODO(asarfaty): Can use predefined service for ICMP
-                self.nsxpolicy.icmp_service.create_or_overwrite(
-                    srv_name, service_id=srv_id,
+                srv_id = self.nsxpolicy.icmp_service.create_or_overwrite(
+                    srv_name,
                     version=ip_version,
                     tags=tags)
             return srv_id
@@ -126,6 +123,8 @@ class NsxpFwaasCallbacksV2(com_callbacks.NsxCommonv3FwaasCallbacksV2):
         Keeping the same rule id will require updating the rule revision as
         well.
         """
+        #TODO(asarfaty): add support for self created id in build_entry and
+        # remove this method
         return '%s-%s' % (rule_id, str(random.randint(1, 10000000)))
 
     def _get_rule_ips_group_id(self, rule_id, direction):

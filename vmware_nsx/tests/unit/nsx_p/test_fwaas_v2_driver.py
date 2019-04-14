@@ -165,10 +165,9 @@ class NsxpFwaasTestCase(test_p_plugin.NsxPPluginTestCaseMixin):
 
         # Service
         if fw_rule.get('protocol') in ['tcp', 'udp', 'icmp']:
-            self.assertEqual(['/infra/services/%s-%s-%s' % (
-                                fw_rule['protocol'], FAKE_ROUTER_ID,
-                                fw_rule['id'])],
-                             nsx_rule['services'])
+            self.assertEqual(1, len(nsx_rule['services']))
+            self.assertTrue(
+                nsx_rule['services'][0].startswith('/infra/services/'))
         # Source & destination
         if (fw_rule.get('source_ip_address') and
             not fw_rule['source_ip_address'].startswith('0.0.0.0')):
