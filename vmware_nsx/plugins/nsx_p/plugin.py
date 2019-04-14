@@ -726,7 +726,23 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         # Delete the network segment from the backend
         if not is_external_net and not is_nsx_net:
-            self.nsxpolicy.segment.delete(network_id)
+            try:
+                self.nsxpolicy.segment.delete(network_id)
+            except nsx_lib_exc.ResourceNotFound:
+                # If the resource was not found on the backend do not worry
+                # about it. The conditions has already been logged, so there
+                # is no need to do further logging
+                pass
+            except nsx_lib_exc.ManagerError as e:
+                # If there is a failure in deleting the resource, fail the
+                # neutron operation even though the neutron object was already
+                # deleted. This way the user will be aware of zombie resources
+                # that may fail future actions.
+                msg = (_("Backend segment deletion for neutron network %(id)s "
+                         "failed. The object was however removed from the "
+                         "Neutron database: %(e)s") %
+                       {'id': network_id, 'e': e})
+                raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def update_network(self, context, network_id, network):
         original_net = super(NsxPolicyPlugin, self).get_network(
@@ -1081,10 +1097,17 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 self.nsxpolicy.segment_port_qos_profiles.delete(
                     segment_id, port_id)
             self.nsxpolicy.segment_port.delete(segment_id, port_id)
-        except Exception as ex:
-            LOG.error("Failed to delete port %(id)s on NSX backend "
-                      "due to %(e)s", {'id': port_id, 'e': ex})
-            # Do not fail the neutron action
+        except nsx_lib_exc.ResourceNotFound:
+            # If the resource was not found on the backend do not worry about
+            # it. The conditions has already been logged, so there is no need
+            # to do further logging
+            pass
+        except nsx_lib_exc.ManagerError as e:
+            # If there is a failure in deleting the resource.
+            # In this case the neutron port was not deleted yet.
+            msg = (_("Backend port deletion for neutron port %(id)s "
+                     "failed: %(e)s") % {'id': port_id, 'e': e})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def delete_port(self, context, port_id,
                     l3_port_check=True, l2gw_port_check=True,
@@ -1563,9 +1586,20 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
 
         try:
             self.nsxpolicy.tier1.delete(router_id)
-        except Exception as ex:
-            LOG.error("Failed to delete NSX T1 router %(id)s: %(e)s", {
-                'e': ex, 'id': router_id})
+        except nsx_lib_exc.ResourceNotFound:
+            # If the resource was not found on the backend do not worry about
+            # it. The conditions has already been logged, so there is no need
+            # to do further logging
+            pass
+        except nsx_lib_exc.ManagerError as e:
+            # If there is a failure in deleting the resource, fail the neutron
+            # operation even though the neutron object was already deleted.
+            # This way the user will be aware of zombie resources that may fail
+            # future actions.
+            msg = (_("Backend Tier1 deletion for neutron router %(id)s "
+                     "failed. The object was however removed from the "
+                     "Neutron database: %(e)s") % {'id': router_id, 'e': e})
+            nsx_exc.NsxPluginException(err_msg=msg)
 
         return ret_val
 
@@ -1836,11 +1870,16 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             # update firewall rules
             self.update_router_firewall(context, router_id, router_db)
 
-        except Exception as ex:
-            # do not fail the neutron action
-            LOG.error('Failed to remove router interface for network '
-                      '%(id)s on NSX backend. Exception: %(e)s',
-                      {'id': network_id, 'e': ex})
+        except nsx_lib_exc.ManagerError as e:
+            # If there is a failure in deleting the resource, fail the neutron
+            # operation even though the neutron object was already deleted.
+            # This way the user will be aware of zombie resources that may fail
+            # future actions.
+            # TODO(asarfaty): Handle specific errors
+            msg = (_('Failed to remove router interface for network '
+                     '%(id)s on NSX backend. Exception: %(e)s') %
+                   {'id': network_id, 'e': e})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
         return info
 
@@ -2414,10 +2453,21 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             for rule in sg['security_group_rules']:
                 self._delete_security_group_rule_backend_resources(
                     context, domain_id, rule)
-        except Exception as e:
-            LOG.warning("Failed to delete SG %s NSX resources: %s",
-                        sg_id, e)
-            # Go on with the deletion anyway
+        except nsx_lib_exc.ResourceNotFound:
+            # If the resource was not found on the backend do not worry about
+            # it. The conditions has already been logged, so there is no need
+            # to do further logging
+            pass
+        except nsx_lib_exc.ManagerError as e:
+            # If there is a failure in deleting the resource, fail the neutron
+            # operation even though the neutron object was already deleted.
+            # This way the user will be aware of zombie resources that may fail
+            # future actions.
+            msg = (_("Backend security group objects deletion for neutron "
+                     "security group %(id)s failed. The object was however "
+                     "removed from the Neutron database: %(e)s") %
+                   {'id': sg_id, 'e': e})
+            raise nsx_exc.NsxPluginException(err_msg=msg)
 
     def create_security_group_rule(self, context, security_group_rule):
         bulk_rule = {'security_group_rules': [security_group_rule]}
@@ -2461,7 +2511,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
             try:
                 self.nsxpolicy.service.delete(rule_id)
             except nsx_lib_exc.ResourceNotFound:
-                LOG.warning("Failed to delete SG rule %s service", rule_id)
+                pass
 
         # Try to delete the remote ip prefix group, if exists
         if rule_db['remote_ip_prefix']:
@@ -2469,8 +2519,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 remote_group_id = self._get_sg_rule_remote_ip_group_id(rule_db)
                 self.nsxpolicy.group.delete(domain_id, remote_group_id)
             except nsx_lib_exc.ResourceNotFound:
-                LOG.warning("Failed to delete SG rule %s remote ip prefix "
-                            "group", rule_id)
+                pass
 
         # Try to delete the local ip prefix group, if exists
         if self._get_security_group_rule_local_ip(context, rule_id):
@@ -2478,8 +2527,7 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
                 local_group_id = self._get_sg_rule_local_ip_group_id(rule_db)
                 self.nsxpolicy.group.delete(domain_id, local_group_id)
             except nsx_lib_exc.ResourceNotFound:
-                LOG.warning("Failed to delete SG rule %s local ip prefix "
-                            "group", rule_id)
+                pass
 
     def delete_security_group_rule(self, context, rule_id):
         rule_db = self._get_security_group_rule(context, rule_id)
@@ -2490,13 +2538,15 @@ class NsxPolicyPlugin(nsx_plugin_common.NsxPluginV3Base):
         # Delete the rule itself
         try:
             self.nsxpolicy.comm_map.delete_entry(domain_id, sg_id, rule_id)
-        except Exception as e:
-            LOG.warning("Failed to delete SG rule %s NSX resources: %s",
-                        rule_id, e)
+            self._delete_security_group_rule_backend_resources(
+                context, domain_id, rule_db)
+        except nsx_lib_exc.ResourceNotFound:
             # Go on with the deletion anyway
-
-        self._delete_security_group_rule_backend_resources(
-            context, domain_id, rule_db)
+            pass
+        except nsx_lib_exc.ManagerError as e:
+            msg = (_("Backend security group rule deletion for neutron "
+                     "rule %(id)s failed: %(e)s") % {'id': rule_id, 'e': e})
+            nsx_exc.NsxPluginException(err_msg=msg)
 
         super(NsxPolicyPlugin, self).delete_security_group_rule(
             context, rule_id)
