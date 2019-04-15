@@ -46,6 +46,7 @@ from neutron_lib.plugins import directory
 
 from vmware_nsx.common import utils
 from vmware_nsx.extensions import providersecuritygroup as provider_sg
+from vmware_nsx.plugins.common import plugin as com_plugin
 from vmware_nsx.plugins.nsx_p import plugin as nsx_plugin
 from vmware_nsx.tests import unit as vmware
 from vmware_nsx.tests.unit.common_plugin import common_v3
@@ -1295,6 +1296,41 @@ class NsxPTestSecurityGroup(common_v3.FixExternalNetBaseTest,
                     dest_groups=mock.ANY,
                     scope=scope,
                     logged=False)
+
+    def test_create_security_group_rule_with_remote_group(self):
+        with self.security_group() as sg1, self.security_group() as sg2:
+            security_group_id = sg1['security_group']['id']
+            direction = "ingress"
+            remote_group_id = sg2['security_group']['id']
+            protocol = "tcp"
+            keys = [('remote_group_id', remote_group_id),
+                    ('security_group_id', security_group_id),
+                    ('direction', direction),
+                    ('protocol', protocol)]
+            with self.security_group_rule(
+                security_group_id, direction=direction, protocol=protocol,
+                remote_group_id=remote_group_id) as rule:
+                for k, v, in keys:
+                    self.assertEqual(rule['security_group_rule'][k], v)
+
+    def test_delete_security_group_rule_with_remote_group(self):
+        com_plugin.subscribe()
+        with self.security_group() as sg1, self.security_group() as sg2:
+            security_group_id = sg1['security_group']['id']
+            direction = "ingress"
+            remote_group_id = sg2['security_group']['id']
+            protocol = "tcp"
+            with self.security_group_rule(
+                security_group_id, direction=direction, protocol=protocol,
+                remote_group_id=remote_group_id) as rule,\
+                mock.patch.object(
+                    self.plugin, "delete_security_group_rule") as del_rule:
+                # delete sg2
+                self._delete('security-groups', remote_group_id,
+                             exc.HTTPNoContent.code)
+                # verify the rule was deleted
+                del_rule.assert_called_once_with(
+                    mock.ANY, rule["security_group_rule"]["id"])
 
 
 class NsxPTestL3ExtensionManager(object):
