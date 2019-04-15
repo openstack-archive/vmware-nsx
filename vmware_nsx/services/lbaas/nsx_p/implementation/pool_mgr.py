@@ -33,10 +33,9 @@ LOG = logging.getLogger(__name__)
 
 
 class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
-    def _get_pool_kwargs(self, pool_id, name=None, tags=None, algorithm=None,
+    def _get_pool_kwargs(self, name=None, tags=None, algorithm=None,
                          description=None):
         kwargs = {
-            'lb_pool_id': pool_id,
             'snat_translation': {'type': "LBSnatAutoMap"}}
         if name:
             kwargs['name'] = name
@@ -213,9 +212,9 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
         # creating resources in the backend
         lb_common.validate_session_persistence(pool, listener, completor)
         try:
-            kwargs = self._get_pool_kwargs(pool['id'], pool_name, tags,
-                                           lb_algorithm, description)
-            pool_client.create_or_overwrite(**kwargs)
+            kwargs = self._get_pool_kwargs(
+                pool_name, tags, lb_algorithm, description)
+            pool_client.create_or_overwrite(lb_pool_id=pool['id'], **kwargs)
         except nsxlib_exc.ManagerError:
             completor(success=False)
             msg = (_('Failed to create pool on NSX backend: %(pool)s') %
@@ -264,7 +263,7 @@ class EdgePoolManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
         try:
             kwargs = self._get_pool_kwargs(pool_name, tags, lb_algorithm,
                                            description)
-            pool_client.update(**kwargs)
+            pool_client.update(lb_pool_id=new_pool['id'], **kwargs)
             if (listener and new_pool['session_persistence'] !=
                 old_pool['session_persistence']):
                 self._process_vs_update(context, new_pool, new_pool['id'],
