@@ -209,7 +209,7 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
             port_id = interface_info['port_id']
             port = self.get_port(context, port_id)
             if 'fixed_ips' in port and port['fixed_ips']:
-                if len(port['fixed_ips'][0]) > 1:
+                if len(port['fixed_ips']) > 1:
                     # This should never happen since router interface is per
                     # IP version, and we allow single fixed ip per ip version
                     return
@@ -1386,9 +1386,12 @@ class NsxPluginV3Base(agentschedulers_db.AZDhcpAgentSchedulerDbMixin,
         if not dns_nameservers or not validators.is_attr_set(dns_nameservers):
             dns_nameservers = az.nameservers
 
+        # There must be exactly one fixed ip matching given subnet
+        fixed_ip_addr = [fip['ip_address'] for fip in port['fixed_ips']
+                         if fip['subnet_id'] == subnet['id']]
         return self.nsxlib.native_dhcp.build_server(
             name,
-            ip_address=port['fixed_ips'][0]['ip_address'],
+            ip_address=fixed_ip_addr[0],
             cidr=subnet['cidr'],
             gateway_ip=subnet['gateway_ip'],
             host_routes=subnet['host_routes'],
