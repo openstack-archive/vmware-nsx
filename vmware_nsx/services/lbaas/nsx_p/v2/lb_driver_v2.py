@@ -17,6 +17,7 @@ from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib import constants as n_consts
+from neutron_lib import exceptions as n_exc
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
@@ -135,9 +136,23 @@ class EdgeLoadbalancerDriverV2(base_mgr.LoadbalancerBaseManager):
     def _check_lb_service_on_router(self, resource, event, trigger,
                                     payload=None):
         """Prevent removing a router GW or deleting a router used by LB"""
-        pass
+        router_id = payload.resource_id
+        if self.loadbalancer.core_plugin.service_router_has_loadbalancers(
+                router_id):
+            msg = _('Cannot delete a %s as it still has lb service '
+                    'attachment') % resource
+            raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
 
     def _check_lb_service_on_router_interface(
             self, resource, event, trigger, payload=None):
         # Prevent removing the interface of an LB subnet from a router
-        pass
+        router_id = payload.resource_id
+        subnet_id = payload.metadata.get('subnet_id')
+        if not router_id or not subnet_id:
+            return
+
+        # get LB ports and check if any loadbalancer is using this subnet
+        if self._get_lb_ports(payload.context.elevated(), [subnet_id]):
+            msg = _('Cannot delete a router interface as it used by a '
+                    'loadbalancer')
+            raise n_exc.BadRequest(resource='lbaas-lb', msg=msg)
