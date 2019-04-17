@@ -73,7 +73,8 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
 
         lb_name = utils.get_name_and_uuid(lb['name'] or 'lb',
                                           lb_id)
-        tags = lb_utils.get_tags(self.core_plugin, router_id,
+        tags = lb_utils.get_tags(self.core_plugin,
+                                 router_id if router_id else '',
                                  lb_const.LR_ROUTER_TYPE,
                                  lb['tenant_id'], context.project_name)
 
@@ -92,8 +93,9 @@ class EdgeLoadBalancerManagerFromDict(base_mgr.NsxpLoadbalancerBaseManager):
                 tags=tags, size=lb_size, connectivity_path=connectivity_path)
 
             # Add rule to advertise external vips
-            p_utils.update_router_lb_vip_advertisement(
-                context, self.core_plugin, router_id)
+            if router_id:
+                p_utils.update_router_lb_vip_advertisement(
+                    context, self.core_plugin, router_id)
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 completor(success=False)
