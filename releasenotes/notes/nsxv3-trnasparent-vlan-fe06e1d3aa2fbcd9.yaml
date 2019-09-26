@@ -1,6 +1,0 @@
----
-prelude: >
-    The NSX-V3 plugin supports transparent vlan networks.
-features:
-  - |
-    The NSX-V3 plugin supports transparent vlan networks for guest vlan.

@@ -1,4 +1,0 @@
-function has_neutron_plugin_security_group {
-    # 0 means True here
-    return 0
-}

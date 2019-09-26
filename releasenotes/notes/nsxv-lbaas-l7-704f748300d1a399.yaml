@@ -1,5 +1,0 @@
----
-prelude: >
-    The NSX-V lbaas plugin now supports L7 rules & policies.
-features:
-  - The NSX-V lbaas plugin now supports L7 rules & policies.

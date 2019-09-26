@@ -1,8 +1,0 @@
----
-prelude: >
-    Add support for exclusive DHCP edges.
-features:
-  - |
-    The NSX-v will now enable a tenant to deploy an exclusive DHCP edge. This
-    is either via the global configuration variable ``exclusive_dhcp_edge`` or
-    per AZ. By default this is disabled.
